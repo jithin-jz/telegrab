@@ -1,30 +1,18 @@
 import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { motion, AnimatePresence } from "framer-motion";
-import { Phone, Key, Lock, ArrowRight, Settings, ShieldCheck, Sun, Moon, HelpCircle, ExternalLink, X, Heart, QrCode } from "lucide-react";
+import { Phone, Key, Lock, ArrowRight, Settings, ShieldCheck, HelpCircle, ExternalLink, X, QrCode, AlertCircle } from "lucide-react";
 import { load } from '@tauri-apps/plugin-store';
-import { useTheme } from '../contexts/ThemeContext';
 import { open } from '@tauri-apps/plugin-shell';
 import { QRCodeSVG } from 'qrcode.react';
 
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import { Alert, AlertDescription } from "./ui/alert";
+
 type Step = "setup" | "phone" | "code" | "password";
 
-function AuthThemeToggle() {
-    const { theme, toggleTheme } = useTheme();
-    return (
-        <button
-            onClick={toggleTheme}
-            className="absolute top-4 right-4 p-3 rounded-full bg-white/10 hover:bg-white/20 transition-colors z-10"
-            title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-        >
-            {theme === 'dark' ? (
-                <Sun className="w-5 h-5 text-white" />
-            ) : (
-                <Moon className="w-5 h-5 text-white" />
-            )}
-        </button>
-    );
-}
 export function AuthWizard({ onLogin }: { onLogin: () => void }) {
     const isBrowser = typeof window !== 'undefined' && !('__TAURI_INTERNALS__' in window);
 
@@ -58,7 +46,6 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
     const [error, setError] = useState<string | null>(null);
     const [floodWait, setFloodWait] = useState<number | null>(null);
     const [showHelp, setShowHelp] = useState(false);
-    const [showDonate, setShowDonate] = useState(false);
     const [loginMethod, setLoginMethod] = useState<'phone' | 'qr'>('phone');
     const [qrUrl, setQrUrl] = useState<string | null>(null);
     const [qrPolling, setQrPolling] = useState(false);
@@ -258,8 +245,6 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
 
     return (
         <div className="h-full w-full auth-gradient flex items-center justify-center p-6 relative">
-            <AuthThemeToggle />
-
             <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -312,58 +297,68 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
                                     className="space-y-5"
                                 >
                                     <div className="space-y-4">
-                                        <div>
-                                            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">API ID</label>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="api-id" className="text-xs font-semibold uppercase tracking-wider text-slate">
+                                                API ID
+                                            </Label>
                                             <div className="relative">
-                                                <Key className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 auth-form-icon" />
-                                                <input
+                                                <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone pointer-events-none" />
+                                                <Input
+                                                    id="api-id"
                                                     type="text"
                                                     value={apiId}
                                                     onChange={(e) => setApiId(e.target.value)}
                                                     placeholder="12345678"
-                                                    className="w-full glass-input rounded-xl pl-12 pr-4 py-3.5 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-all font-mono text-sm"
+                                                    className="pl-10 font-mono"
+                                                    autoComplete="off"
                                                 />
                                             </div>
                                         </div>
-                                        <div>
-                                            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">API Hash</label>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="api-hash" className="text-xs font-semibold uppercase tracking-wider text-slate">
+                                                API Hash
+                                            </Label>
                                             <div className="relative">
-                                                <Key className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 auth-form-icon" />
-                                                <input
+                                                <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone pointer-events-none" />
+                                                <Input
+                                                    id="api-hash"
                                                     type="text"
                                                     value={apiHash}
                                                     onChange={(e) => setApiHash(e.target.value)}
-                                                    placeholder="abcdef123456..."
-                                                    className="w-full glass-input rounded-xl pl-12 pr-4 py-3.5 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-all font-mono text-sm"
+                                                    placeholder="abcdef123456…"
+                                                    className="pl-10 font-mono"
+                                                    autoComplete="off"
                                                 />
                                             </div>
                                         </div>
                                     </div>
 
-                                    <button
-                                        type="submit"
-                                        className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-900/20 active:scale-[0.98]"
-                                    >
-                                        Configure <Settings className="w-4 h-4" />
-                                    </button>
+                                    <Button type="submit" size="lg" className="w-full">
+                                        Configure
+                                        <Settings className="w-4 h-4" />
+                                    </Button>
 
-                                    <button
+                                    <Button
                                         type="button"
+                                        variant="link"
+                                        size="sm"
                                         onClick={() => setShowHelp(true)}
-                                        className="w-full text-xs text-blue-300 hover:text-white transition-colors flex items-center justify-center gap-1.5 py-1"
+                                        className="w-full text-xs"
                                     >
                                         <HelpCircle className="w-3 h-3" />
                                         How do I get my API credentials?
-                                    </button>
+                                    </Button>
 
                                     {import.meta.env.DEV && (
-                                        <button
+                                        <Button
                                             type="button"
+                                            variant="ghost"
+                                            size="sm"
                                             onClick={() => onLogin()}
-                                            className="w-full text-xs text-red-400/60 hover:text-red-300 transition-colors py-1"
+                                            className="w-full text-xs text-destructive/80 hover:text-destructive"
                                         >
                                             Dev Mode
-                                        </button>
+                                        </Button>
                                     )}
                                 </motion.form>
                             )}
@@ -569,22 +564,14 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
                     <motion.div
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="mt-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-start gap-3"
+                        className="mt-6"
                     >
-                        <div className="w-1.5 h-1.5 rounded-full bg-red-500 mt-2 shrink-0" />
-                        <p className="text-red-400 text-sm leading-snug">{error}</p>
+                        <Alert variant="destructive">
+                            <AlertCircle className="w-4 h-4" />
+                            <AlertDescription>{error}</AlertDescription>
+                        </Alert>
                     </motion.div>
                 )}
-
-                <div className="mt-8 pt-4 border-t border-white/5 text-center">
-                    <button
-                        onClick={() => setShowDonate(true)}
-                        className="text-xs text-telegram-subtext hover:text-telegram-text transition-colors flex items-center justify-center gap-1.5 mx-auto"
-                    >
-                        <Heart className="w-3.5 h-3.5 text-red-500/80" />
-                        Donate
-                    </button>
-                </div>
             </motion.div>
 
 
@@ -662,55 +649,6 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
                                     <ExternalLink className="w-4 h-4" />
                                     Open my.telegram.org
                                 </button>
-                            </div>
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            <AnimatePresence>
-                {showDonate && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
-                        onClick={() => setShowDonate(false)}
-                    >
-                        <motion.div
-                            initial={{ scale: 0.95, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.95, opacity: 0 }}
-                            className="glass bg-telegram-surface border border-telegram-border rounded-2xl p-6 max-w-sm w-full shadow-2xl"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <div className="relative flex items-center justify-center mb-6">
-                                <h2 className="text-xl font-bold text-telegram-text text-center">
-                                    Support the Project
-                                </h2>
-                                <button onClick={() => setShowDonate(false)} className="absolute right-0 p-2 hover:bg-telegram-hover rounded-lg transition-colors">
-                                    <X className="w-5 h-5 text-telegram-subtext" />
-                                </button>
-                            </div>
-
-                            <div className="space-y-4 text-center">
-                                <p className="text-sm text-telegram-subtext mb-6">
-                                    If you find Telegram Drive useful, consider supporting its development!
-                                </p>
-
-                                <div className="space-y-4">
-                                    <a href="#" onClick={(e) => { e.preventDefault(); open('https://www.paypal.me/Caamer20'); }} className="block hover:opacity-80 transition-opacity">
-                                        <img src="https://raw.githubusercontent.com/stefan-niedermann/paypal-donate-button/master/paypal-donate-button.png" alt="Donate with PayPal" width="200" className="mx-auto" />
-                                    </a>
-
-                                    <a href="#" onClick={(e) => { e.preventDefault(); open('https://link.trustwallet.com/send?address=ltc1q6wkr5ac4u0pxx4hx7xgwn0gsaku25ws0df73rp&asset=c2'); }} className="block hover:opacity-80 transition-opacity">
-                                        <img src="https://img.shields.io/badge/Donate-LTC-345D9D?style=for-the-badge&logo=litecoin&logoColor=white" alt="Donate LTC" className="mx-auto h-[28px]" />
-                                    </a>
-
-                                    <a href="#" onClick={(e) => { e.preventDefault(); open('https://link.trustwallet.com/send?asset=c0&address=bc1q5pt7m2fk6w0dzsnf6vvd5k6nw5k44785286ujy'); }} className="block hover:opacity-80 transition-opacity">
-                                        <img src="https://img.shields.io/badge/Donate-BTC-F7931A?style=for-the-badge&logo=bitcoin&logoColor=white" alt="Donate BTC" className="mx-auto h-[28px]" />
-                                    </a>
-                                </div>
                             </div>
                         </motion.div>
                     </motion.div>

@@ -1,5 +1,4 @@
-import { HardDrive, LayoutGrid, Sun, Moon, Settings } from 'lucide-react';
-import { useTheme } from '../../contexts/ThemeContext';
+import { HardDrive, LayoutGrid, Settings } from 'lucide-react';
 
 interface TopBarProps {
     currentFolderName: string;
@@ -19,8 +18,6 @@ export function TopBar({
     currentFolderName, selectedIds, onShowMoveModal, onBulkDownload, onBulkDelete,
     onDownloadFolder, viewMode, setViewMode, searchTerm, onSearchChange, onSettingsClick
 }: TopBarProps) {
-    const { theme, toggleTheme } = useTheme();
-
     return (
         <header className="h-14 border-b border-telegram-border flex items-center px-4 justify-between bg-telegram-surface/80 backdrop-blur-md sticky top-0 z-10" onClick={e => e.stopPropagation()}>
             <div className="flex items-center gap-4">
@@ -79,17 +76,6 @@ export function TopBar({
                     <Settings className="w-5 h-5" />
                     <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-[10px] bg-telegram-surface border border-telegram-border px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-lg">
                         Settings
-                    </span>
-                </button>
-
-                <button
-                    onClick={toggleTheme}
-                    className="p-2 hover:bg-telegram-hover rounded-md text-telegram-subtext hover:text-telegram-text transition relative group"
-                    title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-                >
-                    {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-                    <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-[10px] bg-telegram-surface border border-telegram-border px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-lg">
-                        {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
                     </span>
                 </button>
             </div>

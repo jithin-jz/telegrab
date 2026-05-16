@@ -11,7 +11,6 @@ import "./styles/globals.css";
 
 import { Toaster } from "sonner";
 import { ConfirmProvider } from "./contexts/ConfirmContext";
-import { ThemeProvider, useTheme } from "./contexts/ThemeContext";
 import { SettingsProvider } from "./contexts/SettingsContext";
 import { DropZoneProvider } from "./contexts/DropZoneContext";
 
@@ -21,7 +20,6 @@ type AuthStatus = "loading" | "authenticated" | "unauthenticated";
 
 function AppContent() {
   const [authStatus, setAuthStatus] = useState<AuthStatus>("loading");
-  const { theme } = useTheme();
   const { available, version, downloading, progress, downloadAndInstall, dismissUpdate } = useUpdateCheck();
 
   // On mount: check for a saved session and auto-restore it.
@@ -99,7 +97,7 @@ function AppContent() {
         onUpdate={downloadAndInstall}
         onDismiss={dismissUpdate}
       />
-      <Toaster theme={theme} position="bottom-center" />
+      <Toaster theme="light" position="bottom-center" />
       {authStatus === "authenticated" ? (
         <Dashboard onLogout={() => setAuthStatus("unauthenticated")} />
       ) : (
@@ -113,17 +111,15 @@ function AppContent() {
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider>
-        <QueryClientProvider client={queryClient}>
-          <ConfirmProvider>
-            <SettingsProvider>
-              <DropZoneProvider>
-                <AppContent />
-              </DropZoneProvider>
-            </SettingsProvider>
-          </ConfirmProvider>
-        </QueryClientProvider>
-      </ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <ConfirmProvider>
+          <SettingsProvider>
+            <DropZoneProvider>
+              <AppContent />
+            </DropZoneProvider>
+          </SettingsProvider>
+        </ConfirmProvider>
+      </QueryClientProvider>
     </ErrorBoundary>
   );
 }
