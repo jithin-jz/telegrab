@@ -18,23 +18,23 @@ export function EmptyState({ onUpload }: EmptyStateProps) {
                 </div>
             </div>
 
-            <h3 className="mb-2 text-xl font-semibold text-telegram-text">
+            <h3 className="mb-2 text-xl font-semibold text-foreground">
                 This folder is empty
             </h3>
-            <p className="mb-6 max-w-sm text-sm leading-6 text-telegram-subtext">
+            <p className="mb-6 max-w-sm text-sm leading-6 text-slate">
                 Start with an upload or drop files anywhere in this window.
             </p>
 
             <button
                 onClick={onUpload}
-                className="inline-flex items-center gap-2 rounded-lg bg-telegram-primary px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-telegram-primary/15 transition-colors hover:bg-telegram-primary/90"
+                className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-on-primary shadow-lg shadow-primary/15 transition-colors hover:brightness-110"
             >
                 <UploadCloud className="h-4 w-4" />
                 Upload files
             </button>
 
-            <p className="mt-5 text-xs text-telegram-subtext/50">
-                Tip: use <kbd className="rounded bg-telegram-hover px-1.5 py-0.5 text-telegram-subtext">Ctrl + F</kbd> to search
+            <p className="mt-5 text-xs text-slate/50">
+                Tip: use <kbd className="rounded bg-surface-soft px-1.5 py-0.5 text-slate">Ctrl + F</kbd> to search
             </p>
         </div>
     );

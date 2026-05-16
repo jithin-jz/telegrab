@@ -107,10 +107,10 @@ function AppContent() {
       />
       <Toaster theme="dark" position="bottom-center" toastOptions={{
         style: {
-          background: 'rgba(23, 23, 23, 0.8)',
+          background: 'var(--color-surface)',
           backdropFilter: 'blur(12px)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          color: '#F5F5F5'
+          border: '1px solid var(--color-hairline)',
+          color: 'var(--color-ink)'
         }
       }} />
       {authStatus === "authenticated" ? (

@@ -98,6 +98,8 @@
   --color-border: rgba(255, 255, 255, 0.08);
   --color-input: rgba(255, 255, 255, 0.10);
   --color-ring: #7c5cff;
+  --color-muted: #18181c;
+  --color-muted-foreground: #a1a1aa;
   --radius: 8px;
 
   /* ─── backward-compat aliases for legacy `*-telegram-*` classes ─── */

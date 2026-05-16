@@ -45,14 +45,14 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
         return (
             <div className="flex flex-col items-center justify-center h-full max-w-lg mx-auto p-8 text-center">
                 <div className="w-20 h-20 bg-destructive/10 rounded-full flex items-center justify-center mb-6">
-                    <ShieldCheck className="w-10 h-10 text-destructive" />
+                    <ShieldCheck className="w-10 h-10 text-error" />
                 </div>
                 <h1 className="text-2xl font-bold text-foreground mb-4">Desktop App Required</h1>
                 <p className="text-muted-foreground mb-6 leading-relaxed">
                     You are viewing the internal development server in a browser.
                     This application cannot function here because it requires access to the system backend (Rust).
                 </p>
-                <div className="p-4 bg-secondary rounded-xl border border-border text-sm text-secondary-foreground font-medium">
+                <div className="p-4 bg-surface-soft rounded-xl border border-hairline text-sm text-foreground font-medium">
                     Please open the <strong className="text-primary">Telegrab</strong> window in your OS taskbar/dock to continue.
                 </div>
             </div>
@@ -266,7 +266,7 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
     };
 
     return (
-        <div className="h-full w-full bg-background flex items-center justify-center p-6 relative overflow-hidden">
+        <div className="h-full w-full bg-canvas flex items-center justify-center p-6 relative overflow-hidden">
             {/* Minimal Background Decor */}
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,var(--color-primary),transparent_50%)] opacity-[0.03] pointer-events-none" />
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,var(--color-link-blue),transparent_50%)] opacity-[0.03] pointer-events-none" />
@@ -293,7 +293,7 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
                             Your files, <br/>
                             <span className="text-primary">your cloud.</span>
                         </h1>
-                        <p className="text-lg text-muted-foreground font-medium leading-relaxed">
+                        <p className="text-lg text-slate font-medium leading-relaxed">
                             A minimal, professional interface for your personal Telegram-powered storage. Unlimited, private, and fast.
                         </p>
                     </div>
@@ -316,7 +316,7 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
                                 </div>
                                 <div>
                                     <h3 className="font-semibold text-foreground">{item.title}</h3>
-                                    <p className="text-sm text-muted-foreground font-medium">{item.desc}</p>
+                                    <p className="text-sm text-slate font-medium">{item.desc}</p>
                                 </div>
                             </motion.div>
                         ))}
@@ -330,7 +330,7 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
                     transition={{ duration: 0.4 }}
                     className="w-full max-w-[420px]"
                 >
-                    <Card className="border-border/50 bg-card/50 backdrop-blur-sm shadow-xl">
+                    <Card className="border-hairline/50 bg-surface/50 backdrop-blur-sm shadow-xl">
                         <CardHeader className="space-y-1 text-center">
                             <div className="md:hidden flex justify-center mb-4">
                                 <img src={logoUrl} alt="Telegrab" className="w-10 h-10" />
@@ -350,12 +350,12 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
                                         animate={{ opacity: 1 }}
                                         className="py-6 text-center space-y-6"
                                     >
-                                        <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center mx-auto text-destructive">
+                                        <div className="w-16 h-16 bg-error/10 rounded-full flex items-center justify-center mx-auto text-error">
                                             <AlertCircle className="w-8 h-8" />
                                         </div>
                                         <div className="space-y-2">
                                             <h2 className="text-lg font-bold">Too Many Requests</h2>
-                                            <p className="text-sm text-muted-foreground font-medium">Telegram has limited your actions. Please wait.</p>
+                                            <p className="text-sm text-slate font-medium">Telegram has limited your actions. Please wait.</p>
                                         </div>
                                         <div className="text-4xl font-mono text-primary font-bold">
                                             {Math.floor(floodWait / 60)}:{(floodWait % 60).toString().padStart(2, '0')}
@@ -375,29 +375,29 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
                                                 className="space-y-4"
                                             >
                                                 <div className="space-y-2">
-                                                    <Label htmlFor="api-id" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">API ID</Label>
+                                                    <Label htmlFor="api-id" className="text-xs font-semibold text-slate uppercase tracking-wider">API ID</Label>
                                                     <div className="relative">
-                                                        <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
+                                                        <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate/50" />
                                                         <Input
                                                             id="api-id"
                                                             placeholder="12345678"
                                                             value={apiId}
                                                             onChange={(e) => setApiId(e.target.value)}
-                                                            className="pl-10 h-11 bg-background/50 font-mono text-sm tracking-widest"
+                                                            className="pl-10 h-11 bg-canvas/50 font-mono text-sm tracking-widest"
                                                             autoComplete="off"
                                                         />
                                                     </div>
                                                 </div>
                                                 <div className="space-y-2">
-                                                    <Label htmlFor="api-hash" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">API Hash</Label>
+                                                    <Label htmlFor="api-hash" className="text-xs font-semibold text-slate uppercase tracking-wider">API Hash</Label>
                                                     <div className="relative">
-                                                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
+                                                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate/50" />
                                                         <Input
                                                             id="api-hash"
                                                             placeholder="abcdef123456…"
                                                             value={apiHash}
                                                             onChange={(e) => setApiHash(e.target.value)}
-                                                            className="pl-10 h-11 bg-background/50 font-mono text-sm tracking-widest"
+                                                            className="pl-10 h-11 bg-canvas/50 font-mono text-sm tracking-widest"
                                                             autoComplete="off"
                                                         />
                                                     </div>
@@ -415,12 +415,12 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
                                                 animate={{ opacity: 1 }}
                                                 className="space-y-6"
                                             >
-                                                <div className="flex p-1 bg-muted rounded-lg border border-border/50">
+                                                <div className="flex p-1 bg-surface-soft rounded-lg border border-hairline/50">
                                                     <button
                                                         type="button"
                                                         onClick={() => { setLoginMethod('phone'); setQrUrl(null); setQrPolling(false); setError(null); }}
                                                         className={`flex-1 py-1.5 text-xs font-bold rounded-md flex items-center justify-center gap-2 transition-all ${
-                                                            loginMethod === 'phone' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                                                            loginMethod === 'phone' ? 'bg-surface text-foreground shadow-sm' : 'text-slate hover:text-foreground'
                                                         }`}
                                                     >
                                                         <Smartphone className="w-3.5 h-3.5" /> Phone
@@ -429,7 +429,7 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
                                                         type="button"
                                                         onClick={() => { setLoginMethod('qr'); setError(null); handleQrLogin(); }}
                                                         className={`flex-1 py-1.5 text-xs font-bold rounded-md flex items-center justify-center gap-2 transition-all ${
-                                                            loginMethod === 'qr' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                                                            loginMethod === 'qr' ? 'bg-surface text-foreground shadow-sm' : 'text-slate hover:text-foreground'
                                                         }`}
                                                     >
                                                         <QrCode className="w-3.5 h-3.5" /> QR Code
@@ -439,15 +439,15 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
                                                 {loginMethod === 'phone' ? (
                                                     <form onSubmit={handlePhoneSubmit} className="space-y-4">
                                                         <div className="space-y-2">
-                                                            <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Phone Number</Label>
+                                                            <Label className="text-xs font-semibold text-slate uppercase tracking-wider">Phone Number</Label>
                                                             <div className="relative">
-                                                                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
+                                                                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate/50" />
                                                                 <Input
                                                                     type="tel"
                                                                     placeholder="+1 234 567 8900"
                                                                     value={phone}
                                                                     onChange={(e) => setPhone(e.target.value)}
-                                                                    className="pl-10 h-11 bg-background/50 font-medium text-base tracking-wide"
+                                                                    className="pl-10 h-11 bg-canvas/50 font-medium text-base tracking-wide"
                                                                 />
                                                             </div>
                                                         </div>
@@ -458,7 +458,7 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
                                                 ) : (
                                                     <div className="flex flex-col items-center gap-4 py-2">
                                                         {!qrUrl && loading ? (
-                                                            <div className="w-48 h-48 rounded-xl bg-muted animate-pulse flex items-center justify-center">
+                                                            <div className="w-48 h-48 rounded-xl bg-surface-soft animate-pulse flex items-center justify-center">
                                                                 <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                                                             </div>
                                                         ) : qrUrl ? (
@@ -468,7 +468,7 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
                                                                 </div>
                                                                 <div className="text-center space-y-1 px-4">
                                                                     <p className="text-sm font-bold text-foreground">Scan with Telegram</p>
-                                                                    <p className="text-xs text-muted-foreground font-medium leading-relaxed">
+                                                                    <p className="text-xs text-slate font-medium leading-relaxed">
                                                                         Settings &gt; Devices &gt; Link Desktop
                                                                     </p>
                                                                 </div>
@@ -482,7 +482,7 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
                                                         ) : null}
                                                     </div>
                                                 )}
-                                                <Button variant="ghost" size="sm" onClick={() => setStep("setup")} className="w-full text-xs font-semibold text-muted-foreground hover:text-foreground">
+                                                <Button variant="ghost" size="sm" onClick={() => setStep("setup")} className="w-full text-xs font-semibold text-slate hover:text-foreground">
                                                     Back to Configuration
                                                 </Button>
                                             </motion.div>
@@ -497,20 +497,20 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
                                                 className="space-y-4"
                                             >
                                                 <div className="space-y-2">
-                                                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider text-center block">Verification Code</Label>
+                                                    <Label className="text-xs font-semibold text-slate uppercase tracking-wider text-center block">Verification Code</Label>
                                                     <Input
                                                         type="text"
                                                         value={code}
                                                         onChange={(e) => setCode(e.target.value)}
                                                         placeholder="12345"
-                                                        className="h-14 text-2xl font-mono tracking-[0.5em] text-center bg-background/50"
+                                                        className="h-14 text-2xl font-mono tracking-[0.5em] text-center bg-canvas/50"
                                                         autoFocus
                                                     />
                                                 </div>
                                                 <Button type="submit" disabled={loading} className="w-full h-11 font-bold">
                                                     {loading ? "Verifying..." : "Sign In"}
                                                 </Button>
-                                                <Button variant="ghost" size="sm" onClick={() => setStep("phone")} className="w-full text-xs font-semibold text-muted-foreground">
+                                                <Button variant="ghost" size="sm" onClick={() => setStep("phone")} className="w-full text-xs font-semibold text-slate">
                                                     Change Phone Number
                                                 </Button>
                                             </motion.form>
@@ -531,14 +531,14 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
                                                     </AlertDescription>
                                                 </Alert>
                                                 <div className="space-y-2">
-                                                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cloud Password</Label>
+                                                    <Label className="text-xs font-semibold text-slate uppercase tracking-wider">Cloud Password</Label>
                                                     <div className="relative">
-                                                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
+                                                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate/50" />
                                                         <Input
                                                             type="password"
                                                             value={password}
                                                             onChange={(e) => setPassword(e.target.value)}
-                                                            className="pl-10 h-11 bg-background/50"
+                                                            className="pl-10 h-11 bg-canvas/50"
                                                             autoFocus
                                                         />
                                                     </div>
@@ -546,7 +546,7 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
                                                 <Button type="submit" disabled={loading || !password} className="w-full h-11 font-bold">
                                                     {loading ? "Unlocking..." : "Unlock Vault"}
                                                 </Button>
-                                                <Button variant="ghost" size="sm" onClick={() => { setStep("code"); setPassword(""); setError(null); }} className="w-full text-xs font-semibold text-muted-foreground">
+                                                <Button variant="ghost" size="sm" onClick={() => { setStep("code"); setPassword(""); setError(null); }} className="w-full text-xs font-semibold text-slate">
                                                     Back to Code
                                                 </Button>
                                             </motion.form>
@@ -570,7 +570,7 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
                                 <button
                                     type="button"
                                     onClick={() => setShowHelp(true)}
-                                    className="text-xs font-semibold text-muted-foreground hover:text-primary transition-colors flex items-center gap-1.5"
+                                    className="text-xs font-semibold text-slate hover:text-primary transition-colors flex items-center gap-1.5"
                                 >
                                     <HelpCircle className="w-3.5 h-3.5" />
                                     Getting API credentials
@@ -594,7 +594,7 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
 
             {/* Help Dialog */}
             <Dialog open={showHelp} onOpenChange={setShowHelp}>
-                <DialogContent className="max-w-md bg-card/95 backdrop-blur-xl border-border/50">
+                <DialogContent className="max-w-md bg-surface/95 backdrop-blur-xl border-hairline/50">
                     <DialogHeader>
                         <DialogTitle className="text-xl font-bold tracking-tight">Configuration Guide</DialogTitle>
                         <DialogDescription className="font-medium">
@@ -614,7 +614,7 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
                                 </div>
                                 <div className="space-y-0.5">
                                     <h4 className="text-sm font-bold">{item.title}</h4>
-                                    <p className="text-xs text-muted-foreground font-medium">{item.desc}</p>
+                                    <p className="text-xs text-slate font-medium">{item.desc}</p>
                                     {item.link && (
                                         <button onClick={() => open(item.link!)} className="text-[10px] text-primary font-bold uppercase tracking-wider flex items-center gap-1 mt-1 hover:underline">
                                             Open <ExternalLink className="w-2.5 h-2.5" />
@@ -626,7 +626,7 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
                         
                         <div className="flex items-center gap-2 p-3 bg-primary/5 rounded-lg border border-primary/10 mt-2">
                             <ShieldCheck className="w-4 h-4 text-primary shrink-0" />
-                            <p className="text-[11px] font-medium text-muted-foreground leading-snug">
+                            <p className="text-[11px] font-medium text-slate leading-snug">
                                 Your API credentials are stored securely on this machine and never shared.
                             </p>
                         </div>

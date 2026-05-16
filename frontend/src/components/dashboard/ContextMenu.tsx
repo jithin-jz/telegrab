@@ -53,20 +53,20 @@ export function ContextMenu({ x, y, file, onClose, onDownload, onDelete, onPrevi
     return (
         <div
             ref={menuRef}
-            className="fixed z-50 min-w-[200px] bg-telegram-surface/95 backdrop-blur-xl border border-telegram-border rounded-lg shadow-2xl p-1.5 animate-in fade-in zoom-in-95 duration-100 flex flex-col gap-0.5"
+            className="fixed z-50 min-w-[200px] bg-surface/95 backdrop-blur-xl border border-hairline rounded-lg shadow-2xl p-1.5 animate-in fade-in zoom-in-95 duration-100 flex flex-col gap-0.5"
             style={{ left: adjustedPos.x, top: adjustedPos.y }}
             onClick={(e) => e.stopPropagation()}
             onContextMenu={(e) => e.preventDefault()}
         >
-            <div className="px-2 py-1.5 text-xs text-telegram-subtext font-medium truncate max-w-[180px] border-b border-telegram-border mb-1">
+            <div className="px-2 py-1.5 text-xs text-slate font-medium truncate max-w-[180px] border-b border-hairline mb-1">
                 {file.name}
             </div>
 
             {file.type !== 'folder' && (
-                <button onClick={onPreview} className="flex items-center gap-2 px-2 py-1.5 text-sm text-telegram-text hover:bg-telegram-hover rounded transition-colors text-left w-full">
+                <button onClick={onPreview} className="flex items-center gap-2 px-2 py-1.5 text-sm text-foreground hover:bg-surface-soft rounded transition-colors text-left w-full">
                     {isMediaFile(file.name) ? (
                         <>
-                            <Play className="w-4 h-4 text-telegram-primary" />
+                            <Play className="w-4 h-4 text-primary" />
                             Play
                         </>
                     ) : isPdfFile(file.name) ? (
@@ -76,7 +76,7 @@ export function ContextMenu({ x, y, file, onClose, onDownload, onDelete, onPrevi
                         </>
                     ) : (
                         <>
-                            <Eye className="w-4 h-4 text-blue-500" />
+                            <Eye className="w-4 h-4 text-link-blue" />
                             Preview
                         </>
                     )}
@@ -84,25 +84,25 @@ export function ContextMenu({ x, y, file, onClose, onDownload, onDelete, onPrevi
             )}
 
             {file.type === 'folder' && (
-                <button onClick={onPreview} className="flex items-center gap-2 px-2 py-1.5 text-sm text-telegram-text hover:bg-telegram-hover rounded transition-colors text-left w-full">
-                    <FolderOpen className="w-4 h-4 text-yellow-500" />
+                <button onClick={onPreview} className="flex items-center gap-2 px-2 py-1.5 text-sm text-foreground hover:bg-surface-soft rounded transition-colors text-left w-full">
+                    <FolderOpen className="w-4 h-4 text-brand-yellow" />
                     Open
                 </button>
             )}
 
-            <button onClick={onDownload} className="flex items-center gap-2 px-2 py-1.5 text-sm text-telegram-text hover:bg-telegram-hover rounded transition-colors text-left w-full">
-                <HardDrive className="w-4 h-4 text-green-500" />
+            <button onClick={onDownload} className="flex items-center gap-2 px-2 py-1.5 text-sm text-foreground hover:bg-surface-soft rounded transition-colors text-left w-full">
+                <HardDrive className="w-4 h-4 text-brand-green" />
                 Download
             </button>
 
-            <button disabled className="flex items-center gap-2 px-2 py-1.5 text-sm text-telegram-subtext hover:bg-telegram-hover rounded transition-colors text-left w-full cursor-not-allowed opacity-50">
+            <button disabled className="flex items-center gap-2 px-2 py-1.5 text-sm text-slate hover:bg-surface-soft rounded transition-colors text-left w-full cursor-not-allowed opacity-50">
                 <Pencil className="w-4 h-4" />
                 Rename
             </button>
 
-            <div className="h-px bg-telegram-border my-1" />
+            <div className="h-px bg-hairline my-1" />
 
-            <button onClick={onDelete} className="flex items-center gap-2 px-2 py-1.5 text-sm text-red-500 hover:bg-red-500/10 rounded transition-colors text-left w-full">
+            <button onClick={onDelete} className="flex items-center gap-2 px-2 py-1.5 text-sm text-rose-500 hover:bg-rose-500/10 rounded transition-colors text-left w-full">
                 <Trash2 className="w-4 h-4" />
                 Delete
             </button>

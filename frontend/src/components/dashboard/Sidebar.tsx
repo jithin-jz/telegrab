@@ -47,7 +47,7 @@ export function Sidebar({
         >
             {/* Brand header */}
             <div className="px-4 pt-4 pb-3 flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-white/[0.04] border border-hairline grid place-items-center shadow-sm">
+                <div className="w-8 h-8 rounded-lg bg-hairline-soft border border-hairline grid place-items-center shadow-sm">
                     <img src={logoUrl} className="w-7 h-7" alt="Telegrab" />
                 </div>
                 <div className="leading-tight">
