@@ -1,7 +1,7 @@
 """Auth use cases — orchestrate Telethon flows + state transitions.
 
 Mirrors `src-tauri/src/commands/auth.rs`. The bridge layer in
-`tg_drive.api.bridge` wraps each function so JS can invoke it.
+`telegrab.api.bridge` wraps each function so JS can invoke it.
 """
 
 from __future__ import annotations

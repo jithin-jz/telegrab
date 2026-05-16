@@ -1,7 +1,7 @@
 """REST API server settings — bridge commands + supervisor wiring.
 
 The persisted data model and hashing helpers live in
-`tg_drive.config.api_settings`. This module owns the *commands* the
+`telegrab.config.api_settings`. This module owns the *commands* the
 frontend calls plus the indirection that lets the bridge ask the running
 supervisor to start/stop/restart the server.
 """

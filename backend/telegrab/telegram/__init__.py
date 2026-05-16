@@ -1,7 +1,7 @@
 """Telegram domain — Telethon client wrapper, peers, transfers, media helpers.
 
 The submodules are organised so that nothing here depends on the bridge or
-the FastAPI servers — only `telethon` and `tg_drive.config`.
+the FastAPI servers — only `telethon` and `telegrab.config`.
 
 For caller ergonomics we expose state-aware wrappers around the helpers
 that take `state` as their first argument: callers can use

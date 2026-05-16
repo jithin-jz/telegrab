@@ -2,7 +2,7 @@
 
 Mirrors `src-tauri/src/commands/fs.rs` (file section).
 
-Progress events fire through `tg_drive.infra.events.bus` on the
+Progress events fire through `telegrab.infra.events.bus` on the
 `upload-progress` / `download-progress` channels. Cancellation is
 cooperative — the progress callbacks raise `asyncio.CancelledError`
 when the user has marked the transfer cancelled.

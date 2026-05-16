@@ -110,8 +110,8 @@ def _run_python_app(py: Path, dev: bool, debug: bool) -> int:
     env = os.environ.copy()
     env["PYTHONPATH"] = str(BACKEND_DIR) + os.pathsep + env.get("PYTHONPATH", "")
     if dev:
-        env["TG_DRIVE_DEV_URL"] = VITE_DEV_URL
-    cmd = [str(py), "-m", "tg_drive"]
+        env["TELEGRAB_DEV_URL"] = VITE_DEV_URL
+    cmd = [str(py), "-m", "telegrab"]
     if debug:
         cmd.append("--debug")
     print(f"[run.py] Launching: {' '.join(cmd)}")

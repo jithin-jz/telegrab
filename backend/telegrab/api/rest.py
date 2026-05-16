@@ -8,7 +8,7 @@ Endpoints:
   GET /api/v1/files/{message_id}/download?folder_id=
 
 All non-health endpoints require an `X-API-Key` header that hashes to the
-`key_hash` saved in `api_settings.json` (see `tg_drive.config.api_settings`).
+`key_hash` saved in `api_settings.json` (see `telegrab.config.api_settings`).
 The server is started/stopped/restarted by `RestApiSupervisor` (below),
 which is wired into `services.api_settings.set_restart_hook` from app.py.
 """

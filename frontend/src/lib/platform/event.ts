@@ -1,8 +1,8 @@
 /**
  * Shim for `@tauri-apps/api/event`.
  *
- * The Python EventBus (see `tg_drive/events.py`) dispatches events through
- * the bootstrap-injected `window.__tgDriveBus`. We expose the same
+ * The Python EventBus (see `telegrab/events.py`) dispatches events through
+ * the bootstrap-injected `window.__telegrabBus`. We expose the same
  * `listen` API the Tauri code is written against.
  */
 

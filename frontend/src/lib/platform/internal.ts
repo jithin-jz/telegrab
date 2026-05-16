@@ -24,7 +24,7 @@ interface EventBus {
 
 interface PyWebviewWindow extends Window {
   pywebview?: { api?: PyWebviewApi };
-  __tgDriveBus?: EventBus;
+  __telegrabBus?: EventBus;
   // Components written for the Tauri build sometimes guard their logic
   // with `'__TAURI_INTERNALS__' in window` to detect a real desktop env.
   // We expose a stub here so those guards pass under pywebview.
@@ -40,7 +40,7 @@ if (!w.__TAURI_INTERNALS__) {
 
 // Eagerly create the event bus so Python ↔ JS event dispatch never misses.
 function ensureBus(): EventBus {
-  if (w.__tgDriveBus) return w.__tgDriveBus;
+  if (w.__telegrabBus) return w.__telegrabBus;
 
   const listeners = new Map<string, Set<(e: { event: string; payload: unknown }) => void>>();
   const bus: EventBus = {
@@ -65,7 +65,7 @@ function ensureBus(): EventBus {
       }
     },
   };
-  w.__tgDriveBus = bus;
+  w.__telegrabBus = bus;
   return bus;
 }
 

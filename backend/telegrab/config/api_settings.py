@@ -1,7 +1,7 @@
 """REST API persisted settings (data + I/O + hashing only).
 
 The bridge commands that mutate these settings and trigger server restarts
-live in `tg_drive.services.api_settings`. Splitting keeps the data model
+live in `telegrab.services.api_settings`. Splitting keeps the data model
 free of any reference to the supervisor/runtime.
 """
 

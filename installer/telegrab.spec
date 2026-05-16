@@ -2,12 +2,12 @@
 # PyInstaller spec for Telegram Drive.
 #
 # Run via `python installer/build.py` (preferred) or directly:
-#   pyinstaller installer/tg_drive.spec --noconfirm
+#   pyinstaller installer/telegrab.spec --noconfirm
 #
 # Output:
-#   * Windows:  dist-installer/TelegramDrive.exe          (single-file)
-#   * macOS:    dist-installer/TelegramDrive.app          (Cocoa app bundle)
-#   * Linux:    dist-installer/TelegramDrive/             (onedir)
+#   * Windows:  dist-installer/Telegrab.exe          (single-file)
+#   * macOS:    dist-installer/Telegrab.app          (Cocoa app bundle)
+#   * Linux:    dist-installer/Telegrab/             (onedir)
 
 import sys
 from pathlib import Path
@@ -20,7 +20,7 @@ SPEC_DIR = Path(SPECPATH).resolve()
 ROOT = SPEC_DIR.parent
 BACKEND = ROOT / "backend"
 FRONTEND_DIST = ROOT / "frontend" / "dist"
-ENTRY = BACKEND / "tg_drive" / "__main__.py"
+ENTRY = BACKEND / "telegrab" / "__main__.py"
 
 if not FRONTEND_DIST.exists():
     raise SystemExit(
@@ -71,23 +71,23 @@ hidden_imports = (
     + hidden_uvicorn
     + hidden_pywebview
     + [
-        "tg_drive",
-        "tg_drive.app",
-        "tg_drive.api",
-        "tg_drive.api.bridge",
-        "tg_drive.api.host",
-        "tg_drive.api.streaming",
-        "tg_drive.api.rest",
-        "tg_drive.config",
-        "tg_drive.infra",
-        "tg_drive.services",
-        "tg_drive.services.auth",
-        "tg_drive.services.files",
-        "tg_drive.services.folders",
-        "tg_drive.services.preview",
-        "tg_drive.services.network",
-        "tg_drive.services.api_settings",
-        "tg_drive.telegram",
+        "telegrab",
+        "telegrab.app",
+        "telegrab.api",
+        "telegrab.api.bridge",
+        "telegrab.api.host",
+        "telegrab.api.streaming",
+        "telegrab.api.rest",
+        "telegrab.config",
+        "telegrab.infra",
+        "telegrab.services",
+        "telegrab.services.auth",
+        "telegrab.services.files",
+        "telegrab.services.folders",
+        "telegrab.services.preview",
+        "telegrab.services.network",
+        "telegrab.services.api_settings",
+        "telegrab.telegram",
     ]
 )
 
@@ -117,7 +117,7 @@ a = Analysis(
 pyz = PYZ(a.pure)
 
 # ────────────────────────── Per-platform output ──────────────────────────
-APP_NAME = "TelegramDrive"
+APP_NAME = "Telegrab"
 
 if sys.platform == "win32":
     # Single-file Windows binary. Slight cold-start cost but trivially
@@ -176,7 +176,7 @@ elif sys.platform == "darwin":
         coll,
         name=f"{APP_NAME}.app",
         icon=ICON,
-        bundle_identifier="com.telegramdrive.app",
+        bundle_identifier="com.Telegrab.app",
         info_plist={
             "CFBundleDisplayName": "Telegram Drive",
             "CFBundleShortVersionString": "1.4.0",

@@ -6,7 +6,7 @@ Implements byte-range requests (HTTP 206), so video / audio seek works in
 `<video>` / `<audio>` elements without buffering the entire stream.
 
 Started on the same asyncio loop the Telethon client lives on (see
-`tg_drive.infra.runtime.AsyncRuntime`), so we can directly await
+`telegrab.infra.runtime.AsyncRuntime`), so we can directly await
 `iter_download(...)` inside request handlers.
 """
 

@@ -254,6 +254,15 @@ class Bridge:
     def cmd_relaunch(self, args: Any = None) -> None:
         host_cmds.cmd_relaunch()
 
+    def cmd_window_minimize(self, args: Any = None) -> None:
+        host_cmds.cmd_window_minimize()
+
+    def cmd_window_maximize(self, args: Any = None) -> None:
+        host_cmds.cmd_window_maximize()
+
+    def cmd_window_close(self, args: Any = None) -> None:
+        host_cmds.cmd_window_close()
+
     # ─────────────────────── auto-updater ───────────────────────
 
     def cmd_check_for_updates(self, args: Any = None) -> Optional[dict]:

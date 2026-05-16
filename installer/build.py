@@ -8,13 +8,13 @@ cross-compile):
 Steps:
   1. Ensure the backend venv exists and has PyInstaller installed.
   2. Build the React bundle (npm install + npm run build) if missing.
-  3. Run PyInstaller against `installer/tg_drive.spec`.
+  3. Run PyInstaller against `installer/telegrab.spec`.
   4. Report the output path.
 
 Output:
-  * Windows: dist-installer/TelegramDrive.exe
-  * macOS:   dist-installer/TelegramDrive.app
-  * Linux:   dist-installer/TelegramDrive/
+  * Windows: dist-installer/Telegrab.exe
+  * macOS:   dist-installer/Telegrab.app
+  * Linux:   dist-installer/Telegrab/
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ ROOT = Path(__file__).resolve().parent.parent
 INSTALLER = ROOT / "installer"
 BACKEND = ROOT / "backend"
 FRONTEND = ROOT / "frontend"
-SPEC = INSTALLER / "tg_drive.spec"
+SPEC = INSTALLER / "telegrab.spec"
 VENV_DIR = BACKEND / ".venv"
 
 DIST_OUT = ROOT / "dist-installer"
@@ -117,11 +117,11 @@ def _report() -> None:
     print("Build complete.")
     print()
     if sys.platform == "win32":
-        artifact = DIST_OUT / "TelegramDrive.exe"
+        artifact = DIST_OUT / "Telegrab.exe"
     elif sys.platform == "darwin":
-        artifact = DIST_OUT / "TelegramDrive.app"
+        artifact = DIST_OUT / "Telegrab.app"
     else:
-        artifact = DIST_OUT / "TelegramDrive"
+        artifact = DIST_OUT / "Telegrab"
     if artifact.exists():
         size_mb = (
             sum(p.stat().st_size for p in artifact.rglob("*") if p.is_file())

@@ -1,6 +1,6 @@
 """Application entry point.
 
-Run with `python -m tg_drive` or via the `telegram-drive` script defined in
+Run with `python -m telegrab` or via the `telegram-drive` script defined in
 `pyproject.toml`. The launch sequence is:
 
   1. Start the asyncio runtime on a background thread.
@@ -12,8 +12,8 @@ Run with `python -m tg_drive` or via the `telegram-drive` script defined in
   6. On exit: stop the streaming server, REST API, asyncio runtime.
 
 The frontend assets are served either from the Vite dev server (when
-`TG_DRIVE_DEV_URL` is set) or from a built `app/dist/` directory. In dev
-the user runs `npm run dev` separately, then `python -m tg_drive`.
+`TELEGRAB_DEV_URL` is set) or from a built `app/dist/` directory. In dev
+the user runs `npm run dev` separately, then `python -m telegrab`.
 """
 
 from __future__ import annotations
@@ -43,9 +43,9 @@ log = logging.getLogger(__name__)
 # but we re-inject here as a safety net for early page loads.
 _BOOTSTRAP_JS = r"""
 (function () {
-  if (window.__tgDriveBus) { return; }
+  if (window.__telegrabBus) { return; }
   const listeners = new Map();
-  window.__tgDriveBus = {
+  window.__telegrabBus = {
     subscribe(event, cb) {
       let s = listeners.get(event);
       if (!s) { s = new Set(); listeners.set(event, s); }
@@ -69,24 +69,24 @@ def _resolve_frontend_url() -> str:
     """Return the URL pywebview should load.
 
     Priority:
-      1. TG_DRIVE_DEV_URL environment variable (e.g. "http://localhost:5173")
+      1. TELEGRAB_DEV_URL environment variable (e.g. "http://localhost:5173")
       2. PyInstaller-bundled frontend under sys._MEIPASS (production .exe / .app)
       3. ../../frontend/dist/index.html relative to this file (dev / source run)
       4. Fall back to a tiny error page.
     """
-    dev_url = os.environ.get("TG_DRIVE_DEV_URL")
+    dev_url = os.environ.get("TELEGRAB_DEV_URL")
     if dev_url:
         return dev_url
 
     # Production: when PyInstaller bundles the app, frontend/dist is unpacked
-    # into sys._MEIPASS at runtime (see installer/tg_drive.spec).
+    # into sys._MEIPASS at runtime (see installer/telegrab.spec).
     meipass = getattr(sys, "_MEIPASS", None)
     if meipass:
         bundled_index = Path(meipass) / "frontend" / "dist" / "index.html"
         if bundled_index.exists():
             return bundled_index.as_uri()
 
-    # Dev: backend/tg_drive/app.py → repo root → frontend/dist/index.html
+    # Dev: backend/telegrab/app.py → repo root → frontend/dist/index.html
     repo_root = Path(__file__).resolve().parent.parent.parent
     dist_index = repo_root / "frontend" / "dist" / "index.html"
     if dist_index.exists():
@@ -96,7 +96,7 @@ def _resolve_frontend_url() -> str:
         "<h2>Telegram Drive</h2>"
         "<p>Frontend bundle not found.</p>"
         "<p>Run <code>npm run build</code> in <code>frontend/</code> "
-        "or set <code>TG_DRIVE_DEV_URL=http://localhost:5173</code>.</p>"
+        "or set <code>TELEGRAB_DEV_URL=http://localhost:5173</code>.</p>"
     )
 
 
@@ -110,7 +110,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--log-level",
-        default=os.environ.get("TG_DRIVE_LOG", "INFO"),
+        default=os.environ.get("TELEGRAB_LOG", "INFO"),
         help="Logging level (DEBUG, INFO, WARNING, ERROR)",
     )
     args = parser.parse_args()

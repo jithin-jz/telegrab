@@ -29,7 +29,7 @@ venv/
 # Misc
 *.log
 *.log.err
-.tg_drive_test.log*
+.telegrab_test.log*
 .exe_test.log*
 .build_installer.log*
 Error.html
