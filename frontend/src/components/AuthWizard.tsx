@@ -14,7 +14,6 @@ import {
     Cloud, 
     Zap, 
     Shield,
-    CheckCircle2,
     LockIcon,
     Smartphone
 } from "lucide-react";
@@ -29,7 +28,6 @@ import { Alert, AlertDescription } from "./ui/alert";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./ui/card";
 import {
     Dialog,
-    DialogClose,
     DialogContent,
     DialogDescription,
     DialogFooter,
