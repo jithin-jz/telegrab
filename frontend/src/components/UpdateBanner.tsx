@@ -25,7 +25,7 @@ export function UpdateBanner({
                     initial={{ opacity: 0, y: -50 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -50 }}
-                    className="fixed top-0 left-0 right-0 z-50 p-3 bg-gradient-to-r from-primary/90 via-link-blue/90 to-brand-purple/90 backdrop-blur-sm shadow-lg border-b border-white/10"
+                    className="relative w-full z-40 p-3 bg-gradient-to-r from-primary/90 via-link-blue/90 to-brand-purple/90 backdrop-blur-sm shadow-lg border-b border-white/10"
                 >
                     <div className="flex items-center justify-center gap-4 max-w-screen-lg mx-auto">
                         <Sparkles className="w-5 h-5 text-brand-yellow animate-pulse" />

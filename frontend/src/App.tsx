@@ -6,6 +6,7 @@ import { AuthWizard } from "./components/AuthWizard";
 import { Dashboard } from "./components/Dashboard";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { UpdateBanner } from "./components/UpdateBanner";
+import { TitleBar } from "./components/TitleBar";
 import { useUpdateCheck } from "./hooks/useUpdateCheck";
 import "./styles/globals.css";
 
@@ -96,7 +97,8 @@ function AppContent() {
   }
 
   return (
-    <main className="h-screen w-screen text-foreground overflow-hidden selection:bg-primary/30 relative">
+    <main className="h-screen w-screen text-foreground overflow-hidden selection:bg-primary/30 relative flex flex-col">
+      <TitleBar />
       <UpdateBanner
         available={available}
         version={version}

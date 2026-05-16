@@ -336,7 +336,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
 
     return (
         <div
-            className="flex h-screen w-full overflow-hidden bg-canvas relative"
+            className="flex flex-1 w-full overflow-hidden bg-canvas relative"
             onClick={() => setSelectedIds([])}
             onDragOver={handleRootDragOver}
             onDragEnter={handleRootDragEnter}

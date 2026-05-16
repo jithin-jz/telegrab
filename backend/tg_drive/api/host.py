@@ -161,6 +161,24 @@ def cmd_relaunch() -> None:
     threading.Timer(0.25, _do).start()
 
 
+def cmd_window_minimize() -> None:
+    if _window:
+        _window.minimize()
+
+
+def cmd_window_maximize() -> None:
+    if _window:
+        # pywebview doesn't have an 'is_maximized' property in all versions,
+        # but we can try to toggle or just maximize.
+        # Most modern pywebview versions support this.
+        _window.toggle_fullscreen() if sys.platform == "darwin" else _window.maximize()
+
+
+def cmd_window_close() -> None:
+    if _window:
+        _window.destroy()
+
+
 __all__ = [
     "attach_window",
     "cmd_dialog_open",
@@ -171,4 +189,7 @@ __all__ = [
     "cmd_store_delete",
     "cmd_store_entries",
     "cmd_relaunch",
+    "cmd_window_minimize",
+    "cmd_window_maximize",
+    "cmd_window_close",
 ]

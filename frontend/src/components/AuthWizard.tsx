@@ -266,7 +266,7 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
     };
 
     return (
-        <div className="h-full w-full bg-canvas flex items-center justify-center p-6 relative overflow-hidden">
+        <div className="flex-1 w-full auth-gradient flex items-center justify-center p-4 relative overflow-hidden">
             {/* Minimal Background Decor */}
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,var(--color-primary),transparent_50%)] opacity-[0.03] pointer-events-none" />
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,var(--color-link-blue),transparent_50%)] opacity-[0.03] pointer-events-none" />
