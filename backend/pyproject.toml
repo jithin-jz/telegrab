@@ -14,6 +14,12 @@ dependencies = [
     "python-multipart==0.0.18",
 ]
 
+[dependency-groups]
+dev = [
+    "pyinstaller==6.11.1",
+    "ruff==0.9.9",
+]
+
 [project.scripts]
 telegrab = "telegrab.app:main"
 
