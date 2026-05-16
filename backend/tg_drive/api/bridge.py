@@ -26,6 +26,7 @@ from ..services import (
     folders as folder_cmds,
     network as network_cmds,
     preview as preview_cmds,
+    updater as updater_cmds,
 )
 from . import host as host_cmds
 
@@ -253,6 +254,11 @@ class Bridge:
     def cmd_relaunch(self, args: Any = None) -> None:
         host_cmds.cmd_relaunch()
 
-    # plugin-updater stub — auto-updater is not part of v1.
+    # ─────────────────────── auto-updater ───────────────────────
+
     def cmd_check_for_updates(self, args: Any = None) -> Optional[dict]:
-        return None
+        return updater_cmds.cmd_check_for_updates()
+        
+    def cmd_download_and_install_update(self, args: Any = None) -> None:
+        a = _args(args)
+        updater_cmds.cmd_download_and_install_update(a["url"])
