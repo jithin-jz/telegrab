@@ -36,44 +36,7 @@ Grab the latest installer from the [Releases](https://github.com/jithin-jz/teleg
 
 You'll need **Telegram API credentials** on first launch — get them from [my.telegram.org](https://my.telegram.org) → *API development tools*.
 
-### Run from Source
 
-**Requirements:** Python 3.11+, Node.js 18+, Telegram API credentials
-
-```bash
-git clone https://github.com/jithin-jz/telegrab.git
-cd telegrab
-
-# Production
-python run.py
-
-# Development (Vite HMR + Python)
-python run.py --dev
-```
-
-The launcher creates a virtualenv, installs dependencies, builds the frontend, and opens the app automatically.
-
-## Data Storage
-
-| Platform | Location |
-|---|---|
-| Windows | `%APPDATA%\TelegramDrive\` |
-| macOS | `~/Library/Application Support/TelegramDrive/` |
-| Linux | `~/.local/share/TelegramDrive/` |
-
-## Build Installers
-
-```bash
-python installer/build.py
-```
-
-Or tag a release to trigger the CI pipeline:
-
-```bash
-git tag v1.5.0 && git push --tags
-```
-
-GitHub Actions builds Windows and macOS installers automatically.
 
 ## Credits
 
