@@ -1,0 +1,41 @@
+# Node
+node_modules/
+dist/
+.DS_Store
+.env
+.vite/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+.python-version
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Telethon session files (created at runtime in OS app data dir; this is
+# a defence-in-depth in case someone runs from a non-default directory)
+*.session
+*.session-journal
+
+# Editors
+.vscode/
+.idea/
+
+# Misc
+*.log
+*.log.err
+.tg_drive_test.log*
+.exe_test.log*
+.build_installer.log*
+Error.html
+**/LatestError.html
+
+# PyInstaller build artifacts
+build-installer/
+dist-installer/
+*.spec.bak

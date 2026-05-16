@@ -1,0 +1,39 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    /* Path mapping — mirrors the Vite aliases in vite.config.ts so
+       TypeScript can resolve the shimmed Tauri imports without the
+       @tauri-apps/* npm packages being installed. */
+    "baseUrl": ".",
+    "paths": {
+      "@tauri-apps/api/core": ["src/lib/platform/core.ts"],
+      "@tauri-apps/api/event": ["src/lib/platform/event.ts"],
+      "@tauri-apps/plugin-dialog": ["src/lib/platform/dialog.ts"],
+      "@tauri-apps/plugin-store": ["src/lib/platform/store.ts"],
+      "@tauri-apps/plugin-shell": ["src/lib/platform/shell.ts"],
+      "@tauri-apps/plugin-process": ["src/lib/platform/process.ts"],
+      "@tauri-apps/plugin-updater": ["src/lib/platform/updater.ts"]
+    },
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["src"],
+  "references": [{ "path": "./tsconfig.node.json" }]
+}

@@ -1,0 +1,1138 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Telegram Drive — Your unlimited cloud, on Telegram</title>
+  <meta name="description" content="Telegram Drive turns your Telegram account into a private, unlimited file manager. Upload, stream, organise — your files stay on Telegram's servers, encrypted and yours." />
+
+  <link rel="preconnect" href="https://rsms.me/" />
+  <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
+
+  <style>
+    /* ─────────────────────────────────────────────────────────────────────
+       Design tokens — copied verbatim from app/DESIGN.md
+       ───────────────────────────────────────────────────────────────────── */
+    :root {
+      /* Brand & primary */
+      --primary: #5645d4;
+      --primary-pressed: #4534b3;
+      --primary-deep: #3a2a99;
+      --on-primary: #ffffff;
+      --brand-navy: #0a1530;
+      --brand-navy-deep: #070f24;
+      --brand-navy-mid: #1a2a52;
+      --link-blue: #0075de;
+      --link-blue-pressed: #005bab;
+
+      /* Brand spectrum */
+      --brand-orange: #dd5b00;
+      --brand-orange-deep: #793400;
+      --brand-pink: #ff64c8;
+      --brand-pink-deep: #a02e6d;
+      --brand-purple: #7b3ff2;
+      --brand-purple-300: #d6b6f6;
+      --brand-purple-800: #391c57;
+      --brand-teal: #2a9d99;
+      --brand-green: #1aae39;
+      --brand-yellow: #f5d75e;
+      --brand-brown: #523410;
+
+      /* Card tints */
+      --card-tint-peach: #ffe8d4;
+      --card-tint-rose: #fde0ec;
+      --card-tint-mint: #d9f3e1;
+      --card-tint-lavender: #e6e0f5;
+      --card-tint-sky: #dcecfa;
+      --card-tint-yellow: #fef7d6;
+      --card-tint-yellow-bold: #f9e79f;
+      --card-tint-cream: #f8f5e8;
+      --card-tint-gray: #f0eeec;
+
+      /* Surface */
+      --canvas: #ffffff;
+      --surface: #f6f5f4;
+      --surface-soft: #fafaf9;
+      --hairline: #e5e3df;
+      --hairline-soft: #ede9e4;
+      --hairline-strong: #c8c4be;
+
+      /* Text */
+      --ink-deep: #000000;
+      --ink: #1a1a1a;
+      --charcoal: #37352f;
+      --slate: #5d5b54;
+      --steel: #787671;
+      --stone: #a4a097;
+      --muted: #bbb8b1;
+      --on-dark: #ffffff;
+      --on-dark-muted: #a4a097;
+
+      /* Semantic */
+      --semantic-success: #1aae39;
+      --semantic-warning: #dd5b00;
+      --semantic-error: #e03131;
+
+      /* Rounded */
+      --r-xs: 4px;
+      --r-sm: 6px;
+      --r-md: 8px;
+      --r-lg: 12px;
+      --r-xl: 16px;
+      --r-xxl: 20px;
+      --r-xxxl: 24px;
+      --r-full: 9999px;
+
+      /* Spacing */
+      --s-xxs: 4px;
+      --s-xs: 8px;
+      --s-sm: 12px;
+      --s-md: 16px;
+      --s-lg: 20px;
+      --s-xl: 24px;
+      --s-xxl: 32px;
+      --s-xxxl: 40px;
+      --s-section-sm: 48px;
+      --s-section: 64px;
+      --s-section-lg: 96px;
+      --s-hero: 120px;
+
+      /* Shadows */
+      --shadow-1: rgba(15, 15, 15, 0.04) 0 1px 2px 0;
+      --shadow-2: rgba(15, 15, 15, 0.08) 0 4px 12px 0;
+      --shadow-3: rgba(15, 15, 15, 0.20) 0 24px 48px -8px;
+      --shadow-4: rgba(15, 15, 15, 0.16) 0 16px 48px -8px;
+
+      --container-max: 1280px;
+      --container-pad: 32px;
+    }
+
+    /* ─────────────────────────────────────────────────────────────────────
+       Reset + base
+       ───────────────────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', Helvetica, sans-serif;
+      font-feature-settings: 'cv11', 'ss01', 'ss03';
+      font-size: 16px;
+      font-weight: 400;
+      line-height: 1.55;
+      color: var(--ink);
+      background: var(--canvas);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    @supports (font-variation-settings: normal) {
+      body { font-family: 'Inter var', -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', sans-serif; }
+    }
+    img, svg { display: block; max-width: 100%; }
+    a { color: inherit; text-decoration: none; }
+    button { font: inherit; cursor: pointer; border: 0; background: none; }
+
+    /* ─────────────────────────────────────────────────────────────────────
+       Typography utilities (mapped from DESIGN.md tokens)
+       ───────────────────────────────────────────────────────────────────── */
+    .t-hero       { font-weight: 600; font-size: 80px; line-height: 1.05; letter-spacing: -2px; }
+    .t-display-lg { font-weight: 600; font-size: 56px; line-height: 1.10; letter-spacing: -1px; }
+    .t-h1         { font-weight: 600; font-size: 48px; line-height: 1.15; letter-spacing: -0.5px; }
+    .t-h2         { font-weight: 600; font-size: 36px; line-height: 1.20; letter-spacing: -0.5px; }
+    .t-h3         { font-weight: 600; font-size: 28px; line-height: 1.25; }
+    .t-h4         { font-weight: 600; font-size: 22px; line-height: 1.30; }
+    .t-h5         { font-weight: 600; font-size: 18px; line-height: 1.40; }
+    .t-subtitle   { font-weight: 400; font-size: 18px; line-height: 1.50; }
+    .t-body       { font-weight: 400; font-size: 16px; line-height: 1.55; }
+    .t-body-md    { font-weight: 500; font-size: 16px; line-height: 1.55; }
+    .t-body-sm    { font-weight: 400; font-size: 14px; line-height: 1.50; }
+    .t-body-sm-md { font-weight: 500; font-size: 14px; line-height: 1.50; }
+    .t-caption    { font-weight: 400; font-size: 13px; line-height: 1.40; }
+    .t-caption-b  { font-weight: 600; font-size: 13px; line-height: 1.40; }
+    .t-micro      { font-weight: 500; font-size: 12px; line-height: 1.40; }
+    .t-micro-up   { font-weight: 600; font-size: 11px; line-height: 1.40; letter-spacing: 1px; text-transform: uppercase; }
+
+    /* ─────────────────────────────────────────────────────────────────────
+       Layout primitives
+       ───────────────────────────────────────────────────────────────────── */
+    .container { max-width: var(--container-max); margin: 0 auto; padding: 0 var(--container-pad); }
+
+    /* ─────────────────────────────────────────────────────────────────────
+       Buttons (rectangular 8px, NOT pills)
+       ───────────────────────────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      font-weight: 500; font-size: 14px; line-height: 1.30;
+      padding: 10px 18px; border-radius: var(--r-md);
+      border: 1px solid transparent;
+      transition: background-color 150ms ease, border-color 150ms ease, transform 150ms ease;
+      white-space: nowrap;
+    }
+    .btn-primary       { background: var(--primary); color: var(--on-primary); }
+    .btn-primary:hover { background: var(--primary-pressed); }
+    .btn-dark          { background: var(--ink-deep); color: var(--on-dark); }
+    .btn-secondary     { background: transparent; color: var(--ink); border-color: var(--hairline-strong); }
+    .btn-secondary:hover { background: var(--surface); }
+    .btn-on-dark       { background: var(--on-dark); color: var(--ink); }
+    .btn-on-dark:hover { background: #ececea; }
+    .btn-secondary-dark{ background: transparent; color: var(--on-dark); border-color: var(--on-dark-muted); }
+    .btn-secondary-dark:hover { background: rgba(255,255,255,.08); }
+    .btn-ghost         { background: transparent; color: var(--ink); padding: 8px 12px; border-radius: var(--r-sm); }
+    .btn-ghost:hover   { background: var(--surface); }
+    .btn-link          { background: transparent; color: var(--link-blue); padding: 0; font-weight: 500; }
+    .btn-link:hover    { color: var(--link-blue-pressed); }
+
+    /* ─────────────────────────────────────────────────────────────────────
+       Promo banner + Top nav
+       ───────────────────────────────────────────────────────────────────── */
+    .promo {
+      background: var(--surface);
+      color: var(--ink);
+      padding: 12px 16px;
+      text-align: center;
+      font-weight: 500; font-size: 14px;
+    }
+    .promo a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+
+    .nav {
+      position: sticky; top: 0; z-index: 50;
+      background: rgba(255,255,255,.92);
+      backdrop-filter: saturate(180%) blur(10px);
+      -webkit-backdrop-filter: saturate(180%) blur(10px);
+      border-bottom: 1px solid var(--hairline);
+    }
+    .nav-inner {
+      display: flex; align-items: center; justify-content: space-between;
+      height: 64px;
+    }
+    .nav-left { display: flex; align-items: center; gap: 28px; }
+    .nav-logo { display: flex; align-items: center; gap: 10px; font-weight: 600; color: var(--ink); }
+    .nav-logo svg { width: 26px; height: 26px; }
+    .nav-links { display: flex; gap: 24px; align-items: center; }
+    .nav-links a { color: var(--charcoal); font-weight: 500; font-size: 14px; padding: 8px 0; }
+    .nav-links a:hover { color: var(--ink-deep); }
+    .nav-right { display: flex; align-items: center; gap: 16px; }
+    .nav-right .login { color: var(--charcoal); font-weight: 500; font-size: 14px; padding: 8px 12px; }
+    .nav-burger { display: none; }
+
+    /* ─────────────────────────────────────────────────────────────────────
+       Hero (deep navy band with decorative dots/wires)
+       ───────────────────────────────────────────────────────────────────── */
+    .hero {
+      position: relative;
+      background: var(--brand-navy);
+      color: var(--on-dark);
+      padding: 120px 24px 0;
+      overflow: hidden;
+      isolation: isolate;
+    }
+    .hero-bg { position: absolute; inset: 0; pointer-events: none; }
+    .hero-bg svg { width: 100%; height: 100%; }
+    .hero-content { position: relative; max-width: 920px; margin: 0 auto; text-align: center; }
+    .hero h1 { margin: 0 0 24px; }
+    .hero p.lede {
+      max-width: 680px; margin: 0 auto 40px;
+      color: var(--on-dark-muted); font-size: 20px; line-height: 1.50;
+    }
+    .hero-cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+    /* Workspace mockup — sits half-overlapping the hero/canvas border */
+    .mockup-wrap {
+      position: relative;
+      max-width: 1100px;
+      margin: 80px auto -160px;
+      padding: 0 24px;
+    }
+    .mockup {
+      background: var(--canvas);
+      border-radius: var(--r-lg);
+      border: 1px solid var(--hairline);
+      box-shadow: var(--shadow-3);
+      overflow: hidden;
+    }
+    .mockup-bar {
+      display: flex; align-items: center; gap: 6px;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--hairline);
+      background: var(--surface-soft);
+    }
+    .mockup-bar .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--hairline-strong); }
+    .mockup-bar .dot:nth-child(1) { background: #ff5f57; }
+    .mockup-bar .dot:nth-child(2) { background: #febc2e; }
+    .mockup-bar .dot:nth-child(3) { background: #28c840; }
+    .mockup-bar .url {
+      margin-left: 14px; font-size: 13px; color: var(--steel);
+      font-family: 'SF Mono', ui-monospace, Menlo, monospace;
+    }
+    .mockup-body { display: grid; grid-template-columns: 220px 1fr; min-height: 420px; }
+    .mockup-side {
+      background: var(--surface-soft);
+      border-right: 1px solid var(--hairline);
+      padding: 16px 12px; font-size: 13px;
+    }
+    .mockup-side .group { color: var(--stone); font-size: 11px; font-weight: 600; letter-spacing: 1px;
+                          text-transform: uppercase; padding: 16px 8px 6px; }
+    .mockup-side .item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 6px 8px; border-radius: var(--r-sm);
+      color: var(--charcoal); font-weight: 500;
+    }
+    .mockup-side .item .swatch { width: 12px; height: 12px; border-radius: 3px; }
+    .mockup-side .item.active { background: var(--card-tint-lavender); color: var(--brand-purple-800); }
+    .mockup-main { padding: 18px 22px; }
+    .mockup-title { font-weight: 600; font-size: 18px; color: var(--charcoal); margin-bottom: 14px; }
+    .mockup-grid {
+      display: grid; gap: 12px;
+      grid-template-columns: repeat(4, 1fr);
+    }
+    .mockup-tile {
+      background: var(--canvas);
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-md);
+      padding: 12px;
+      display: flex; flex-direction: column; gap: 10px;
+      min-height: 110px;
+    }
+    .mockup-tile .thumb { background: var(--surface); border-radius: var(--r-sm); height: 60px; }
+    .mockup-tile .name { font-size: 13px; font-weight: 500; color: var(--charcoal); }
+    .mockup-tile .meta { font-size: 11px; color: var(--steel); }
+    .mockup-tile.peach .thumb { background: var(--card-tint-peach); }
+    .mockup-tile.mint  .thumb { background: var(--card-tint-mint); }
+    .mockup-tile.sky   .thumb { background: var(--card-tint-sky); }
+    .mockup-tile.rose  .thumb { background: var(--card-tint-rose); }
+    .mockup-tile.lav   .thumb { background: var(--card-tint-lavender); }
+    .mockup-tile.yel   .thumb { background: var(--card-tint-yellow); }
+
+    /* ─────────────────────────────────────────────────────────────────────
+       Section spacing
+       ───────────────────────────────────────────────────────────────────── */
+    .section { padding: 96px 0; }
+    .section.tight { padding: 64px 0; }
+    .section h2.lead { max-width: 720px; margin: 0 auto 56px; text-align: center; }
+    .eyebrow {
+      display: inline-block;
+      color: var(--primary); background: var(--card-tint-lavender);
+      padding: 4px 10px; border-radius: var(--r-full);
+      font-size: 13px; font-weight: 600; margin-bottom: 16px;
+    }
+
+    /* ─────────────────────────────────────────────────────────────────────
+       "Keep work moving" sticky-note panel (section 1)
+       ───────────────────────────────────────────────────────────────────── */
+    .panel {
+      background: var(--card-tint-cream);
+      border-radius: var(--r-xl);
+      padding: 64px 48px;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: center;
+    }
+    .panel h3 { margin: 0 0 16px; }
+    .panel p  { margin: 0 0 24px; color: var(--slate); font-size: 18px; }
+    .sticky-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px;
+    }
+    .sticky {
+      padding: 16px;
+      border-radius: var(--r-md);
+      font-size: 14px; font-weight: 500;
+      color: var(--charcoal);
+      box-shadow: var(--shadow-1);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .sticky::before {
+      content: ""; width: 12px; height: 12px; border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .sticky.r { background: var(--card-tint-rose); }       .sticky.r::before { background: #e03131; }
+    .sticky.b { background: var(--card-tint-sky); }        .sticky.b::before { background: var(--link-blue); }
+    .sticky.g { background: var(--card-tint-mint); }       .sticky.g::before { background: var(--brand-green); }
+    .sticky.p { background: var(--card-tint-lavender); }   .sticky.p::before { background: var(--primary); }
+    .sticky.t { background: var(--card-tint-peach); }      .sticky.t::before { background: var(--brand-orange); }
+    .sticky.y { background: var(--card-tint-yellow); }     .sticky.y::before { background: var(--brand-yellow); }
+
+    /* ─────────────────────────────────────────────────────────────────────
+       Bold-yellow assistant banner + 3 pastel tiles (section 2)
+       ───────────────────────────────────────────────────────────────────── */
+    .banner-yellow {
+      background: var(--card-tint-yellow-bold);
+      color: var(--charcoal);
+      border-radius: var(--r-xl);
+      padding: 64px 48px;
+      display: grid; grid-template-columns: 1.1fr 1fr; gap: 56px; align-items: center;
+      margin-bottom: 48px;
+    }
+    .banner-yellow h3 { margin: 0 0 16px; max-width: 460px; }
+    .banner-yellow p  { margin: 0 0 24px; font-size: 18px; max-width: 460px; }
+    .banner-mock {
+      background: var(--canvas);
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-lg);
+      padding: 18px;
+      box-shadow: var(--shadow-2);
+    }
+    .chat-row { display: flex; gap: 12px; margin-bottom: 14px; }
+    .chat-row .avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: var(--primary); color: white; flex-shrink: 0;
+      display: grid; place-items: center; font-weight: 600; font-size: 13px;
+    }
+    .chat-row .bubble {
+      background: var(--surface);
+      padding: 10px 12px;
+      border-radius: var(--r-md);
+      font-size: 14px; color: var(--charcoal);
+    }
+    .chat-row.me .avatar { background: var(--ink-deep); }
+    .chat-row.ai .avatar { background: var(--card-tint-lavender); color: var(--brand-purple-800); }
+    .chat-row.ai .bubble { background: var(--card-tint-lavender); color: var(--brand-purple-800); }
+
+    .tile-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+    .tile {
+      border-radius: var(--r-lg);
+      padding: 32px;
+      min-height: 320px;
+      display: flex; flex-direction: column; justify-content: space-between;
+      color: var(--charcoal);
+    }
+    .tile.peach    { background: var(--card-tint-peach); }
+    .tile.rose     { background: var(--card-tint-rose); }
+    .tile.mint     { background: var(--card-tint-mint); }
+    .tile.lavender { background: var(--card-tint-lavender); }
+    .tile.sky      { background: var(--card-tint-sky); }
+    .tile h4 { margin: 0 0 8px; }
+    .tile p  { margin: 0; font-size: 15px; color: var(--slate); }
+    .tile-art {
+      margin-top: 20px;
+      border-radius: var(--r-md);
+      background: rgba(255,255,255,.6);
+      padding: 14px;
+      box-shadow: var(--shadow-1);
+    }
+    .tile-art .line { height: 8px; border-radius: 4px; background: var(--hairline); margin-bottom: 8px; }
+    .tile-art .line.short { width: 60%; }
+    .tile-art .line.dark { background: var(--charcoal); }
+    .tile-art .line.purple { background: var(--primary); }
+    .tile-art .line.orange { background: var(--brand-orange); }
+
+    /* ─────────────────────────────────────────────────────────────────────
+       3-column "Bring it all together" (section 3)
+       ───────────────────────────────────────────────────────────────────── */
+    .triplet { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
+    .feature {
+      background: var(--canvas);
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-lg);
+      padding: 28px;
+      display: flex; flex-direction: column;
+    }
+    .feature .icon {
+      width: 44px; height: 44px; border-radius: var(--r-md);
+      display: grid; place-items: center; margin-bottom: 18px;
+    }
+    .feature h4 { margin: 0 0 8px; }
+    .feature p  { margin: 0 0 20px; color: var(--slate); }
+    .feature .art {
+      margin-top: auto;
+      background: var(--card-tint-sky);
+      border-radius: var(--r-md);
+      padding: 20px;
+      min-height: 160px;
+    }
+    .feature.b .art { background: var(--card-tint-cream); }
+    .feature.c .art { background: var(--card-tint-peach); }
+
+    /* ─────────────────────────────────────────────────────────────────────
+       Pricing
+       ───────────────────────────────────────────────────────────────────── */
+    .pricing-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+      align-items: stretch;
+      margin-top: 56px;
+    }
+    .price {
+      background: var(--canvas);
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-lg);
+      padding: 32px;
+      display: flex; flex-direction: column; gap: 16px;
+      position: relative;
+    }
+    .price.featured {
+      background: var(--surface);
+      border: 2px solid var(--primary);
+    }
+    .price .badge-popular {
+      position: absolute; top: -10px; right: 24px;
+      background: var(--primary); color: white;
+      padding: 4px 10px; border-radius: var(--r-full);
+      font-size: 13px; font-weight: 600;
+    }
+    .price h4 { margin: 0; }
+    .price .price-amount { font-weight: 600; font-size: 36px; line-height: 1; letter-spacing: -0.5px; }
+    .price .price-amount span { font-size: 16px; color: var(--steel); font-weight: 500; }
+    .price .price-desc { color: var(--slate); font-size: 14px; min-height: 40px; }
+    .price ul {
+      list-style: none; padding: 0; margin: 0;
+      display: flex; flex-direction: column; gap: 10px;
+      font-size: 14px; color: var(--charcoal);
+    }
+    .price ul li { display: flex; gap: 10px; align-items: flex-start; }
+    .price ul li::before {
+      content: ""; width: 18px; height: 18px; flex-shrink: 0;
+      background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><path fill='%2337352f' d='M16.7 5.3a1 1 0 0 1 0 1.4l-8 8a1 1 0 0 1-1.4 0l-4-4a1 1 0 1 1 1.4-1.4L8 12.6l7.3-7.3a1 1 0 0 1 1.4 0z'/></svg>") center/contain no-repeat;
+      margin-top: 1px;
+    }
+    .price .btn { margin-top: auto; }
+
+    /* Comparison table */
+    .compare {
+      margin-top: 64px;
+      background: var(--canvas);
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-md);
+      overflow: hidden;
+    }
+    .compare table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .compare thead th {
+      text-align: left; font-weight: 600; padding: 16px 20px;
+      background: var(--surface-soft);
+      border-bottom: 1px solid var(--hairline);
+      color: var(--charcoal);
+    }
+    .compare thead th:not(:first-child) { text-align: center; }
+    .compare tbody td {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--hairline-soft);
+      color: var(--charcoal);
+    }
+    .compare tbody td:not(:first-child) { text-align: center; color: var(--slate); }
+    .compare tbody tr:last-child td { border-bottom: 0; }
+    .compare .check::after {
+      content: ""; display: inline-block; width: 16px; height: 16px;
+      background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'><path fill='%231aae39' d='M16.7 5.3a1 1 0 0 1 0 1.4l-8 8a1 1 0 0 1-1.4 0l-4-4a1 1 0 1 1 1.4-1.4L8 12.6l7.3-7.3a1 1 0 0 1 1.4 0z'/></svg>") center/contain no-repeat;
+    }
+    .compare th.highlight, .compare td.highlight { background: rgba(86, 69, 212, .04); }
+    .compare th.highlight { color: var(--primary); }
+
+    /* ─────────────────────────────────────────────────────────────────────
+       FAQ
+       ───────────────────────────────────────────────────────────────────── */
+    .faq { max-width: 900px; margin: 56px auto 0; }
+    .faq details {
+      border-bottom: 1px solid var(--hairline);
+      padding: 24px 0;
+    }
+    .faq details[open] summary::after { transform: rotate(45deg); }
+    .faq summary {
+      list-style: none; cursor: pointer;
+      font-size: 18px; font-weight: 600; color: var(--ink);
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 24px;
+    }
+    .faq summary::-webkit-details-marker { display: none; }
+    .faq summary::after {
+      content: "+"; font-size: 24px; font-weight: 400;
+      color: var(--steel); transition: transform 200ms ease;
+    }
+    .faq details > p { margin: 12px 0 0; color: var(--slate); }
+
+    /* ─────────────────────────────────────────────────────────────────────
+       CTA banner
+       ───────────────────────────────────────────────────────────────────── */
+    .cta-light {
+      background: var(--surface);
+      border-radius: var(--r-lg);
+      padding: 64px;
+      text-align: center;
+    }
+    .cta-light h2 { margin: 0 0 12px; }
+    .cta-light p  { margin: 0 0 28px; color: var(--slate); font-size: 18px; }
+
+    /* ─────────────────────────────────────────────────────────────────────
+       Footer
+       ───────────────────────────────────────────────────────────────────── */
+    .footer {
+      border-top: 1px solid var(--hairline);
+      background: var(--canvas);
+      padding: 64px 32px 48px;
+      color: var(--charcoal);
+    }
+    .footer-grid {
+      display: grid; grid-template-columns: 1.4fr repeat(5, 1fr); gap: 40px;
+      max-width: var(--container-max); margin: 0 auto;
+    }
+    .footer-brand p { color: var(--slate); font-size: 14px; max-width: 240px; }
+    .footer h6 { font-size: 13px; color: var(--charcoal); margin: 0 0 16px; font-weight: 600; }
+    .footer ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
+    .footer ul a { color: var(--steel); font-size: 14px; }
+    .footer ul a:hover { color: var(--ink); }
+    .footer-bottom {
+      max-width: var(--container-max); margin: 48px auto 0; padding-top: 24px;
+      border-top: 1px solid var(--hairline-soft);
+      display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+      color: var(--steel); font-size: 13px;
+    }
+
+    /* ─────────────────────────────────────────────────────────────────────
+       Responsive
+       ───────────────────────────────────────────────────────────────────── */
+    @media (max-width: 1280px) {
+      .hero { padding-top: 96px; }
+      .t-hero { font-size: 72px; }
+    }
+    @media (max-width: 1024px) {
+      .nav-links { display: none; }
+      .nav-burger { display: inline-flex; }
+      .t-hero { font-size: 56px; letter-spacing: -1px; }
+      .pricing-grid { grid-template-columns: repeat(2, 1fr); }
+      .panel, .banner-yellow { grid-template-columns: 1fr; }
+      .triplet { grid-template-columns: repeat(2, 1fr); }
+      .footer-grid { grid-template-columns: repeat(3, 1fr); }
+      .mockup-body { grid-template-columns: 180px 1fr; }
+      .mockup-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (max-width: 768px) {
+      :root { --container-pad: 20px; }
+      .section { padding: 64px 0; }
+      .hero { padding-top: 72px; }
+      .t-hero { font-size: 48px; letter-spacing: -0.5px; }
+      .t-h1 { font-size: 36px; }
+      .t-h2 { font-size: 28px; }
+      .panel, .banner-yellow { padding: 40px 28px; gap: 32px; }
+      .tile-grid, .triplet { grid-template-columns: 1fr; }
+      .mockup-body { grid-template-columns: 1fr; min-height: 0; }
+      .mockup-side { display: none; }
+      .mockup-grid { grid-template-columns: repeat(2, 1fr); }
+      .footer-grid { grid-template-columns: repeat(2, 1fr); gap: 32px; }
+      .compare { overflow-x: auto; }
+      .compare table { min-width: 640px; }
+    }
+    @media (max-width: 480px) {
+      .t-hero { font-size: 36px; }
+      .hero-cta .btn { width: 100%; }
+      .pricing-grid { grid-template-columns: 1fr; }
+      .cta-light { padding: 40px 20px; }
+      .footer-grid { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       Promo banner
+       ═══════════════════════════════════════════════════════════════════ -->
+  <div class="promo">
+    Now with built-in REST API for AI agents — <a href="#api">read the docs</a> →
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       Top navigation
+       ═══════════════════════════════════════════════════════════════════ -->
+  <header class="nav">
+    <div class="container nav-inner">
+      <div class="nav-left">
+        <a class="nav-logo" href="#">
+          <svg viewBox="0 0 32 32" fill="none">
+            <rect width="32" height="32" rx="6" fill="#0a1530"/>
+            <path d="M9 9 H21 L23 11 V23 L21 25 H9 L7 23 V11 Z" fill="white"/>
+            <path d="M11 13 H19 V15 H11 Z M11 17 H19 V19 H11 Z M11 21 H15 V23 H11 Z" fill="#0a1530"/>
+          </svg>
+          Telegram Drive
+        </a>
+        <nav class="nav-links">
+          <a href="#features">Product</a>
+          <a href="#pricing">Pricing</a>
+          <a href="#api">Developers</a>
+          <a href="#faq">Docs</a>
+          <a href="https://github.com/caamer20/Telegram-Drive">GitHub</a>
+        </nav>
+      </div>
+      <div class="nav-right">
+        <a class="login" href="#">Log in</a>
+        <a class="btn btn-primary" href="#download">Download free</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       Hero
+       ═══════════════════════════════════════════════════════════════════ -->
+  <section class="hero">
+    <!-- Decorative dots + mesh wires -->
+    <div class="hero-bg" aria-hidden="true">
+      <svg viewBox="0 0 1440 720" preserveAspectRatio="xMidYMid slice">
+        <!-- mesh wire arcs -->
+        <g stroke="rgba(255,255,255,0.06)" stroke-width="1.4" fill="none">
+          <path d="M-100 540 Q 360 200 720 360 T 1540 200" />
+          <path d="M-100 460 Q 360 720 720 460 T 1540 540" />
+          <path d="M-100 600 Q 480 280 960 460 T 1540 320" />
+        </g>
+        <!-- scattered colored dots -->
+        <g>
+          <circle cx="120"  cy="120" r="10" fill="#ff64c8"/>
+          <circle cx="220"  cy="240" r="6"  fill="#1aae39"/>
+          <circle cx="160"  cy="420" r="14" fill="#dd5b00"/>
+          <circle cx="320"  cy="340" r="8"  fill="#f5d75e"/>
+          <circle cx="100"  cy="560" r="9"  fill="#7b3ff2"/>
+          <circle cx="280"  cy="600" r="6"  fill="#2a9d99"/>
+          <circle cx="1320" cy="100" r="8"  fill="#1aae39"/>
+          <circle cx="1220" cy="240" r="12" fill="#ff64c8"/>
+          <circle cx="1340" cy="380" r="7"  fill="#f5d75e"/>
+          <circle cx="1180" cy="500" r="10" fill="#7b3ff2"/>
+          <circle cx="1300" cy="600" r="9"  fill="#dd5b00"/>
+          <circle cx="1100" cy="120" r="6"  fill="#2a9d99"/>
+          <!-- soft fills behind -->
+          <circle cx="200"  cy="140" r="40" fill="rgba(255,100,200,0.06)"/>
+          <circle cx="1240" cy="200" r="60" fill="rgba(123,63,242,0.05)"/>
+          <circle cx="1300" cy="540" r="50" fill="rgba(245,215,94,0.06)"/>
+        </g>
+      </svg>
+    </div>
+
+    <div class="hero-content">
+      <h1 class="t-hero">Your unlimited cloud, on Telegram.</h1>
+      <p class="lede">
+        Telegram Drive turns your Telegram account into a private, unlimited file manager.
+        Upload, stream, organise — your files stay on Telegram's servers, encrypted and yours.
+      </p>
+      <div class="hero-cta">
+        <a class="btn btn-primary" href="#download">Get Telegram Drive free</a>
+        <a class="btn btn-secondary-dark" href="#features">See what it does</a>
+      </div>
+    </div>
+
+    <!-- Workspace mockup -->
+    <div class="mockup-wrap">
+      <div class="mockup">
+        <div class="mockup-bar">
+          <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+          <span class="url">telegram-drive · my-files</span>
+        </div>
+        <div class="mockup-body">
+          <aside class="mockup-side">
+            <div class="group">My drive</div>
+            <div class="item active"><span class="swatch" style="background:#7b3ff2"></span>All files</div>
+            <div class="item"><span class="swatch" style="background:#1aae39"></span>Photos</div>
+            <div class="item"><span class="swatch" style="background:#dd5b00"></span>Videos</div>
+            <div class="item"><span class="swatch" style="background:#0075de"></span>Documents</div>
+            <div class="item"><span class="swatch" style="background:#ff64c8"></span>Music</div>
+            <div class="group">Folders</div>
+            <div class="item"><span class="swatch" style="background:#2a9d99"></span>Work backups</div>
+            <div class="item"><span class="swatch" style="background:#f5d75e"></span>Family album</div>
+            <div class="item"><span class="swatch" style="background:#a02e6d"></span>Course videos</div>
+          </aside>
+          <main class="mockup-main">
+            <div class="mockup-title">All files</div>
+            <div class="mockup-grid">
+              <div class="mockup-tile peach"><div class="thumb"></div><div class="name">Mountain.MOV</div><div class="meta">142 MB · video</div></div>
+              <div class="mockup-tile mint"><div class="thumb"></div><div class="name">Q3-report.pdf</div><div class="meta">3.4 MB · pdf</div></div>
+              <div class="mockup-tile sky"><div class="thumb"></div><div class="name">design-v2.fig</div><div class="meta">8.1 MB · figma</div></div>
+              <div class="mockup-tile rose"><div class="thumb"></div><div class="name">album-2024.zip</div><div class="meta">1.2 GB · archive</div></div>
+              <div class="mockup-tile lav"><div class="thumb"></div><div class="name">notes.md</div><div class="meta">12 KB · text</div></div>
+              <div class="mockup-tile yel"><div class="thumb"></div><div class="name">interview.mp3</div><div class="meta">28 MB · audio</div></div>
+              <div class="mockup-tile peach"><div class="thumb"></div><div class="name">demo.mp4</div><div class="meta">76 MB · video</div></div>
+              <div class="mockup-tile sky"><div class="thumb"></div><div class="name">photo-roll.zip</div><div class="meta">540 MB · archive</div></div>
+            </div>
+          </main>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- spacer to compensate for negative-margin mockup -->
+  <div style="height:200px"></div>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       Section: Keep work moving 24/7  (sticky-note panel)
+       ═══════════════════════════════════════════════════════════════════ -->
+  <section class="section" id="features">
+    <div class="container">
+      <div class="panel">
+        <div>
+          <span class="eyebrow">Always on</span>
+          <h3 class="t-h2">Your files, available 24/7.</h3>
+          <p>
+            Telegram Drive runs entirely on Telegram's infrastructure. Files are
+            encrypted in transit and at rest, mirrored across data centers, and
+            available wherever you have a network — no third-party servers in between.
+          </p>
+          <a class="btn btn-secondary" href="#features">How it works →</a>
+        </div>
+        <div class="sticky-grid">
+          <div class="sticky r">Encrypted in transit</div>
+          <div class="sticky b">Resumable uploads</div>
+          <div class="sticky g">Range-request streaming</div>
+          <div class="sticky p">PDF & image preview</div>
+          <div class="sticky t">Drag-and-drop manager</div>
+          <div class="sticky y">Folders via channels</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       Section: Bold yellow assistant banner + 3 pastel tiles
+       ═══════════════════════════════════════════════════════════════════ -->
+  <section class="section tight" id="api">
+    <div class="container">
+      <div style="text-align:center; margin-bottom: 48px">
+        <span class="eyebrow" style="background: var(--card-tint-yellow); color: var(--brand-orange-deep)">For builders</span>
+        <h2 class="t-h1 lead" style="margin-top: 12px">Built to plug into anything you ship.</h2>
+      </div>
+
+      <div class="banner-yellow">
+        <div>
+          <h3 class="t-h2">Ask your AI assistant to fetch any file.</h3>
+          <p>
+            Toggle the built-in REST API and your Telegram cloud becomes addressable
+            from any agent: list, download, search — all behind a single
+            <code>X-API-Key</code>.
+          </p>
+          <a class="btn btn-dark" href="#api">Read the API docs →</a>
+        </div>
+        <div class="banner-mock">
+          <div class="chat-row me">
+            <div class="avatar">Y</div>
+            <div class="bubble">Pull the latest Q3-report.pdf and summarise.</div>
+          </div>
+          <div class="chat-row ai">
+            <div class="avatar">AI</div>
+            <div class="bubble">
+              ✓ Found <strong>Q3-report.pdf</strong> (3.4 MB).<br/>
+              Q3 revenue grew 18% YoY, driven by enterprise renewals…
+            </div>
+          </div>
+          <div class="chat-row me">
+            <div class="avatar">Y</div>
+            <div class="bubble">Now move it to /archives/2024.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="tile-grid">
+        <div class="tile peach">
+          <div>
+            <h4 class="t-h3">Stream media</h4>
+            <p>HTTP range requests let you scrub video and audio without downloading the whole file.</p>
+          </div>
+          <div class="tile-art">
+            <div class="line orange"></div>
+            <div class="line short"></div>
+            <div class="line"></div>
+            <div class="line short"></div>
+          </div>
+        </div>
+        <div class="tile rose">
+          <div>
+            <h4 class="t-h3">Preview anywhere</h4>
+            <p>Built-in PDF viewer with infinite scroll. Image and audio previews inline.</p>
+          </div>
+          <div class="tile-art">
+            <div class="line dark"></div>
+            <div class="line"></div>
+            <div class="line"></div>
+            <div class="line short"></div>
+          </div>
+        </div>
+        <div class="tile mint">
+          <div>
+            <h4 class="t-h3">Open REST API</h4>
+            <p>OpenAPI spec at <code>/api/v1/openapi.json</code> — wire it into any agent or workflow.</p>
+          </div>
+          <div class="tile-art">
+            <div class="line purple"></div>
+            <div class="line short"></div>
+            <div class="line"></div>
+            <div class="line short"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       Section: Bring it all together (3-column)
+       ═══════════════════════════════════════════════════════════════════ -->
+  <section class="section">
+    <div class="container">
+      <div style="text-align:center; margin-bottom: 56px">
+        <span class="eyebrow">One desktop app</span>
+        <h2 class="t-h1 lead" style="margin-top: 12px">Bring all your files together.</h2>
+      </div>
+      <div class="triplet">
+        <div class="feature">
+          <div class="icon" style="background: var(--card-tint-sky)">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+              <path d="M3 7h18M3 12h18M3 17h12" stroke="#0075de" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <h4 class="t-h3">Cross-platform</h4>
+          <p>Native desktop on Windows, macOS, and Linux. Built with React + Python (pywebview).</p>
+          <div class="art">
+            <div style="display:flex; gap:8px; align-items:center">
+              <span style="width:14px; height:14px; background:white; border-radius:3px"></span>
+              <span style="font-size:12px; color: var(--charcoal); font-weight:500">Windows · macOS · Linux</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="feature b">
+          <div class="icon" style="background: var(--card-tint-yellow)">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+              <path d="M12 2 4 6v6c0 5 3.5 9 8 10 4.5-1 8-5 8-10V6l-8-4z" stroke="#dd5b00" stroke-width="2" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <h4 class="t-h3">Privacy-first</h4>
+          <p>Files never leave Telegram's servers. No analytics, no telemetry, no cloud middleman.</p>
+          <div class="art">
+            <div style="font-size:12px; color: var(--charcoal); font-weight:500">
+              <code style="background: white; padding: 4px 8px; border-radius: 4px; font-size: 11px">SESSION → ~/AppData/TelegramDrive</code>
+            </div>
+          </div>
+        </div>
+
+        <div class="feature c">
+          <div class="icon" style="background: var(--card-tint-peach)">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+              <path d="M16 18 22 12 16 6 M8 6 2 12 8 18" stroke="#dd5b00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <h4 class="t-h3">Open source</h4>
+          <p>MIT-licensed. Clone, audit, fork — your data path is fully inspectable.</p>
+          <div class="art">
+            <div style="display:flex; gap:6px; flex-wrap:wrap">
+              <span style="background:white; padding: 4px 8px; border-radius: var(--r-sm); font-size: 11px; font-weight:600; color: var(--brand-orange-deep)">MIT</span>
+              <span style="background:white; padding: 4px 8px; border-radius: var(--r-sm); font-size: 11px; font-weight:600; color: var(--charcoal)">Python 3.11+</span>
+              <span style="background:white; padding: 4px 8px; border-radius: var(--r-sm); font-size: 11px; font-weight:600; color: var(--charcoal)">React 19</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       Pricing
+       ═══════════════════════════════════════════════════════════════════ -->
+  <section class="section" id="pricing" style="background: var(--surface-soft)">
+    <div class="container">
+      <div style="text-align:center; max-width: 720px; margin: 0 auto">
+        <span class="eyebrow">Pricing</span>
+        <h2 class="t-h1" style="margin: 12px 0 16px">Simple pricing for everyone.</h2>
+        <p class="t-subtitle" style="color: var(--slate)">
+          Free for personal use. Optional supporter and team tiers help fund development.
+        </p>
+      </div>
+
+      <div class="pricing-grid">
+        <div class="price">
+          <h4 class="t-h4">Free</h4>
+          <div class="price-amount">$0<span> / forever</span></div>
+          <div class="price-desc">For personal use. Everything you need to organise your Telegram cloud.</div>
+          <ul>
+            <li>Unlimited cloud storage</li>
+            <li>Native desktop app</li>
+            <li>PDF & media preview</li>
+            <li>Drag-and-drop uploads</li>
+          </ul>
+          <a class="btn btn-secondary" href="#download">Download</a>
+        </div>
+
+        <div class="price featured">
+          <span class="badge-popular">Most popular</span>
+          <h4 class="t-h4">Plus</h4>
+          <div class="price-amount">$5<span> / month</span></div>
+          <div class="price-desc">Support development and unlock the integrated REST API for AI agents.</div>
+          <ul>
+            <li>Everything in Free</li>
+            <li>Built-in REST API</li>
+            <li>OpenAPI spec + Swagger UI</li>
+            <li>Priority issue response</li>
+            <li>Supporter badge</li>
+          </ul>
+          <a class="btn btn-primary" href="#">Get Plus</a>
+        </div>
+
+        <div class="price">
+          <h4 class="t-h4">Business</h4>
+          <div class="price-amount">$15<span> / user / mo</span></div>
+          <div class="price-desc">Team features for small organisations using shared Telegram folders.</div>
+          <ul>
+            <li>Everything in Plus</li>
+            <li>Shared folder management</li>
+            <li>Audit log export</li>
+            <li>Email support</li>
+          </ul>
+          <a class="btn btn-secondary" href="#">Contact sales</a>
+        </div>
+
+        <div class="price">
+          <h4 class="t-h4">Enterprise</h4>
+          <div class="price-amount" style="font-size: 28px">Custom</div>
+          <div class="price-desc">Self-hosted deployments, SSO, and dedicated integration support.</div>
+          <ul>
+            <li>Everything in Business</li>
+            <li>SSO / SAML</li>
+            <li>SLA + dedicated CSM</li>
+            <li>Custom integrations</li>
+          </ul>
+          <a class="btn btn-secondary" href="#">Talk to us</a>
+        </div>
+      </div>
+
+      <!-- Comparison table -->
+      <div class="compare">
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 40%">Feature</th>
+              <th>Free</th>
+              <th class="highlight">Plus</th>
+              <th>Business</th>
+              <th>Enterprise</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Unlimited Telegram storage</td><td class="check"></td><td class="highlight check"></td><td class="check"></td><td class="check"></td></tr>
+            <tr><td>Cross-platform desktop app</td><td class="check"></td><td class="highlight check"></td><td class="check"></td><td class="check"></td></tr>
+            <tr><td>HTTP-range media streaming</td><td class="check"></td><td class="highlight check"></td><td class="check"></td><td class="check"></td></tr>
+            <tr><td>PDF viewer + thumbnails</td><td class="check"></td><td class="highlight check"></td><td class="check"></td><td class="check"></td></tr>
+            <tr><td>REST API (X-API-Key)</td><td>—</td><td class="highlight check"></td><td class="check"></td><td class="check"></td></tr>
+            <tr><td>OpenAPI / Swagger UI</td><td>—</td><td class="highlight check"></td><td class="check"></td><td class="check"></td></tr>
+            <tr><td>Shared folders (multi-user)</td><td>—</td><td class="highlight">—</td><td class="check"></td><td class="check"></td></tr>
+            <tr><td>Audit log export</td><td>—</td><td class="highlight">—</td><td class="check"></td><td class="check"></td></tr>
+            <tr><td>SSO / SAML</td><td>—</td><td class="highlight">—</td><td>—</td><td class="check"></td></tr>
+            <tr><td>SLA + dedicated CSM</td><td>—</td><td class="highlight">—</td><td>—</td><td class="check"></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       FAQ
+       ═══════════════════════════════════════════════════════════════════ -->
+  <section class="section" id="faq">
+    <div class="container">
+      <div style="text-align:center; max-width: 600px; margin: 0 auto">
+        <span class="eyebrow">FAQ</span>
+        <h2 class="t-h1" style="margin-top: 12px">Frequently asked questions.</h2>
+      </div>
+      <div class="faq">
+        <details open>
+          <summary>Is Telegram Drive really unlimited?</summary>
+          <p>Yes. Files live on Telegram's servers, which currently impose no per-user storage cap.
+             You're bound only by Telegram's per-file size limit (4 GB for free accounts, 4 GB / large
+             messages for Premium) and Telegram Drive's daily 250 GB transfer cap.</p>
+        </details>
+        <details>
+          <summary>Where is my data stored?</summary>
+          <p>Files stay on Telegram's data centers. Telegram Drive only stores a local Telethon session
+             (so you don't have to log in every time), bandwidth tracking, and an optional preview cache.
+             None of your files are uploaded anywhere outside Telegram.</p>
+        </details>
+        <details>
+          <summary>Do I need a separate Telegram account?</summary>
+          <p>No — Telegram Drive uses your existing Telegram account. Your "Saved Messages" become the
+             root folder; private channels you create are folders.</p>
+        </details>
+        <details>
+          <summary>What's the REST API for?</summary>
+          <p>It exposes <code>/api/v1/files</code>, <code>/api/v1/files/{id}</code>, and
+             <code>/api/v1/files/{id}/download</code> behind an <code>X-API-Key</code>. Useful for
+             plugging your Telegram cloud into AI agents, scripts, or automation tools.</p>
+        </details>
+        <details>
+          <summary>Is Telegram Drive open source?</summary>
+          <p>Yes — MIT-licensed. The full source is at
+             <a href="https://github.com/caamer20/Telegram-Drive" style="color: var(--link-blue)">github.com/caamer20/Telegram-Drive</a>.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       CTA banner
+       ═══════════════════════════════════════════════════════════════════ -->
+  <section class="section tight">
+    <div class="container">
+      <div class="cta-light">
+        <h2 class="t-h1">Get started in two minutes.</h2>
+        <p>Run <code style="background: white; padding: 2px 8px; border-radius: 4px">python run.py</code> from a clone of the repo. No subscription required.</p>
+        <div style="display:flex; gap:12px; justify-content:center; flex-wrap: wrap">
+          <a class="btn btn-primary" href="#download">Download free</a>
+          <a class="btn btn-secondary" href="https://github.com/caamer20/Telegram-Drive">View on GitHub →</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       Footer
+       ═══════════════════════════════════════════════════════════════════ -->
+  <footer class="footer">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <div class="nav-logo" style="margin-bottom: 16px">
+          <svg viewBox="0 0 32 32" fill="none">
+            <rect width="32" height="32" rx="6" fill="#0a1530"/>
+            <path d="M9 9 H21 L23 11 V23 L21 25 H9 L7 23 V11 Z" fill="white"/>
+            <path d="M11 13 H19 V15 H11 Z M11 17 H19 V19 H11 Z M11 21 H15 V23 H11 Z" fill="#0a1530"/>
+          </svg>
+          Telegram Drive
+        </div>
+        <p>Your unlimited cloud, on Telegram. MIT-licensed and open source.</p>
+      </div>
+      <div>
+        <h6>Product</h6>
+        <ul>
+          <li><a href="#features">Features</a></li>
+          <li><a href="#pricing">Pricing</a></li>
+          <li><a href="#api">REST API</a></li>
+          <li><a href="#download">Download</a></li>
+        </ul>
+      </div>
+      <div>
+        <h6>Download</h6>
+        <ul>
+          <li><a href="#">Windows</a></li>
+          <li><a href="#">macOS</a></li>
+          <li><a href="#">Linux</a></li>
+          <li><a href="#">Build from source</a></li>
+        </ul>
+      </div>
+      <div>
+        <h6>Resources</h6>
+        <ul>
+          <li><a href="#faq">FAQ</a></li>
+          <li><a href="#">API docs</a></li>
+          <li><a href="#">Changelog</a></li>
+          <li><a href="#">Contributing</a></li>
+        </ul>
+      </div>
+      <div>
+        <h6>Company</h6>
+        <ul>
+          <li><a href="#">About</a></li>
+          <li><a href="#">Blog</a></li>
+          <li><a href="https://github.com/caamer20/Telegram-Drive">GitHub</a></li>
+          <li><a href="#">Sponsor</a></li>
+        </ul>
+      </div>
+      <div>
+        <h6>Legal</h6>
+        <ul>
+          <li><a href="#">License (MIT)</a></li>
+          <li><a href="#">Privacy</a></li>
+          <li><a href="#">Terms</a></li>
+          <li><a href="#">Disclaimer</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      <span>© 2026 Telegram Drive · Not affiliated with Telegram FZ-LLC</span>
+      <span>Built with React · Python · Telethon · pywebview</span>
+    </div>
+  </footer>
+
+</body>
+</html>

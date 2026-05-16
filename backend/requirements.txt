@@ -1,0 +1,21 @@
+# Telegram Drive — Python backend
+# Tested with Python 3.11+
+
+pywebview==5.3.2
+telethon==1.36.0
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+aiofiles==24.1.0
+python-multipart==0.0.18
+
+# Windows: pywebview uses pythonnet + WebView2 by default (preferred)
+# Falls back to EdgeChromium / MSHTML if WebView2 is unavailable.
+pythonnet==3.0.4; sys_platform == "win32"
+
+# macOS: pywebview uses pyobjc (bundled with macOS Python, but pin for safety)
+pyobjc-core==10.3.1; sys_platform == "darwin"
+pyobjc-framework-Cocoa==10.3.1; sys_platform == "darwin"
+pyobjc-framework-WebKit==10.3.1; sys_platform == "darwin"
+
+# Linux: requires PyGObject (system package) and webkit2gtk; not pip-installable.
+# See README for install instructions.

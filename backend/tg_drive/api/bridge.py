@@ -1,0 +1,258 @@
+"""pywebview ←→ JS bridge.
+
+Every method on `Bridge` becomes available to JS as
+`window.pywebview.api.<method_name>(args)`. The frontend's shim layer
+(see `app/src/lib/platform/`) translates `invoke('cmd_x', argsObj)` into
+`window.pywebview.api.cmd_x(argsObj)`.
+
+Argument convention
+-------------------
+Every method accepts a single `args` dict (camelCase keys, mirroring what
+Tauri's `invoke` used to send) plus optional positional fallbacks. We
+extract individual fields and forward to the async use-case implementations
+on the runtime asyncio loop.
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import Any, Optional
+
+from ..infra import get_runtime
+from ..services import (
+    api_settings as api_cmds,
+    auth as auth_cmds,
+    files as file_cmds,
+    folders as folder_cmds,
+    network as network_cmds,
+    preview as preview_cmds,
+)
+from . import host as host_cmds
+
+log = logging.getLogger(__name__)
+
+
+def _run(coro):
+    """Run an async coroutine on the runtime loop and return its result."""
+    return get_runtime().run_coro(coro)
+
+
+def _args(maybe_args: Any) -> dict:
+    """Normalise the single-argument payload from JS into a dict."""
+    if maybe_args is None:
+        return {}
+    if isinstance(maybe_args, dict):
+        return maybe_args
+    return {"_value": maybe_args}
+
+
+class Bridge:
+    """JS-facing API surface."""
+
+    # ─────────────────────────── auth / connection ───────────────────────────
+
+    def cmd_connect(self, args: Any = None) -> bool:
+        a = _args(args)
+        return _run(auth_cmds.cmd_connect(int(a["apiId"]), a.get("apiHash")))
+
+    def cmd_check_connection(self, args: Any = None) -> bool:
+        return _run(auth_cmds.cmd_check_connection())
+
+    def cmd_logout(self, args: Any = None) -> bool:
+        return _run(auth_cmds.cmd_logout())
+
+    def cmd_auth_request_code(self, args: Any = None) -> str:
+        a = _args(args)
+        return _run(
+            auth_cmds.cmd_auth_request_code(
+                a["phone"], int(a["apiId"]), a["apiHash"]
+            )
+        )
+
+    def cmd_auth_sign_in(self, args: Any = None) -> dict:
+        a = _args(args)
+        return _run(auth_cmds.cmd_auth_sign_in(a["code"]))
+
+    def cmd_auth_check_password(self, args: Any = None) -> dict:
+        a = _args(args)
+        return _run(auth_cmds.cmd_auth_check_password(a["password"]))
+
+    def cmd_auth_qr_login(self, args: Any = None) -> str:
+        a = _args(args)
+        return _run(auth_cmds.cmd_auth_qr_login(int(a["apiId"]), a["apiHash"]))
+
+    def cmd_auth_qr_poll(self, args: Any = None) -> dict:
+        return _run(auth_cmds.cmd_auth_qr_poll())
+
+    # ──────────────────────────────── files ────────────────────────────────
+
+    def cmd_get_files(self, args: Any = None) -> list[dict]:
+        a = _args(args)
+        fid = a.get("folderId")
+        return _run(file_cmds.cmd_get_files(int(fid) if fid is not None else None))
+
+    def cmd_upload_file(self, args: Any = None) -> str:
+        a = _args(args)
+        fid = a.get("folderId")
+        return _run(
+            file_cmds.cmd_upload_file(
+                a["path"],
+                int(fid) if fid is not None else None,
+                a.get("transferId"),
+            )
+        )
+
+    def cmd_download_file(self, args: Any = None) -> str:
+        a = _args(args)
+        fid = a.get("folderId")
+        return _run(
+            file_cmds.cmd_download_file(
+                int(a["messageId"]),
+                a["savePath"],
+                int(fid) if fid is not None else None,
+                a.get("transferId"),
+            )
+        )
+
+    def cmd_delete_file(self, args: Any = None) -> bool:
+        a = _args(args)
+        fid = a.get("folderId")
+        return _run(
+            file_cmds.cmd_delete_file(
+                int(a["messageId"]), int(fid) if fid is not None else None
+            )
+        )
+
+    def cmd_move_files(self, args: Any = None) -> bool:
+        a = _args(args)
+        src = a.get("sourceFolderId")
+        tgt = a.get("targetFolderId")
+        return _run(
+            file_cmds.cmd_move_files(
+                [int(i) for i in a["messageIds"]],
+                int(src) if src is not None else None,
+                int(tgt) if tgt is not None else None,
+            )
+        )
+
+    def cmd_search_global(self, args: Any = None) -> list[dict]:
+        a = _args(args)
+        return _run(file_cmds.cmd_search_global(a["query"]))
+
+    def cmd_cancel_transfer(self, args: Any = None) -> bool:
+        a = _args(args)
+        return _run(file_cmds.cmd_cancel_transfer(a["transferId"]))
+
+    # ─────────────────────────────── folders ───────────────────────────────
+
+    def cmd_create_folder(self, args: Any = None) -> dict:
+        a = _args(args)
+        return _run(folder_cmds.cmd_create_folder(a["name"]))
+
+    def cmd_delete_folder(self, args: Any = None) -> bool:
+        a = _args(args)
+        return _run(folder_cmds.cmd_delete_folder(int(a["folderId"])))
+
+    def cmd_scan_folders(self, args: Any = None) -> list[dict]:
+        return _run(folder_cmds.cmd_scan_folders())
+
+    # ────────────────────────── preview / thumbnails ──────────────────────────
+
+    def cmd_get_preview(self, args: Any = None) -> str:
+        a = _args(args)
+        fid = a.get("folderId")
+        return _run(
+            preview_cmds.cmd_get_preview(
+                int(a["messageId"]), int(fid) if fid is not None else None
+            )
+        )
+
+    def cmd_get_thumbnail(self, args: Any = None) -> str:
+        a = _args(args)
+        fid = a.get("folderId")
+        return _run(
+            preview_cmds.cmd_get_thumbnail(
+                int(a["messageId"]), int(fid) if fid is not None else None
+            )
+        )
+
+    def cmd_clean_cache(self, args: Any = None) -> bool:
+        _run(preview_cmds.cmd_clean_cache())
+        return True
+
+    # ───────────────────────── network / misc / streaming ─────────────────────────
+
+    def cmd_is_network_available(self, args: Any = None) -> bool:
+        return _run(network_cmds.cmd_is_network_available())
+
+    def cmd_log(self, args: Any = None) -> None:
+        a = _args(args)
+        network_cmds.cmd_log(str(a.get("message", "")))
+
+    def cmd_get_bandwidth(self, args: Any = None) -> dict:
+        return network_cmds.cmd_get_bandwidth()
+
+    def cmd_get_stream_info(self, args: Any = None) -> dict:
+        return network_cmds.cmd_get_stream_info()
+
+    # ────────────────────────────── REST API ──────────────────────────────
+
+    def cmd_get_api_settings(self, args: Any = None) -> dict:
+        return _run(api_cmds.cmd_get_api_settings())
+
+    def cmd_update_api_settings(self, args: Any = None) -> dict:
+        a = _args(args)
+        return _run(
+            api_cmds.cmd_update_api_settings(
+                bool(a.get("enabled", False)), int(a["port"])
+            )
+        )
+
+    def cmd_regenerate_api_key(self, args: Any = None) -> str:
+        return _run(api_cmds.cmd_regenerate_api_key())
+
+    # ──────────────── host integration / Tauri-plugin replacements ────────────────
+
+    def cmd_dialog_open(self, args: Any = None) -> Any:
+        a = _args(args)
+        return host_cmds.cmd_dialog_open(
+            title=str(a.get("title", "Open")),
+            directory=bool(a.get("directory", False)),
+            multiple=bool(a.get("multiple", False)),
+            filters=a.get("filters"),
+            default_path=a.get("defaultPath"),
+        )
+
+    def cmd_dialog_save(self, args: Any = None) -> Optional[str]:
+        a = _args(args)
+        return host_cmds.cmd_dialog_save(
+            title=str(a.get("title", "Save")),
+            default_path=a.get("defaultPath"),
+            filters=a.get("filters"),
+        )
+
+    def cmd_shell_open(self, args: Any = None) -> bool:
+        a = _args(args)
+        return host_cmds.cmd_shell_open(str(a["target"]))
+
+    def cmd_store_get(self, args: Any = None) -> Any:
+        a = _args(args)
+        return host_cmds.cmd_store_get(str(a["key"]))
+
+    def cmd_store_set(self, args: Any = None) -> bool:
+        a = _args(args)
+        return host_cmds.cmd_store_set(str(a["key"]), a.get("value"))
+
+    def cmd_store_delete(self, args: Any = None) -> bool:
+        a = _args(args)
+        return host_cmds.cmd_store_delete(str(a["key"]))
+
+    def cmd_store_entries(self, args: Any = None) -> dict:
+        return host_cmds.cmd_store_entries()
+
+    def cmd_relaunch(self, args: Any = None) -> None:
+        host_cmds.cmd_relaunch()
+
+    # plugin-updater stub — auto-updater is not part of v1.
+    def cmd_check_for_updates(self, args: Any = None) -> Optional[dict]:
+        return None
