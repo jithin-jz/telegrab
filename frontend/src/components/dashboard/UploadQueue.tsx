@@ -23,26 +23,26 @@ export function UploadQueue({ items, onClearFinished, onCancelAll, onCancelItem,
     const hasPendingOrActive = items.some(i => i.status === 'pending' || i.status === 'uploading');
 
     return (
-        <div className="w-full bg-telegram-surface/95 backdrop-blur border border-telegram-border rounded-xl shadow-2xl overflow-hidden">
-            <div className="p-3 border-b border-telegram-border bg-telegram-hover flex justify-between items-center gap-3">
-                <h4 className="text-sm font-medium text-telegram-text">Uploads</h4>
-                <div className="flex gap-2">
+        <div className="w-full auth-glass border-hairline overflow-hidden shadow-2xl pointer-events-auto">
+            <div className="p-3 border-b border-hairline bg-white/[0.02] flex justify-between items-center gap-3">
+                <h4 className="text-[13px] font-semibold text-foreground">Uploads</h4>
+                <div className="flex gap-2.5">
                     {hasPendingOrActive && (
-                        <button onClick={onCancelAll} className="text-xs text-red-400 hover:text-red-300 transition-colors">Cancel All</button>
+                        <button onClick={onCancelAll} className="text-[11px] font-medium text-rose-400/80 hover:text-rose-400 transition-colors">Cancel All</button>
                     )}
-                    <button onClick={onClearFinished} className="text-xs text-telegram-primary hover:text-telegram-text transition-colors">Clear Finished</button>
+                    <button onClick={onClearFinished} className="text-[11px] font-medium text-primary hover:text-primary-pressed transition-colors">Clear Finished</button>
                 </div>
             </div>
-            <div className="max-h-60 overflow-y-auto p-2 space-y-2 custom-scrollbar">
+            <div className="max-h-60 overflow-y-auto p-2 space-y-1.5 custom-scrollbar">
                 {items.map(item => (
-                    <div key={item.id} className="flex flex-col gap-1 p-2 bg-telegram-hover rounded">
-                        <div className="flex items-center gap-3 text-sm">
-                            <div className={`w-2 h-2 rounded-full flex-shrink-0 ${item.status === 'pending' ? 'bg-yellow-500' :
-                                item.status === 'uploading' ? 'bg-blue-500 animate-pulse' :
-                                    item.status === 'cancelled' ? 'bg-gray-500' :
-                                        item.status === 'error' ? 'bg-red-500' : 'bg-green-500'
+                    <div key={item.id} className="flex flex-col gap-1 p-2 bg-white/[0.03] border border-hairline-soft rounded-lg transition-colors hover:bg-white/[0.05]">
+                        <div className="flex items-center gap-3 text-[13px]">
+                            <div className={`w-2 h-2 rounded-full flex-shrink-0 shadow-sm ${item.status === 'pending' ? 'bg-amber-400' :
+                                item.status === 'uploading' ? 'bg-primary animate-pulse shadow-[0_0_6px_rgba(124,92,255,0.4)]' :
+                                    item.status === 'cancelled' ? 'bg-stone' :
+                                        item.status === 'error' ? 'bg-rose-500' : 'bg-emerald-500'
                                 }`} />
-                            <div className="flex-1 truncate text-telegram-subtext" title={item.path}>
+                            <div className="flex-1 truncate text-foreground/90 font-medium" title={item.path}>
                                 {item.path.split('/').pop()}
                             </div>
                             {item.status === 'uploading' && (
@@ -63,14 +63,14 @@ export function UploadQueue({ items, onClearFinished, onCancelAll, onCancelItem,
                         </div>
                         {item.status === 'uploading' && (
                             <>
-                                <div className="w-full bg-telegram-border h-1 mt-1 rounded-full overflow-hidden">
+                                <div className="w-full bg-white/10 h-1.5 mt-1.5 rounded-full overflow-hidden p-[0.5px]">
                                     {item.progress !== undefined ? (
                                         <div
-                                            className="bg-blue-500 h-full rounded-full transition-all duration-300"
+                                            className="bg-primary h-full rounded-full transition-all duration-300"
                                             style={{ width: `${item.progress}%` }}
                                         />
                                     ) : (
-                                        <div className="bg-blue-500 h-full w-full animate-progress-indeterminate" />
+                                        <div className="bg-primary h-full w-full animate-progress-indeterminate" />
                                     )}
                                 </div>
                                 <div className="flex justify-between text-[10px] text-telegram-subtext mt-0.5">

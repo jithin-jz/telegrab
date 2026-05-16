@@ -1,14 +1,1 @@
-<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect x="1" y="1" width="30" height="30" rx="9" fill="url(#telegrab-bg)" stroke="#FFFFFF" stroke-opacity="0.18" stroke-width="1"/>
-  <path d="M8.2 10.4h11.2c.7 0 1.2.5 1.2 1.2v1.1H9.4c-.7 0-1.2-.5-1.2-1.2v-1.1Z" fill="white" fill-opacity="0.38"/>
-  <path d="M7.4 15.2 24.1 8.6c.9-.4 1.8.5 1.4 1.4l-6.4 16.4c-.3.9-1.5 1-2 .2l-3.4-5-5.8-3.9c-.8-.5-.6-2.1.5-2.5Z" fill="white"/>
-  <path d="M13.7 21.6 25.2 9.2 17 26.6l-3.3-5Z" fill="#D7F7FF" fill-opacity="0.82"/>
-  <path d="M13.7 21.6 25.2 9.2" stroke="#5E6AD2" stroke-width="1.25" stroke-linecap="round"/>
-  <defs>
-    <linearGradient id="telegrab-bg" x1="3" y1="2" x2="29" y2="30" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#22D3EE"/>
-      <stop offset="0.46" stop-color="#7C5CFF"/>
-      <stop offset="1" stop-color="#2B2D8F"/>
-    </linearGradient>
-  </defs>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 333334 333334" shape-rendering="geometricPrecision" text-rendering="geometricPrecision" image-rendering="optimizeQuality" fill-rule="evenodd" clip-rule="evenodd"><path d="M166667 0c92048 0 166667 74619 166667 166667s-74619 166667-166667 166667S0 258715 0 166667 74619 0 166667 0zm80219 91205l-29735 149919s-4158 10396-15594 5404l-68410-53854s76104-68409 79222-71320c3119-2911 2079-3534 2079-3534 207-3535-5614 0-5614 0l-100846 64043-42002-14140s-6446-2288-7069-7277c-624-4992 7277-7694 7277-7694l166970-65498s13722-6030 13722 3951zm-87637 122889l-27141 24745s-2122 1609-4443 601l5197-45965 26387 20619z"/></svg>

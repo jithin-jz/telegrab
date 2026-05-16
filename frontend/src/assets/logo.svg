@@ -1,11 +1,1 @@
-<svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="40" height="40" rx="12" fill="url(#logo-grad)"/>
-  <path d="M12 18.5L28.5 11.5c.8-.35 1.6.45 1.25 1.25L22.5 29c-.3.7-1.2.8-1.6.15L17.5 24l-5.5-3.5c-.7-.45-.5-1.65.3-2Z" fill="white" fill-opacity="0.95"/>
-  <path d="M17.5 24l8-10.5" stroke="rgba(124,92,255,0.6)" stroke-width="1.2" stroke-linecap="round"/>
-  <defs>
-    <linearGradient id="logo-grad" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#7c5cff"/>
-      <stop offset="1" stop-color="#5b8def"/>
-    </linearGradient>
-  </defs>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 333334 333334" shape-rendering="geometricPrecision" text-rendering="geometricPrecision" image-rendering="optimizeQuality" fill-rule="evenodd" clip-rule="evenodd"><path d="M166667 0c92048 0 166667 74619 166667 166667s-74619 166667-166667 166667S0 258715 0 166667 74619 0 166667 0zm80219 91205l-29735 149919s-4158 10396-15594 5404l-68410-53854s76104-68409 79222-71320c3119-2911 2079-3534 2079-3534 207-3535-5614 0-5614 0l-100846 64043-42002-14140s-6446-2288-7069-7277c-624-4992 7277-7694 7277-7694l166970-65498s13722-6030 13722 3951zm-87637 122889l-27141 24745s-2122 1609-4443 601l5197-45965 26387 20619z"/></svg>
