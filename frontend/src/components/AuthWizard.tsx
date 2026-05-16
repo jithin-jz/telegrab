@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { motion, AnimatePresence } from "framer-motion";
-import { Phone, Key, Lock, ArrowRight, Settings, ShieldCheck, HelpCircle, ExternalLink, QrCode, AlertCircle, Cloud, Zap, Shield } from "lucide-react";
+import { Phone, Key, Lock, ArrowRight, ShieldCheck, HelpCircle, ExternalLink, QrCode, AlertCircle, Cloud, Zap, Shield } from "lucide-react";
 import { load } from '@tauri-apps/plugin-store';
 import { open } from '@tauri-apps/plugin-shell';
 import { QRCodeSVG } from 'qrcode.react';
@@ -256,7 +256,7 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
 
     return (
         <div className="h-full w-full auth-gradient flex items-center justify-center p-6 relative">
-            <div className="landing-split">
+            <div className="landing-split z-10 relative">
                 {/* ── LEFT: Project Info ── */}
                 <motion.div
                     initial={{ opacity: 0, x: -30 }}
@@ -264,29 +264,37 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
                     transition={{ duration: 0.6 }}
                     className="landing-left"
                 >
-                    <div className="landing-left-inner">
-                        <div className="flex items-center gap-3 mb-8">
-                            <img src={logoUrl} alt="Telegrab" className="w-11 h-11 drop-shadow-lg" />
-                            <span className="text-2xl font-bold text-white tracking-tight">Telegrab</span>
+                    <div className="landing-left-inner relative">
+                        <div className="flex items-center gap-3 mb-10">
+                            <div className="p-2 rounded-2xl bg-gradient-to-tr from-primary/80 to-purple-400 shadow-[0_0_20px_rgba(124,92,255,0.4)]">
+                                <img src={logoUrl} alt="Telegrab" className="w-8 h-8 drop-shadow-lg filter brightness-0 invert" />
+                            </div>
+                            <span className="text-3xl font-extrabold text-white tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">Telegrab</span>
                         </div>
 
-                        <h2 className="t-h2 text-white mb-4" style={{fontSize:'36px'}}>Your files,<br/>your cloud.</h2>
-                        <p className="t-body text-white/60 mb-10 max-w-sm leading-relaxed">
+                        <h2 className="text-5xl font-extrabold text-white mb-5 leading-[1.1] tracking-tight">Your files,<br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-blue-400">your cloud.</span></h2>
+                        <p className="text-lg text-white/60 mb-12 max-w-sm leading-relaxed font-medium">
                             Turn your Telegram account into unlimited personal cloud storage. Upload, organise and stream any file — encrypted, private and completely free.
                         </p>
 
-                        <div className="space-y-5">
-                            <div className="flex items-start gap-3">
-                                <div className="w-9 h-9 rounded-xl bg-white/[0.06] flex items-center justify-center shrink-0 mt-0.5"><Cloud className="w-4 h-4 text-primary" /></div>
-                                <div><p className="text-sm font-semibold text-white">Unlimited Storage</p><p className="text-xs text-white/40 mt-0.5">No caps — Telegram gives you infinite space for free.</p></div>
+                        <div className="space-y-6">
+                            <div className="flex items-start gap-4 group">
+                                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-white/5 flex items-center justify-center shrink-0 mt-0.5 group-hover:scale-110 group-hover:border-primary/30 transition-all duration-300 shadow-[0_0_15px_rgba(0,0,0,0.2)]">
+                                    <Cloud className="w-5 h-5 text-blue-400 group-hover:text-blue-300" />
+                                </div>
+                                <div><p className="text-base font-bold text-white mb-1">Unlimited Storage</p><p className="text-sm text-white/50 leading-relaxed">No caps — Telegram gives you infinite space for free.</p></div>
                             </div>
-                            <div className="flex items-start gap-3">
-                                <div className="w-9 h-9 rounded-xl bg-white/[0.06] flex items-center justify-center shrink-0 mt-0.5"><Shield className="w-4 h-4 text-primary" /></div>
-                                <div><p className="text-sm font-semibold text-white">End-to-End Private</p><p className="text-xs text-white/40 mt-0.5">All data stays in your Telegram Saved Messages.</p></div>
+                            <div className="flex items-start gap-4 group">
+                                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-white/5 flex items-center justify-center shrink-0 mt-0.5 group-hover:scale-110 group-hover:border-purple-400/30 transition-all duration-300 shadow-[0_0_15px_rgba(0,0,0,0.2)]">
+                                    <Shield className="w-5 h-5 text-purple-400 group-hover:text-purple-300" />
+                                </div>
+                                <div><p className="text-base font-bold text-white mb-1">End-to-End Private</p><p className="text-sm text-white/50 leading-relaxed">All data stays in your Telegram Saved Messages.</p></div>
                             </div>
-                            <div className="flex items-start gap-3">
-                                <div className="w-9 h-9 rounded-xl bg-white/[0.06] flex items-center justify-center shrink-0 mt-0.5"><Zap className="w-4 h-4 text-primary" /></div>
-                                <div><p className="text-sm font-semibold text-white">Blazing Fast</p><p className="text-xs text-white/40 mt-0.5">Multi-part parallel uploads for maximum speed.</p></div>
+                            <div className="flex items-start gap-4 group">
+                                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-orange-500/10 to-yellow-500/10 border border-white/5 flex items-center justify-center shrink-0 mt-0.5 group-hover:scale-110 group-hover:border-orange-400/30 transition-all duration-300 shadow-[0_0_15px_rgba(0,0,0,0.2)]">
+                                    <Zap className="w-5 h-5 text-orange-400 group-hover:text-orange-300" />
+                                </div>
+                                <div><p className="text-base font-bold text-white mb-1">Blazing Fast</p><p className="text-sm text-white/50 leading-relaxed">Multi-part parallel uploads for maximum speed.</p></div>
                             </div>
                         </div>
                     </div>
@@ -297,10 +305,12 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.5, delay: 0.15 }}
-                    className="auth-glass p-8 rounded-3xl shadow-2xl w-full max-w-md landing-right"
+                    className="auth-glass p-10 rounded-[2rem] shadow-2xl w-full max-w-[440px] landing-right relative group before:absolute before:inset-0 before:-z-10 before:rounded-[2rem] before:bg-gradient-to-b before:from-white/10 before:to-transparent before:p-[1px] before:content-[''] before:[mask-composite:exclude] before:[mask-image:linear-gradient(#fff_0_0),linear-gradient(#fff_0_0)]"
                 >
-                    <div className="text-center mb-8">
-                        <h1 className="text-xl font-bold text-white mb-1 tracking-tight">Get Started</h1>
+                    <div className="absolute inset-0 rounded-[2rem] bg-gradient-to-b from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+                    
+                    <div className="text-center mb-10">
+                        <h1 className="text-2xl font-bold text-white mb-2 tracking-tight">Get Started</h1>
                         <p className="text-sm text-white/60 font-medium">Connect your Telegram API</p>
                     </div>
 
@@ -310,10 +320,10 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
                             key="flood"
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
-                            className="text-center space-y-6"
+                            className="text-center space-y-6 relative z-10"
                         >
-                            <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto animate-pulse">
-                                <span className="text-2xl">⏳</span>
+                            <div className="w-20 h-20 bg-red-500/20 rounded-full flex items-center justify-center mx-auto animate-pulse shadow-[0_0_30px_rgba(239,68,68,0.3)]">
+                                <AlertCircle className="w-10 h-10 text-red-500" />
                             </div>
                             <div>
                                 <h2 className="text-xl font-bold text-white mb-2">Too Many Requests</h2>
@@ -321,16 +331,16 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
                                 <p className="text-sm text-gray-400">Please wait before trying again.</p>
                             </div>
 
-                            <div className="text-5xl font-mono items-center justify-center flex text-blue-400 font-bold">
+                            <div className="text-5xl font-mono items-center justify-center flex text-blue-400 font-bold drop-shadow-[0_0_15px_rgba(96,165,250,0.5)]">
                                 {Math.floor(floodWait / 60)}:{(floodWait % 60).toString().padStart(2, '0')}
                             </div>
 
-                            <p className="text-xs text-red-400/60 mt-4">
+                            <p className="text-xs text-red-400/60 mt-4 font-medium">
                                 Do not restart the app. The timer will reset if you do.
                             </p>
                         </motion.div>
                     ) : (
-                        <>
+                        <div className="relative z-10">
 
 
                             {step === "setup" && (
@@ -340,58 +350,61 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
                                     animate={{ x: 0, opacity: 1 }}
                                     exit={{ x: -20, opacity: 0 }}
                                     onSubmit={handleSetupSubmit}
-                                    className="space-y-5"
+                                    className="space-y-6"
                                 >
-                                    <div className="space-y-4">
+                                    <div className="space-y-5">
                                         <div className="space-y-2">
-                                            <Label htmlFor="api-id" className="text-xs font-semibold uppercase tracking-wider text-slate">
+                                            <Label htmlFor="api-id" className="text-[11px] font-bold uppercase tracking-widest text-slate ml-1">
                                                 API ID
                                             </Label>
-                                            <div className="relative">
-                                                <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone pointer-events-none" />
+                                            <div className="relative group/input">
+                                                <Key className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate transition-colors group-focus-within/input:text-primary" />
                                                 <Input
                                                     id="api-id"
                                                     type="text"
                                                     value={apiId}
                                                     onChange={(e) => setApiId(e.target.value)}
                                                     placeholder="12345678"
-                                                    className="pl-10 font-mono"
+                                                    className="pl-11 h-12 bg-white/5 border-white/10 text-white placeholder:text-white/20 focus:bg-white/10 focus:border-primary/50 transition-all font-mono rounded-xl shadow-inner"
                                                     autoComplete="off"
                                                 />
                                             </div>
                                         </div>
                                         <div className="space-y-2">
-                                            <Label htmlFor="api-hash" className="text-xs font-semibold uppercase tracking-wider text-slate">
+                                            <Label htmlFor="api-hash" className="text-[11px] font-bold uppercase tracking-widest text-slate ml-1">
                                                 API Hash
                                             </Label>
-                                            <div className="relative">
-                                                <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone pointer-events-none" />
+                                            <div className="relative group/input">
+                                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate transition-colors group-focus-within/input:text-primary" />
                                                 <Input
                                                     id="api-hash"
                                                     type="text"
                                                     value={apiHash}
                                                     onChange={(e) => setApiHash(e.target.value)}
                                                     placeholder="abcdef123456…"
-                                                    className="pl-10 font-mono"
+                                                    className="pl-11 h-12 bg-white/5 border-white/10 text-white placeholder:text-white/20 focus:bg-white/10 focus:border-primary/50 transition-all font-mono rounded-xl shadow-inner"
                                                     autoComplete="off"
                                                 />
                                             </div>
                                         </div>
                                     </div>
 
-                                    <Button type="submit" size="lg" className="w-full">
+                                    <button 
+                                        type="submit" 
+                                        className="w-full h-12 bg-gradient-to-r from-primary to-blue-500 hover:from-primary-pressed hover:to-blue-600 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(124,92,255,0.3)] hover:shadow-[0_0_25px_rgba(124,92,255,0.5)] active:scale-[0.98]"
+                                    >
                                         Configure
-                                        <Settings className="w-4 h-4" />
-                                    </Button>
+                                        <ArrowRight className="w-4 h-4" />
+                                    </button>
 
                                     <Button
                                         type="button"
                                         variant="link"
                                         size="sm"
                                         onClick={() => setShowHelp(true)}
-                                        className="w-full text-xs"
+                                        className="w-full text-xs text-white/40 hover:text-white/80 transition-colors"
                                     >
-                                        <HelpCircle className="w-3 h-3" />
+                                        <HelpCircle className="w-3 h-3 mr-1" />
                                         How do I get my API credentials?
                                     </Button>
 
@@ -419,14 +432,14 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
                                     className="space-y-6"
                                 >
                                     {/* Phone / QR Toggle */}
-                                    <div className="flex rounded-xl overflow-hidden border border-white/10">
+                                    <div className="flex p-1 bg-white/5 rounded-xl border border-white/10">
                                         <button
                                             type="button"
                                             onClick={() => { setLoginMethod('phone'); setQrUrl(null); setQrPolling(false); setError(null); }}
-                                            className={`flex-1 py-2.5 text-sm font-medium flex items-center justify-center gap-2 transition-all ${
+                                            className={`flex-1 py-2 text-sm font-bold rounded-lg flex items-center justify-center gap-2 transition-all ${
                                                 loginMethod === 'phone'
-                                                    ? 'bg-white/15 text-white'
-                                                    : 'text-white/50 hover:text-white/70'
+                                                    ? 'bg-white/10 text-white shadow-sm'
+                                                    : 'text-white/40 hover:text-white/60'
                                             }`}
                                         >
                                             <Phone className="w-4 h-4" /> Phone Number
@@ -434,10 +447,10 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
                                         <button
                                             type="button"
                                             onClick={() => { setLoginMethod('qr'); setError(null); handleQrLogin(); }}
-                                            className={`flex-1 py-2.5 text-sm font-medium flex items-center justify-center gap-2 transition-all ${
+                                            className={`flex-1 py-2 text-sm font-bold rounded-lg flex items-center justify-center gap-2 transition-all ${
                                                 loginMethod === 'qr'
-                                                    ? 'bg-white/15 text-white'
-                                                    : 'text-white/50 hover:text-white/70'
+                                                    ? 'bg-white/10 text-white shadow-sm'
+                                                    : 'text-white/40 hover:text-white/60'
                                             }`}
                                         >
                                             <QrCode className="w-4 h-4" /> QR Code
@@ -447,42 +460,42 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
                                     {loginMethod === 'phone' ? (
                                         <form onSubmit={handlePhoneSubmit} className="space-y-6">
                                             <div className="space-y-2">
-                                                <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider">Phone Number</label>
-                                                <div className="relative">
-                                                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 auth-form-icon" />
+                                                <label className="block text-[11px] font-bold text-slate uppercase tracking-widest ml-1">Phone Number</label>
+                                                <div className="relative group/input">
+                                                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate transition-colors group-focus-within/input:text-primary" />
                                                     <input
                                                         type="tel"
                                                         value={phone}
                                                         onChange={(e) => setPhone(e.target.value)}
                                                         placeholder="+1 234 567 8900"
-                                                        className="w-full glass-input rounded-xl pl-12 pr-4 py-4 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-all text-lg tracking-wide"
+                                                        className="w-full h-14 bg-white/5 border border-white/10 text-white placeholder:text-white/20 focus:bg-white/10 focus:border-primary/50 transition-all text-lg tracking-wider rounded-xl pl-12 pr-4 outline-none shadow-inner"
                                                     />
                                                 </div>
                                             </div>
 
-                                            <div className="flex flex-col gap-3">
+                                            <div className="flex flex-col gap-4">
                                                 <button
                                                     type="submit"
                                                     disabled={loading}
-                                                    className="w-full bg-white text-black hover:bg-gray-100 font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    className="w-full h-12 bg-gradient-to-r from-primary to-blue-500 hover:from-primary-pressed hover:to-blue-600 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(124,92,255,0.3)] hover:shadow-[0_0_25px_rgba(124,92,255,0.5)] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                                                 >
                                                     {loading ? "Connecting..." : <>Continue <ArrowRight className="w-5 h-5" /></>}
                                                 </button>
-                                                <button type="button" onClick={() => setStep("setup")} className="text-xs text-gray-500 hover:text-white transition-colors py-2">
+                                                <button type="button" onClick={() => setStep("setup")} className="text-xs font-medium text-white/40 hover:text-white/80 transition-colors py-2">
                                                     Back to Configuration
                                                 </button>
                                             </div>
                                         </form>
                                     ) : (
-                                        <div className="flex flex-col items-center gap-5">
+                                        <div className="flex flex-col items-center gap-6">
                                             {loading && !qrUrl && (
-                                                <div className="w-52 h-52 rounded-2xl bg-white/5 flex items-center justify-center">
-                                                    <div className="w-8 h-8 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                                                <div className="w-52 h-52 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center shadow-inner">
+                                                    <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                                                 </div>
                                             )}
                                             {qrUrl && (
                                                 <>
-                                                    <div className="p-4 bg-white rounded-2xl shadow-xl">
+                                                    <div className="p-4 bg-white rounded-2xl shadow-[0_0_30px_rgba(255,255,255,0.2)]">
                                                         <QRCodeSVG
                                                             value={qrUrl}
                                                             size={200}
@@ -491,26 +504,26 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
                                                             fgColor="#000000"
                                                         />
                                                     </div>
-                                                    <div className="text-center space-y-1">
-                                                        <p className="text-sm text-white/80">Scan with your Telegram app</p>
-                                                        <p className="text-xs text-white/40">Settings &gt; Devices &gt; Link Desktop Device</p>
+                                                    <div className="text-center space-y-1.5">
+                                                        <p className="text-sm font-medium text-white">Scan with your Telegram app</p>
+                                                        <p className="text-xs text-white/50">Settings &gt; Devices &gt; Link Desktop Device</p>
                                                     </div>
                                                     {qrPolling && (
-                                                        <div className="flex items-center gap-2 text-xs text-blue-300">
-                                                            <div className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                                                        <div className="flex items-center justify-center gap-2 text-xs font-bold text-primary px-4 py-2 bg-primary/10 rounded-full">
+                                                            <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                                                             Waiting for scan...
                                                         </div>
                                                     )}
                                                     <button
                                                         type="button"
                                                         onClick={handleQrLogin}
-                                                        className="text-xs text-white/50 hover:text-white transition-colors"
+                                                        className="text-xs font-medium text-white/40 hover:text-white/80 transition-colors"
                                                     >
                                                         Refresh QR Code
                                                     </button>
                                                 </>
                                             )}
-                                            <button type="button" onClick={() => { setStep("setup"); setQrPolling(false); }} className="text-xs text-gray-500 hover:text-white transition-colors py-2">
+                                            <button type="button" onClick={() => { setStep("setup"); setQrPolling(false); }} className="text-xs font-medium text-white/40 hover:text-white/80 transition-colors py-2">
                                                 Back to Configuration
                                             </button>
                                         </div>
@@ -529,28 +542,28 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
                                     className="space-y-6"
                                 >
                                     <div className="space-y-2">
-                                        <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider">Telegram Code</label>
-                                        <div className="relative">
-                                            <Key className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 auth-form-icon" />
+                                        <label className="block text-[11px] font-bold text-slate uppercase tracking-widest ml-1">Telegram Code</label>
+                                        <div className="relative group/input">
+                                            <Key className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate transition-colors group-focus-within/input:text-primary" />
                                             <input
                                                 type="text"
                                                 value={code}
                                                 onChange={(e) => setCode(e.target.value)}
                                                 placeholder="1 2 3 4 5"
-                                                className="w-full glass-input rounded-xl pl-12 pr-4 py-4 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-all text-2xl tracking-[0.5em] font-mono text-center"
+                                                className="w-full h-16 bg-white/5 border border-white/10 text-white placeholder:text-white/20 focus:bg-white/10 focus:border-primary/50 transition-all text-2xl tracking-[0.5em] font-mono text-center rounded-xl outline-none shadow-inner"
                                             />
                                         </div>
                                     </div>
 
-                                    <div className="flex flex-col gap-3">
+                                    <div className="flex flex-col gap-4">
                                         <button
                                             type="submit"
                                             disabled={loading}
-                                            className="w-full bg-white text-black hover:bg-gray-100 font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg active:scale-[0.98]"
+                                            className="w-full h-12 bg-gradient-to-r from-primary to-blue-500 hover:from-primary-pressed hover:to-blue-600 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(124,92,255,0.3)] hover:shadow-[0_0_25px_rgba(124,92,255,0.5)] active:scale-[0.98]"
                                         >
                                             {loading ? "Verifying..." : "Sign In"}
                                         </button>
-                                        <button type="button" onClick={() => setStep("phone")} className="text-xs text-gray-500 hover:text-white transition-colors py-2">
+                                        <button type="button" onClick={() => setStep("phone")} className="text-xs font-medium text-white/40 hover:text-white/80 transition-colors py-2">
                                             Change Phone Number
                                         </button>
                                     </div>
@@ -568,41 +581,41 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
                                     className="space-y-6"
                                 >
                                     <div className="space-y-2">
-                                        <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl mb-4">
-                                            <p className="text-xs text-blue-300 text-center">
+                                        <div className="p-4 bg-primary/10 border border-primary/20 rounded-xl mb-6">
+                                            <p className="text-xs font-medium text-primary-foreground text-center leading-relaxed">
                                                 Your account has Two-Factor Authentication enabled.
                                                 Please enter your cloud password to continue.
                                             </p>
                                         </div>
-                                        <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider">Cloud Password</label>
-                                        <div className="relative">
-                                            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 auth-form-icon" />
+                                        <label className="block text-[11px] font-bold text-slate uppercase tracking-widest ml-1">Cloud Password</label>
+                                        <div className="relative group/input">
+                                            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate transition-colors group-focus-within/input:text-primary" />
                                             <input
                                                 type="password"
                                                 value={password}
                                                 onChange={(e) => setPassword(e.target.value)}
                                                 placeholder="Enter your password"
-                                                className="w-full glass-input rounded-xl pl-12 pr-4 py-4 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 transition-all text-lg"
+                                                className="w-full h-14 bg-white/5 border border-white/10 text-white placeholder:text-white/20 focus:bg-white/10 focus:border-primary/50 transition-all text-lg rounded-xl pl-12 pr-4 outline-none shadow-inner"
                                                 autoFocus
                                             />
                                         </div>
                                     </div>
 
-                                    <div className="flex flex-col gap-3">
+                                    <div className="flex flex-col gap-4">
                                         <button
                                             type="submit"
                                             disabled={loading || !password}
-                                            className="w-full bg-white text-black hover:bg-gray-100 font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                                            className="w-full h-12 bg-gradient-to-r from-primary to-blue-500 hover:from-primary-pressed hover:to-blue-600 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(124,92,255,0.3)] hover:shadow-[0_0_25px_rgba(124,92,255,0.5)] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
                                             {loading ? "Verifying..." : "Unlock"}
                                         </button>
-                                        <button type="button" onClick={() => { setStep("code"); setPassword(""); setError(null); }} className="text-xs text-gray-500 hover:text-white transition-colors py-2">
+                                        <button type="button" onClick={() => { setStep("code"); setPassword(""); setError(null); }} className="text-xs font-medium text-white/40 hover:text-white/80 transition-colors py-2">
                                             Back to Code Entry
                                         </button>
                                     </div>
                                 </motion.form>
                             )}
-                        </>
+                        </div>
                     )}
                 </AnimatePresence>
 
@@ -610,11 +623,11 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
                     <motion.div
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="mt-6"
+                        className="mt-6 relative z-10"
                     >
-                        <Alert variant="destructive">
+                        <Alert variant="destructive" className="border-red-500/30 bg-red-500/10 text-red-200">
                             <AlertCircle className="w-4 h-4" />
-                            <AlertDescription>{error}</AlertDescription>
+                            <AlertDescription className="font-medium text-xs">{error}</AlertDescription>
                         </Alert>
                     </motion.div>
                 )}
@@ -623,54 +636,60 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
 
 
             <Dialog open={showHelp} onOpenChange={setShowHelp}>
-                <DialogContent className="max-w-md gap-0 overflow-hidden p-0">
-                    <DialogHeader className="border-b border-hairline px-5 py-4">
-                        <DialogTitle>Getting started</DialogTitle>
-                        <DialogDescription>
+                <DialogContent className="max-w-md gap-0 overflow-hidden p-0 bg-surface/95 backdrop-blur-xl border-white/10 shadow-2xl">
+                    <DialogHeader className="border-b border-white/5 px-6 py-5">
+                        <DialogTitle className="text-xl font-bold">Getting started</DialogTitle>
+                        <DialogDescription className="text-white/50 text-sm mt-1">
                             You only need a Telegram API ID and API Hash.
                         </DialogDescription>
                     </DialogHeader>
 
-                    <div className="space-y-3 px-5 py-4">
+                    <div className="space-y-4 px-6 py-6 bg-black/20">
                         <Alert className="border-primary/20 bg-primary/10">
-                            <HelpCircle className="h-4 w-4 text-primary" />
-                            <AlertDescription className="text-slate">
+                            <ShieldCheck className="h-4 w-4 text-primary" />
+                            <AlertDescription className="text-white/70 text-sm">
                                 Credentials stay on this device and are used only to connect your Telegram account.
                             </AlertDescription>
                         </Alert>
 
                         <HelpStep number="1" title="Open the developer portal">
-                            Sign in at <button type="button" onClick={() => open('https://my.telegram.org')} className="text-primary hover:underline">my.telegram.org</button>.
+                            Sign in at <button type="button" onClick={() => open('https://my.telegram.org')} className="text-primary hover:text-primary-pressed font-medium transition-colors">my.telegram.org</button>.
                         </HelpStep>
 
                         <HelpStep number="2" title="Create an app">
-                            Choose <span className="font-medium text-foreground">API development tools</span>, then create any app name.
+                            Choose <span className="font-medium text-white">API development tools</span>, then create any app name.
                         </HelpStep>
 
                         <HelpStep number="3" title="Paste both values">
-                            Copy the <span className="font-medium text-foreground">API ID</span> and <span className="font-medium text-foreground">API Hash</span> into Telegrab.
+                            Copy the <span className="font-medium text-white">API ID</span> and <span className="font-medium text-white">API Hash</span> into Telegrab.
                         </HelpStep>
                     </div>
 
-                    <DialogFooter className="border-t border-hairline px-5 py-4">
+                    <DialogFooter className="border-t border-white/5 px-6 py-4 bg-surface">
                         <DialogClose asChild>
-                            <Button type="button" variant="outline">
+                            <Button type="button" variant="ghost" className="hover:bg-white/5">
                                 Done
                             </Button>
                         </DialogClose>
                         <Button
                             type="button"
                             onClick={() => open('https://my.telegram.org')}
+                            className="bg-primary hover:bg-primary-pressed text-white shadow-lg"
                         >
                             Open portal
-                            <ExternalLink className="h-4 w-4" />
+                            <ExternalLink className="h-4 w-4 ml-2" />
                         </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
 
-            <div className="fixed top-[-20%] left-[-10%] w-[500px] h-[500px] bg-blue-600/20 rounded-full blur-[120px] pointer-events-none -z-10" />
-            <div className="fixed bottom-[-10%] right-[-10%] w-[400px] h-[400px] bg-purple-600/10 rounded-full blur-[100px] pointer-events-none -z-10" />
+            {/* Grid pattern overlay */}
+            <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCI+PHBhdGggZD0iTTAgMGg0MHY0MEgwem0zOSAzOXYtMzhIMXYzOHoiIGZpbGw9IiNmZmZmZmYwMyIvPjwvc3ZnPg==')] opacity-30 pointer-events-none mix-blend-overlay" />
+            
+            {/* Soft glows */}
+            <div className="fixed top-[-20%] left-[-10%] w-[600px] h-[600px] bg-primary/20 rounded-full blur-[140px] pointer-events-none -z-10" />
+            <div className="fixed bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-blue-600/15 rounded-full blur-[120px] pointer-events-none -z-10" />
+            <div className="fixed top-[40%] left-[40%] w-[300px] h-[300px] bg-purple-500/10 rounded-full blur-[100px] pointer-events-none -z-10" />
         </div>
     );
 }
@@ -685,14 +704,14 @@ function HelpStep({
     children: React.ReactNode;
 }) {
     return (
-        <Card className="bg-surface/80">
-            <CardContent className="flex gap-3 p-3">
-                <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
+        <Card className="bg-white/5 border-white/10 shadow-none">
+            <CardContent className="flex gap-4 p-4">
+                <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-white/10 text-xs font-bold text-white shadow-inner">
                     {number}
                 </span>
-                <div className="min-w-0">
-                    <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-                    <p className="mt-1 text-sm leading-5 text-slate">{children}</p>
+                <div className="min-w-0 pt-0.5">
+                    <h3 className="text-sm font-bold text-white mb-1">{title}</h3>
+                    <p className="text-sm leading-relaxed text-white/50">{children}</p>
                 </div>
             </CardContent>
         </Card>
