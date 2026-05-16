@@ -3,8 +3,8 @@ the React frontend expects (see `app/src/types.ts`)."""
 
 from __future__ import annotations
 
-import os
-from typing import Any, Optional
+from pathlib import Path
+from typing import Any
 
 from telethon.tl.types import (
     Document,
@@ -17,8 +17,8 @@ from telethon.tl.types import (
 
 
 def file_metadata_from_message(
-    msg: Message, folder_id: Optional[int]
-) -> Optional[dict[str, Any]]:
+    msg: Message, folder_id: int | None
+) -> dict[str, Any] | None:
     """Return a `FileMetadata` dict for a Telethon message, or None if the
     message has no usable media."""
 
@@ -42,7 +42,7 @@ def file_metadata_from_message(
     }
 
 
-def _extract_media_info(media: Any) -> tuple[Optional[str], int, Optional[str], Optional[str]]:
+def _extract_media_info(media: Any) -> tuple[str | None, int, str | None, str | None]:
     """Returns (name, size, mime_type, ext) — all but size may be None."""
 
     if isinstance(media, MessageMediaDocument):
@@ -52,7 +52,7 @@ def _extract_media_info(media: Any) -> tuple[Optional[str], int, Optional[str], 
         name = filename_from_document(doc) or "file"
         size = int(getattr(doc, "size", 0) or 0)
         mime = getattr(doc, "mime_type", None)
-        ext_raw = os.path.splitext(name)[1].lstrip(".")
+        ext_raw = Path(name).suffix.lstrip(".")
         ext = ext_raw or None
         return name, size, mime, ext
 
@@ -65,7 +65,7 @@ def _extract_media_info(media: Any) -> tuple[Optional[str], int, Optional[str], 
     return (None, 0, None, None)
 
 
-def filename_from_document(doc: Document) -> Optional[str]:
+def filename_from_document(doc: Document) -> str | None:
     for attr in getattr(doc, "attributes", []) or []:
         if isinstance(attr, DocumentAttributeFilename):
             return attr.file_name

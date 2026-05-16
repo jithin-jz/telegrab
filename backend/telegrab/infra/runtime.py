@@ -11,8 +11,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import threading
+from collections.abc import Awaitable
 from concurrent.futures import Future
-from typing import Awaitable, TypeVar
+from typing import TypeVar
 
 log = logging.getLogger(__name__)
 

@@ -16,16 +16,28 @@ on the runtime asyncio loop.
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from ..infra import get_runtime
 from ..services import (
     api_settings as api_cmds,
+)
+from ..services import (
     auth as auth_cmds,
+)
+from ..services import (
     files as file_cmds,
+)
+from ..services import (
     folders as folder_cmds,
+)
+from ..services import (
     network as network_cmds,
+)
+from ..services import (
     preview as preview_cmds,
+)
+from ..services import (
     updater as updater_cmds,
 )
 from . import host as host_cmds
@@ -65,9 +77,7 @@ class Bridge:
     def cmd_auth_request_code(self, args: Any = None) -> str:
         a = _args(args)
         return _run(
-            auth_cmds.cmd_auth_request_code(
-                a["phone"], int(a["apiId"]), a["apiHash"]
-            )
+            auth_cmds.cmd_auth_request_code(a["phone"], int(a["apiId"]), a["apiHash"])
         )
 
     def cmd_auth_sign_in(self, args: Any = None) -> dict:
@@ -224,7 +234,7 @@ class Bridge:
             default_path=a.get("defaultPath"),
         )
 
-    def cmd_dialog_save(self, args: Any = None) -> Optional[str]:
+    def cmd_dialog_save(self, args: Any = None) -> str | None:
         a = _args(args)
         return host_cmds.cmd_dialog_save(
             title=str(a.get("title", "Save")),
@@ -260,14 +270,17 @@ class Bridge:
     def cmd_window_maximize(self, args: Any = None) -> None:
         host_cmds.cmd_window_maximize()
 
+    def cmd_window_restore(self, args: Any = None) -> None:
+        host_cmds.cmd_window_restore()
+
     def cmd_window_close(self, args: Any = None) -> None:
         host_cmds.cmd_window_close()
 
     # ─────────────────────── auto-updater ───────────────────────
 
-    def cmd_check_for_updates(self, args: Any = None) -> Optional[dict]:
+    def cmd_check_for_updates(self, args: Any = None) -> dict | None:
         return updater_cmds.cmd_check_for_updates()
-        
+
     def cmd_download_and_install_update(self, args: Any = None) -> None:
         a = _args(args)
         updater_cmds.cmd_download_and_install_update(a["url"])

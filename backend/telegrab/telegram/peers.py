@@ -9,7 +9,7 @@ trade-off the Rust version made).
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from telethon import TelegramClient
 from telethon.tl.types import InputPeerSelf
@@ -17,9 +17,7 @@ from telethon.tl.types import InputPeerSelf
 log = logging.getLogger(__name__)
 
 
-async def resolve_peer(
-    state, client: TelegramClient, folder_id: Optional[int]
-) -> Any:
+async def resolve_peer(state, client: TelegramClient, folder_id: int | None) -> Any:
     """Return a Telethon entity for a folder_id."""
     if folder_id is None:
         return InputPeerSelf()

@@ -32,7 +32,7 @@ class EventBus:
     def __init__(self) -> None:
         self._window: webview.Window | None = None
 
-    def attach(self, window: "webview.Window") -> None:
+    def attach(self, window: webview.Window) -> None:
         self._window = window
 
     def emit(self, event: str, payload: Any) -> None:
@@ -47,8 +47,8 @@ class EventBus:
             payload_json = json.dumps(payload, default=_default_encoder)
             event_json = json.dumps(event)
             script = (
-                f"window.__tgDriveBus && "
-                f"window.__tgDriveBus.dispatch({event_json}, {payload_json});"
+                f"window.__telegrabBus && "
+                f"window.__telegrabBus.dispatch({event_json}, {payload_json});"
             )
             self._window.evaluate_js(script)
         except Exception as exc:  # noqa: BLE001

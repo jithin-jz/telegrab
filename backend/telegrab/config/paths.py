@@ -12,15 +12,15 @@ import sys
 from pathlib import Path
 
 # Identifier — keep stable across versions so the data directory is reused.
-APP_NAME = "TelegramDrive"
+APP_NAME = "telegrab"
 
 
 def app_data_dir() -> Path:
     """Per-user writable data directory.
 
-    Windows : %APPDATA%\\TelegramDrive
-    macOS   : ~/Library/Application Support/TelegramDrive
-    Linux   : ~/.local/share/TelegramDrive (XDG_DATA_HOME if set)
+    Windows : %APPDATA%\\telegrab
+    macOS   : ~/Library/Application Support/telegrab
+    Linux   : ~/.local/share/telegrab (XDG_DATA_HOME if set)
     """
     if sys.platform == "win32":
         base = os.environ.get("APPDATA") or str(Path.home() / "AppData" / "Roaming")

@@ -15,10 +15,7 @@ interface PyWebviewApi {
 }
 
 interface EventBus {
-  subscribe: (
-    event: string,
-    cb: (e: { event: string; payload: unknown }) => void
-  ) => () => void;
+  subscribe: (event: string, cb: (e: { event: string; payload: unknown }) => void) => () => void;
   dispatch: (event: string, payload: unknown) => void;
 }
 
@@ -35,7 +32,7 @@ const w = window as PyWebviewWindow;
 
 // Tell the existing AuthWizard / similar guards we're in a desktop shell.
 if (!w.__TAURI_INTERNALS__) {
-  w.__TAURI_INTERNALS__ = { runtime: "pywebview" };
+  w.__TAURI_INTERNALS__ = { runtime: 'pywebview' };
 }
 
 // Eagerly create the event bus so Python ↔ JS event dispatch never misses.

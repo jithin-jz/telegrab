@@ -1,4 +1,4 @@
-"""Build the Telegram Drive desktop installer.
+"""Build the telegrab desktop installer.
 
 Usage (run on the platform you want to build for — PyInstaller does NOT
 cross-compile):
@@ -12,9 +12,9 @@ Steps:
   4. Report the output path.
 
 Output:
-  * Windows: dist-installer/Telegrab.exe
-  * macOS:   dist-installer/Telegrab.app
-  * Linux:   dist-installer/Telegrab/
+  * Windows: dist-installer/telegrab.exe
+  * macOS:   dist-installer/telegrab.app
+  * Linux:   dist-installer/telegrab/
 """
 
 from __future__ import annotations
@@ -52,10 +52,9 @@ def _ensure_venv() -> Path:
         return py
     print(f"[build] Creating virtualenv at {VENV_DIR} ...")
     venv.EnvBuilder(with_pip=True, upgrade_deps=True).create(str(VENV_DIR))
-    print("[build] Installing backend dependencies ...")
-    subprocess.check_call([str(py), "-m", "pip", "install", "--upgrade", "pip", "wheel"])
+    print("[build] Installing backend dependencies using uv ...")
     subprocess.check_call(
-        [str(py), "-m", "pip", "install", "-r", str(BACKEND / "requirements.txt")]
+        ["uv", "sync"], cwd=str(BACKEND)
     )
     return py
 
@@ -117,11 +116,11 @@ def _report() -> None:
     print("Build complete.")
     print()
     if sys.platform == "win32":
-        artifact = DIST_OUT / "Telegrab.exe"
+        artifact = DIST_OUT / "telegrab.exe"
     elif sys.platform == "darwin":
-        artifact = DIST_OUT / "Telegrab.app"
+        artifact = DIST_OUT / "telegrab.app"
     else:
-        artifact = DIST_OUT / "Telegrab"
+        artifact = DIST_OUT / "telegrab"
     if artifact.exists():
         size_mb = (
             sum(p.stat().st_size for p in artifact.rglob("*") if p.is_file())
@@ -150,7 +149,7 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    print(f"[build] Building Telegram Drive installer for {sys.platform} ({platform.machine()})")
+    print(f"[build] Building telegrab installer for {sys.platform} ({platform.machine()})")
     py = _ensure_venv()
     _ensure_pyinstaller(py)
     _ensure_frontend_build(force=args.rebuild_frontend)

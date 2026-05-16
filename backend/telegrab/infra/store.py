@@ -6,11 +6,13 @@ small amounts of UI state (theme, active folder, API ID/Hash, etc.).
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import os
 import tempfile
 import threading
+from pathlib import Path
 from typing import Any
 
 from ..config import store_path
@@ -41,13 +43,12 @@ class JsonStore:
             try:
                 with os.fdopen(fd, "w", encoding="utf-8") as fh:
                     json.dump(self._data, fh)
-                os.replace(tmp_path, self._path)
+                Path(tmp_path).replace(self._path)
             finally:
-                if os.path.exists(tmp_path):
-                    try:
-                        os.remove(tmp_path)
-                    except OSError:
-                        pass
+                p = Path(tmp_path)
+                if p.exists():
+                    with contextlib.suppress(OSError):
+                        p.unlink()
         except OSError as exc:
             log.warning("Store save failed: %s", exc)
 

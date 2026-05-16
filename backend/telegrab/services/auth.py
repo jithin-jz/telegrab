@@ -37,15 +37,15 @@ async def cmd_connect(api_id: int, api_hash: str | None = None) -> bool:
 
 
 async def cmd_check_connection() -> bool:
-    """Return True if the client is connected and responsive."""
+    """Return True if the client is connected and authorized."""
     state = tg.get_state()
     client = state.client
 
     if client is not None:
         try:
             if client.is_connected():
-                await client.get_me()  # ping
-                return True
+                # is_user_authorized() is the source of truth for session validity
+                return await client.is_user_authorized()
         except Exception as exc:  # noqa: BLE001
             log.warning("Connection check failed: %s", exc)
 
@@ -53,10 +53,10 @@ async def cmd_check_connection() -> bool:
         state.client = None
         try:
             client = await tg.ensure_client(state.api_id, state.api_hash)
-            await client.get_me()
-            return True
+            return await client.is_user_authorized()
         except Exception as exc:  # noqa: BLE001
-            raise RuntimeError(f"Auto-reconnect failed: {exc}") from exc
+            log.warning("Auto-reconnect failed: %s", exc)
+            return False
 
     return False
 
@@ -180,7 +180,7 @@ async def cmd_auth_qr_poll() -> dict[str, Any]:
         await asyncio.wait_for(qr.wait(), timeout=1.0)
         state.pending_qr_login = None
         return {"success": True, "next_step": "dashboard", "error": None}
-    except asyncio.TimeoutError:
+    except TimeoutError:
         return {"success": False, "next_step": "waiting", "error": None}
     except SessionPasswordNeededError:
         return {"success": False, "next_step": "password", "error": None}

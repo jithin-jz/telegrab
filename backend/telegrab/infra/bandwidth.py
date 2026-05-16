@@ -61,9 +61,7 @@ class BandwidthManager:
     def _check_reset_locked(self) -> None:
         today = _today()
         if self._stats.date != today:
-            log.info(
-                "Bandwidth reset (old=%s, new=%s)", self._stats.date, today
-            )
+            log.info("Bandwidth reset (old=%s, new=%s)", self._stats.date, today)
             self._stats = BandwidthStats(date=today)
             self._save_locked()
 

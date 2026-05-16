@@ -11,7 +11,6 @@ import hashlib
 import json
 import secrets
 from dataclasses import asdict, dataclass
-from typing import Optional
 
 from .paths import api_settings_path
 
@@ -22,7 +21,7 @@ DEFAULT_API_PORT = 8550
 class ApiSettingsFile:
     enabled: bool = False
     port: int = DEFAULT_API_PORT
-    key_hash: Optional[str] = None
+    key_hash: str | None = None
 
 
 def load_settings() -> ApiSettingsFile:

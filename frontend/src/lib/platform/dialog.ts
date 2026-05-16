@@ -23,9 +23,7 @@ interface SaveDialogOptions {
   filters?: DialogFilter[];
 }
 
-export async function open(
-  options: OpenDialogOptions = {}
-): Promise<string | string[] | null> {
+export async function open(options: OpenDialogOptions = {}): Promise<string | string[] | null> {
   const result = await callPy<string | string[] | null>('cmd_dialog_open', {
     title: options.title ?? 'Open',
     directory: !!options.directory,

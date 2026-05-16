@@ -7,10 +7,8 @@ from __future__ import annotations
 
 import base64
 import logging
-import os
 import shutil
 from pathlib import Path
-from typing import Optional
 
 from telethon.tl.types import Document, MessageMediaDocument, MessageMediaPhoto
 
@@ -78,7 +76,7 @@ def _ext_from_media(media) -> str:
         doc = getattr(media, "document", None)
         if isinstance(doc, Document):
             name = filename_from_document(doc) or ""
-            ext = os.path.splitext(name)[1].lstrip(".").lower()
+            ext = Path(name).suffix.lstrip(".").lower()
             if ext:
                 return ext
             mime = getattr(doc, "mime_type", None)
@@ -90,7 +88,7 @@ def _ext_from_media(media) -> str:
     return "bin"
 
 
-async def cmd_get_preview(message_id: int, folder_id: Optional[int]) -> str:
+async def cmd_get_preview(message_id: int, folder_id: int | None) -> str:
     cache_dir = preview_cache_dir()
     _prune_preview_cache(cache_dir)
     log.info("Preview request: msg_id=%s", message_id)
@@ -148,7 +146,7 @@ async def cmd_clean_cache() -> None:
         cache_dir.mkdir(parents=True, exist_ok=True)
 
 
-async def cmd_get_thumbnail(message_id: int, folder_id: Optional[int]) -> str:
+async def cmd_get_thumbnail(message_id: int, folder_id: int | None) -> str:
     cache_dir = thumbnail_cache_dir()
 
     try:

@@ -15,7 +15,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
-from typing import AsyncIterator, Optional
+from collections.abc import AsyncIterator
 
 import uvicorn
 from fastapi import FastAPI, Header, HTTPException, Path, Query
@@ -43,12 +43,14 @@ def _create_app() -> FastAPI:
 
     cfg = get_stream_config()
 
-    def _check_token(token: Optional[str]) -> None:
+    def _check_token(token: str | None) -> None:
         if not token or token != cfg.token:
             log.error("Stream request: invalid token")
-            raise HTTPException(status_code=403, detail="Invalid or missing stream token")
+            raise HTTPException(
+                status_code=403, detail="Invalid or missing stream token"
+            )
 
-    def _parse_folder_id(folder_id_str: str) -> Optional[int]:
+    def _parse_folder_id(folder_id_str: str) -> int | None:
         if folder_id_str.lower() in {"me", "home", "null"}:
             return None
         try:
@@ -60,8 +62,8 @@ def _create_app() -> FastAPI:
     async def stream_media(
         folder_id: str = Path(...),
         message_id: int = Path(...),
-        token: Optional[str] = Query(default=None),
-        range_header: Optional[str] = Header(default=None, alias="range"),
+        token: str | None = Query(default=None),
+        range_header: str | None = Header(default=None, alias="range"),
     ):
         _check_token(token)
         fid = _parse_folder_id(folder_id)

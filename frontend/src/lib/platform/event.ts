@@ -11,19 +11,13 @@ import { getBus } from './internal';
 export type EventCallback<T> = (event: { event: string; payload: T }) => void;
 export type UnlistenFn = () => void;
 
-export function listen<T = unknown>(
-  event: string,
-  cb: EventCallback<T>
-): Promise<UnlistenFn> {
+export function listen<T = unknown>(event: string, cb: EventCallback<T>): Promise<UnlistenFn> {
   const bus = getBus();
   const unsubscribe = bus.subscribe(event, (e) => cb(e as { event: string; payload: T }));
   return Promise.resolve(unsubscribe);
 }
 
-export function once<T = unknown>(
-  event: string,
-  cb: EventCallback<T>
-): Promise<UnlistenFn> {
+export function once<T = unknown>(event: string, cb: EventCallback<T>): Promise<UnlistenFn> {
   return listen<T>(event, (e) => {
     cb(e);
     // Self-unsubscribe by returning the unlisten on the next tick.

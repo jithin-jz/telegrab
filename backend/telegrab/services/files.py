@@ -11,10 +11,11 @@ when the user has marked the transfer cancelled.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
-import os
 import time
-from typing import Any, Optional
+from pathlib import Path
+from typing import Any
 
 from telethon.tl import functions, types
 
@@ -30,7 +31,7 @@ _PROGRESS_INTERVAL_SECS = 0.25
 # ─────────────────────────────── listings ───────────────────────────────
 
 
-async def cmd_get_files(folder_id: Optional[int]) -> list[dict[str, Any]]:
+async def cmd_get_files(folder_id: int | None) -> list[dict[str, Any]]:
     state = tg.get_state()
     client = state.client
     if client is None:
@@ -76,7 +77,7 @@ async def cmd_search_global(query: str) -> list[dict[str, Any]]:
         if not isinstance(msg, types.Message):
             continue
         peer_id = msg.peer_id
-        derived_folder: Optional[int] = None
+        derived_folder: int | None = None
         if isinstance(peer_id, types.PeerChannel):
             derived_folder = peer_id.channel_id
         elif isinstance(peer_id, types.PeerUser):
@@ -104,13 +105,14 @@ async def cmd_cancel_transfer(transfer_id: str) -> bool:
 
 async def cmd_upload_file(
     path: str,
-    folder_id: Optional[int],
-    transfer_id: Optional[str],
+    folder_id: int | None,
+    transfer_id: str | None,
 ) -> str:
-    if not os.path.exists(path):
+    p = Path(path)
+    if not p.exists():
         raise RuntimeError(f"File not found: {path}")
 
-    size = os.path.getsize(path)
+    size = p.stat().st_size
     ok, err = get_manager().can_transfer(size)
     if not ok:
         raise RuntimeError(err or "Bandwidth limit hit")
@@ -172,7 +174,7 @@ async def cmd_upload_file(
         last_emit_bytes = uploaded
 
     peer = await tg.resolve_peer(client, folder_id)
-    file_name = os.path.basename(path)
+    file_name = Path(path).name
 
     try:
         await client.send_file(
@@ -185,7 +187,7 @@ async def cmd_upload_file(
         )
     except asyncio.CancelledError:
         tg.clear_cancellation(tid)
-        raise RuntimeError("Transfer cancelled")
+        raise RuntimeError("Transfer cancelled") from None
     except Exception as exc:  # noqa: BLE001
         raise RuntimeError(tg.map_error(exc)) from exc
 
@@ -212,16 +214,18 @@ async def cmd_upload_file(
 async def cmd_download_file(
     message_id: int,
     save_path: str,
-    folder_id: Optional[int],
-    transfer_id: Optional[str] = None,
+    folder_id: int | None,
+    transfer_id: str | None = None,
 ) -> str:
     tid = transfer_id or ""
 
     state = tg.get_state()
     client = state.client
     if client is None:
-        log.info("[MOCK] download msg=%s folder=%s -> %s", message_id, folder_id, save_path)
-        with open(save_path, "wb") as fh:
+        log.info(
+            "[MOCK] download msg=%s folder=%s -> %s", message_id, folder_id, save_path
+        )
+        with Path(save_path).open("wb") as fh:
             fh.write(b"Mock Content")
         return "Download successful"
 
@@ -282,11 +286,9 @@ async def cmd_download_file(
         await client.download_media(msg, file=save_path, progress_callback=progress_cb)
     except asyncio.CancelledError:
         tg.clear_cancellation(tid)
-        try:
-            os.remove(save_path)
-        except OSError:
-            pass
-        raise RuntimeError("Transfer cancelled")
+        with contextlib.suppress(OSError):
+            Path(save_path).unlink()
+        raise RuntimeError("Transfer cancelled") from None
     except Exception as exc:  # noqa: BLE001
         raise RuntimeError(f"Download chunk error: {exc}") from exc
 
@@ -311,7 +313,7 @@ async def cmd_download_file(
 # ──────────────────────────────── delete ────────────────────────────────
 
 
-async def cmd_delete_file(message_id: int, folder_id: Optional[int]) -> bool:
+async def cmd_delete_file(message_id: int, folder_id: int | None) -> bool:
     state = tg.get_state()
     client = state.client
     if client is None:
@@ -328,8 +330,8 @@ async def cmd_delete_file(message_id: int, folder_id: Optional[int]) -> bool:
 
 async def cmd_move_files(
     message_ids: list[int],
-    source_folder_id: Optional[int],
-    target_folder_id: Optional[int],
+    source_folder_id: int | None,
+    target_folder_id: int | None,
 ) -> bool:
     if source_folder_id == target_folder_id:
         return True
@@ -338,7 +340,10 @@ async def cmd_move_files(
     client = state.client
     if client is None:
         log.info(
-            "[MOCK] move %s from %s to %s", message_ids, source_folder_id, target_folder_id
+            "[MOCK] move %s from %s to %s",
+            message_ids,
+            source_folder_id,
+            target_folder_id,
         )
         return True
 

@@ -9,10 +9,11 @@ needed.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
-import os
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from pathlib import Path
+from typing import Any
 
 from telethon import TelegramClient
 from telethon.tl.custom import QRLogin
@@ -32,15 +33,15 @@ class TelegramState:
     Touched only on the asyncio runtime loop, so no locks.
     """
 
-    client: Optional[TelegramClient] = None
-    api_id: Optional[int] = None
-    api_hash: Optional[str] = None
+    client: TelegramClient | None = None
+    api_id: int | None = None
+    api_hash: str | None = None
 
     # Auth flow state
-    pending_phone: Optional[str] = None
-    pending_phone_code_hash: Optional[str] = None
-    pending_qr_login: Optional[QRLogin] = None
-    pending_qr_task: Optional[asyncio.Task] = None
+    pending_phone: str | None = None
+    pending_phone_code_hash: str | None = None
+    pending_qr_login: QRLogin | None = None
+    pending_qr_task: asyncio.Task | None = None
 
     # peer_cache: folder_id (int) → Telethon entity (User/Channel/Chat)
     peer_cache: dict[int, Any] = field(default_factory=dict)
@@ -59,7 +60,7 @@ def get_state() -> TelegramState:
 # ─────────────────────────── client lifecycle ───────────────────────────
 
 
-async def ensure_client(api_id: int, api_hash: Optional[str] = None) -> TelegramClient:
+async def ensure_client(api_id: int, api_hash: str | None = None) -> TelegramClient:
     """Create or return the shared TelegramClient.
 
     A new client is created the first time, or whenever the api_id changes.
@@ -97,12 +98,8 @@ async def ensure_client(api_id: int, api_hash: Optional[str] = None) -> Telegram
     except Exception as exc:
         log.warning("Session open failed (%s); recreating session file", exc)
         for ext in ("", "-journal", "-wal", "-shm"):
-            try:
-                os.remove(session_str + ext)
-            except FileNotFoundError:
-                pass
-            except OSError:
-                pass
+            with contextlib.suppress(FileNotFoundError, OSError):
+                Path(session_str + ext).unlink()
         client = _build_client(session_str, api_id, api_hash)
         await client.connect()
 
@@ -129,10 +126,8 @@ async def _shutdown_client(state: TelegramState) -> None:
     """Disconnect the client and reset transient state."""
     if state.pending_qr_task is not None:
         state.pending_qr_task.cancel()
-        try:
+        with contextlib.suppress(asyncio.CancelledError, Exception):
             await state.pending_qr_task
-        except (asyncio.CancelledError, Exception):
-            pass
         state.pending_qr_task = None
     state.pending_qr_login = None
 
@@ -164,9 +159,5 @@ async def logout_and_reset() -> None:
 
     session_str = str(session_path())
     for ext in ("", "-journal", "-wal", "-shm"):
-        try:
-            os.remove(session_str + ext)
-        except FileNotFoundError:
-            pass
-        except OSError as exc:
-            log.warning("Could not remove %s%s: %s", session_str, ext, exc)
+        with contextlib.suppress(FileNotFoundError, OSError):
+            Path(session_str + ext).unlink()

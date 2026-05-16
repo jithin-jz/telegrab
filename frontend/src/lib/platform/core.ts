@@ -13,10 +13,7 @@ import { callPy } from './internal';
  * exact same command names on `window.pywebview.api.cmd_x` and accepts a
  * single args object.
  */
-export function invoke<T = unknown>(
-  cmd: string,
-  args?: Record<string, unknown>
-): Promise<T> {
+export function invoke<T = unknown>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   return callPy<T>(cmd, args);
 }
 

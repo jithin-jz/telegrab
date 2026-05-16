@@ -12,9 +12,9 @@
 import { invoke } from './core';
 
 export type DownloadEvent =
-  | { event: "Started"; data: { contentLength?: number } }
-  | { event: "Progress"; data: { chunkLength?: number } }
-  | { event: "Finished"; data?: undefined };
+  | { event: 'Started'; data: { contentLength?: number } }
+  | { event: 'Progress'; data: { chunkLength?: number } }
+  | { event: 'Finished'; data?: undefined };
 
 export type DownloadProgressCallback = (event: DownloadEvent) => void;
 
@@ -41,20 +41,20 @@ export async function check(): Promise<Update | null> {
       downloadAndInstall: async (onEvent) => {
         const handler = (e: any) => {
           if (onEvent && e.detail) {
-             if (e.detail.event === 'Started') {
-                 onEvent({ event: 'Started', data: { contentLength: e.detail.total } });
-             } else if (e.detail.event === 'Progress') {
-                 onEvent({ event: 'Progress', data: { chunkLength: e.detail.chunk } });
-             }
+            if (e.detail.event === 'Started') {
+              onEvent({ event: 'Started', data: { contentLength: e.detail.total } });
+            } else if (e.detail.event === 'Progress') {
+              onEvent({ event: 'Progress', data: { chunkLength: e.detail.chunk } });
+            }
           }
         };
         window.addEventListener('updateProgress', handler);
         try {
-            await invoke('cmd_download_and_install_update', { url: res.download_url });
+          await invoke('cmd_download_and_install_update', { url: res.download_url });
         } finally {
-            window.removeEventListener('updateProgress', handler);
+          window.removeEventListener('updateProgress', handler);
         }
-      }
+      },
     };
   } catch (err) {
     console.error('Update check failed:', err);

@@ -117,7 +117,7 @@ a = Analysis(
 pyz = PYZ(a.pure)
 
 # ────────────────────────── Per-platform output ──────────────────────────
-APP_NAME = "Telegrab"
+APP_NAME = "telegrab"
 
 if sys.platform == "win32":
     # Single-file Windows binary. Slight cold-start cost but trivially
@@ -176,14 +176,14 @@ elif sys.platform == "darwin":
         coll,
         name=f"{APP_NAME}.app",
         icon=ICON,
-        bundle_identifier="com.Telegrab.app",
+        bundle_identifier="com.telegrab.app",
         info_plist={
-            "CFBundleDisplayName": "Telegram Drive",
+            "CFBundleDisplayName": "telegrab",
             "CFBundleShortVersionString": "1.4.0",
             "CFBundleVersion": "1.4.0",
             "NSHighResolutionCapable": True,
             "LSMinimumSystemVersion": "10.15",
-            "NSAppleEventsUsageDescription": "Telegram Drive opens external links.",
+            "NSAppleEventsUsageDescription": "telegrab opens external links.",
         },
     )
 

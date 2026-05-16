@@ -1,0 +1,17 @@
+Metadata-Version: 2.4
+Name: telegrab
+Version: 1.4.0
+Summary: Fast, secure Telegram-based cloud storage powered by telegrab.
+Author: Telegram Drive
+License: MIT
+Requires-Python: >=3.11
+Requires-Dist: pywebview==5.3.2
+Requires-Dist: telethon==1.36.0
+Requires-Dist: fastapi==0.115.5
+Requires-Dist: uvicorn[standard]==0.32.1
+Requires-Dist: aiofiles==24.1.0
+Requires-Dist: python-multipart==0.0.18
+Requires-Dist: pythonnet==3.0.4; sys_platform == "win32"
+Requires-Dist: pyobjc-core==10.3.1; sys_platform == "darwin"
+Requires-Dist: pyobjc-framework-Cocoa==10.3.1; sys_platform == "darwin"
+Requires-Dist: pyobjc-framework-WebKit==10.3.1; sys_platform == "darwin"

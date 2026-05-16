@@ -10,16 +10,15 @@ that take `state` as their first argument: callers can use
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from telethon import TelegramClient
 
 from . import client as _client_mod
-from . import peers as _peers
-from . import transfers as _transfers
 from . import errors as _errors
 from . import media as _media
-
+from . import peers as _peers
+from . import transfers as _transfers
 
 # Re-export client lifecycle as-is.
 TelegramState = _client_mod.TelegramState
@@ -31,7 +30,7 @@ logout_and_reset = _client_mod.logout_and_reset
 # ──────────────────────── state-bound conveniences ────────────────────────
 
 
-async def resolve_peer(client: TelegramClient, folder_id: Optional[int]) -> Any:
+async def resolve_peer(client: TelegramClient, folder_id: int | None) -> Any:
     return await _peers.resolve_peer(get_state(), client, folder_id)
 
 

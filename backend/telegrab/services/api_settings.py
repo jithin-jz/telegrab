@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 import secrets
-from typing import Callable, Optional
+from collections.abc import Callable
 
 from ..config import (
     STREAM_PORT,
@@ -25,8 +25,8 @@ log = logging.getLogger(__name__)
 
 # Restart hook is wired in app.py — bridge methods call it after mutating
 # settings. Indirection avoids a circular import on the supervisor.
-_restart_hook: Optional[Callable[[], None]] = None
-_running_probe: Optional[Callable[[], bool]] = None
+_restart_hook: Callable[[], None] | None = None
+_running_probe: Callable[[], bool] | None = None
 
 
 def set_restart_hook(fn: Callable[[], None]) -> None:
@@ -78,9 +78,7 @@ async def cmd_update_api_settings(enabled: bool, port: int) -> dict:
     if port < 1024:
         raise ValueError("Port must be 1024 or higher")
     if port == STREAM_PORT:
-        raise ValueError(
-            f"Port {port} is used by the media streaming server"
-        )
+        raise ValueError(f"Port {port} is used by the media streaming server")
 
     settings = load_settings()
     changed = settings.port != int(port) or settings.enabled != bool(enabled)

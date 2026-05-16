@@ -1,83 +1,120 @@
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { Folder, Eye, Download, Trash2 } from 'lucide-react';
 import { TelegramFile } from '../../types';
 import { FileTypeIcon } from '../FileTypeIcon';
 
 interface FileListItemProps {
-    file: TelegramFile;
-    selectedIds: number[];
-    onFileClick: (e: React.MouseEvent, id: number) => void;
-    handleContextMenu: (e: React.MouseEvent, file: TelegramFile) => void;
-    onDragStart?: (fileId: number) => void;
-    onDragEnd?: () => void;
-    onDrop?: (e: React.DragEvent, folderId: number) => void;
-    onPreview: (file: TelegramFile) => void;
-    onDownload: (id: number, name: string) => void;
-    onDelete: (id: number) => void;
+  file: TelegramFile;
+  selectedIds: number[];
+  onFileClick: (e: React.MouseEvent, id: number) => void;
+  handleContextMenu: (e: React.MouseEvent, file: TelegramFile) => void;
+  onDragStart?: (fileId: number) => void;
+  onDragEnd?: () => void;
+  onDrop?: (e: React.DragEvent, folderId: number) => void;
+  onPreview: (file: TelegramFile) => void;
+  onDownload: (id: number, name: string) => void;
+  onDelete: (id: number) => void;
 }
 
-export function FileListItem({
-    file, selectedIds, onFileClick, handleContextMenu,
-    onDragStart, onDragEnd, onDrop,
-    onPreview, onDownload, onDelete
+export const FileListItem = memo(function FileListItem({
+  file,
+  selectedIds,
+  onFileClick,
+  handleContextMenu,
+  onDragStart,
+  onDragEnd,
+  onDrop,
+  onPreview,
+  onDownload,
+  onDelete,
 }: FileListItemProps) {
-    const [isDragOver, setIsDragOver] = useState(false);
-    const isFolder = file.type === 'folder';
+  const [isDragOver, setIsDragOver] = useState(false);
+  const isFolder = file.type === 'folder';
 
-    return (
-        <div
-            onClick={(e) => onFileClick(e, file.id)}
-            onContextMenu={(e) => handleContextMenu(e, file)}
-            draggable
-            onDragStart={(e) => {
-                if (onDragStart) onDragStart(file.id);
-                e.dataTransfer.setData("application/x-telegram-file-id", file.id.toString());
-                e.dataTransfer.effectAllowed = 'move';
+  return (
+    <div
+      onClick={(e) => onFileClick(e, file.id)}
+      onContextMenu={(e) => handleContextMenu(e, file)}
+      draggable
+      onDragStart={(e) => {
+        if (onDragStart) onDragStart(file.id);
+        e.dataTransfer.setData('application/x-telegram-file-id', file.id.toString());
+        e.dataTransfer.effectAllowed = 'move';
+      }}
+      onDragEnd={() => {
+        if (onDragEnd) onDragEnd();
+      }}
+      onDragOver={(e) => {
+        if (isFolder) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!isDragOver) setIsDragOver(true);
+        }
+      }}
+      onDragLeave={(e) => {
+        if (isFolder) {
+          e.preventDefault();
+          e.stopPropagation();
+          setIsDragOver(false);
+        }
+      }}
+      onDrop={(e) => {
+        if (isFolder && onDrop) {
+          e.preventDefault();
+          e.stopPropagation();
+          setIsDragOver(false);
+          onDrop(e, file.id);
+        }
+      }}
+      className={`group hover:bg-surface-soft grid cursor-pointer grid-cols-[2rem_2fr_6rem_8rem] items-center gap-4 rounded-lg border border-transparent px-4 py-3 transition-all ${selectedIds.includes(file.id) ? 'bg-primary/10 border-primary/20' : ''} ${isDragOver ? 'ring-primary bg-primary/20 ring-2' : ''} `}
+    >
+      <div className="flex justify-center">
+        {isFolder ? (
+          <Folder className="text-primary h-5 w-5" />
+        ) : (
+          <FileTypeIcon filename={file.name} className="h-5 w-5" />
+        )}
+      </div>
+      <div className="text-foreground relative truncate pr-8 text-sm font-medium">
+        {file.name}
+        {/* List Actions */}
+        <div className="bg-surface border-hairline absolute top-1/2 right-0 flex -translate-y-1/2 items-center rounded border px-1 opacity-0 shadow-lg group-hover:opacity-100">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onPreview(file);
             }}
-            onDragEnd={() => {
-                if (onDragEnd) onDragEnd();
+            className="hover:text-foreground text-slate p-1"
+            title="Preview"
+          >
+            <Eye className="h-4 w-4" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDownload(file.id, file.name);
             }}
-            onDragOver={(e) => {
-                if (isFolder) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (!isDragOver) setIsDragOver(true);
-                }
+            className="hover:text-foreground text-slate p-1"
+            title="Download"
+          >
+            <Download className="h-4 w-4" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(file.id);
             }}
-            onDragLeave={(e) => {
-                if (isFolder) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setIsDragOver(false);
-                }
-            }}
-            onDrop={(e) => {
-                if (isFolder && onDrop) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setIsDragOver(false);
-                    onDrop(e, file.id);
-                }
-            }}
-            className={`group grid grid-cols-[2rem_2fr_6rem_8rem] gap-4 items-center px-4 py-3 rounded-lg cursor-pointer border border-transparent transition-all hover:bg-surface-soft 
-                ${selectedIds.includes(file.id) ? 'bg-primary/10 border-primary/20' : ''}
-                ${isDragOver ? 'ring-2 ring-primary bg-primary/20' : ''}
-            `}
-        >
-            <div className="flex justify-center">
-                {isFolder ? <Folder className="w-5 h-5 text-primary" /> : <FileTypeIcon filename={file.name} className="w-5 h-5" />}
-            </div>
-            <div className="truncate text-sm text-foreground font-medium relative pr-8">
-                {file.name}
-                {/* List Actions */}
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 flex items-center bg-surface border border-hairline shadow-lg rounded px-1">
-                    <button onClick={(e) => { e.stopPropagation(); onPreview(file) }} className="p-1 hover:text-foreground text-slate" title="Preview"><Eye className="w-4 h-4" /></button>
-                    <button onClick={(e) => { e.stopPropagation(); onDownload(file.id, file.name) }} className="p-1 hover:text-foreground text-slate" title="Download"><Download className="w-4 h-4" /></button>
-                    <button onClick={(e) => { e.stopPropagation(); onDelete(file.id) }} className="p-1 hover:text-rose-400 text-slate" title="Delete"><Trash2 className="w-4 h-4" /></button>
-                </div>
-            </div>
-            <div className="text-right text-xs text-slate truncate">{file.sizeStr}</div>
-            <div className="text-right text-xs text-slate font-mono opacity-50 truncate">{file.created_at || '-'}</div>
+            className="text-slate p-1 hover:text-rose-400"
+            title="Delete"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
         </div>
-    );
-}
+      </div>
+      <div className="text-slate truncate text-right text-xs">{file.sizeStr}</div>
+      <div className="text-slate truncate text-right font-mono text-xs opacity-50">
+        {file.created_at || '-'}
+      </div>
+    </div>
+  );
+});

@@ -3,6 +3,14 @@
 Pure data — no business logic, no I/O beyond reading/writing settings files.
 """
 
+from .api_settings import (
+    DEFAULT_API_PORT,
+    ApiSettingsFile,
+    hash_key,
+    load_settings,
+    save_settings,
+    verify_key,
+)
 from .paths import (
     APP_NAME,
     api_settings_path,
@@ -15,14 +23,6 @@ from .paths import (
     thumbnail_cache_dir,
 )
 from .stream import STREAM_PORT, StreamConfig, get_stream_config
-from .api_settings import (
-    DEFAULT_API_PORT,
-    ApiSettingsFile,
-    hash_key,
-    load_settings,
-    save_settings,
-    verify_key,
-)
 
 __all__ = [
     # paths

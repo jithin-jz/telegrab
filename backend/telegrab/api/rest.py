@@ -16,21 +16,23 @@ which is wired into `services.api_settings.set_restart_hook` from app.py.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
-from typing import AsyncIterator, Optional
+from collections.abc import AsyncIterator
 
 import uvicorn
 from fastapi import Depends, FastAPI, Header, HTTPException, Path, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
-from .. import __version__, telegram as tg
+from .. import __version__
+from .. import telegram as tg
 from ..config import load_settings, verify_key
 
 log = logging.getLogger(__name__)
 
 
-def _create_app(initial_key_hash: Optional[str]) -> FastAPI:
+def _create_app(initial_key_hash: str | None) -> FastAPI:
     """Build the API server. The captured key hash is the one the server
     was configured with at start-time; restarts re-create the app so
     changes pick up cleanly.
@@ -51,7 +53,7 @@ def _create_app(initial_key_hash: Optional[str]) -> FastAPI:
         allow_headers=["*"],
     )
 
-    def require_key(x_api_key: Optional[str] = Header(default=None)) -> None:
+    def require_key(x_api_key: str | None = Header(default=None)) -> None:
         # Always look up the latest hash on disk so a regenerated key takes
         # effect for the next request without a server restart.
         settings = load_settings()
@@ -90,10 +92,10 @@ def _create_app(initial_key_hash: Optional[str]) -> FastAPI:
 
     @app.get("/api/v1/files", dependencies=[Depends(require_key)])
     async def list_files(
-        folder_id: Optional[int] = Query(default=None),
+        folder_id: int | None = Query(default=None),
         page: int = Query(default=1, ge=1),
         limit: int = Query(default=50, ge=1, le=200),
-        search: Optional[str] = Query(default=None),
+        search: str | None = Query(default=None),
     ) -> dict:
         client = tg.get_state().client
         if client is None:
@@ -112,9 +114,7 @@ def _create_app(initial_key_hash: Optional[str]) -> FastAPI:
         except Exception as exc:  # noqa: BLE001
             raise HTTPException(
                 status_code=400,
-                detail={
-                    "error": {"code": "PEER_ERROR", "message": str(exc)}
-                },
+                detail={"error": {"code": "PEER_ERROR", "message": str(exc)}},
             ) from exc
 
         files = []
@@ -140,7 +140,7 @@ def _create_app(initial_key_hash: Optional[str]) -> FastAPI:
     @app.get("/api/v1/files/{message_id}", dependencies=[Depends(require_key)])
     async def get_file(
         message_id: int = Path(...),
-        folder_id: Optional[int] = Query(default=None),
+        folder_id: int | None = Query(default=None),
     ) -> dict:
         client = tg.get_state().client
         if client is None:
@@ -155,12 +155,10 @@ def _create_app(initial_key_hash: Optional[str]) -> FastAPI:
             raise HTTPException(status_code=404, detail="File not found")
         return meta
 
-    @app.get(
-        "/api/v1/files/{message_id}/download", dependencies=[Depends(require_key)]
-    )
+    @app.get("/api/v1/files/{message_id}/download", dependencies=[Depends(require_key)])
     async def download_file(
         message_id: int = Path(...),
-        folder_id: Optional[int] = Query(default=None),
+        folder_id: int | None = Query(default=None),
     ):
         client = tg.get_state().client
         if client is None:
@@ -233,12 +231,10 @@ class RestApiSupervisor:
         if self._task is not None:
             try:
                 await asyncio.wait_for(self._task, timeout=5.0)
-            except (asyncio.TimeoutError, Exception):
+            except (TimeoutError, Exception):
                 self._task.cancel()
-                try:
+                with contextlib.suppress(asyncio.CancelledError, Exception):
                     await self._task
-                except (asyncio.CancelledError, Exception):
-                    pass
         self._task = None
         self._server = None
         self._running = False
@@ -265,7 +261,9 @@ class RestApiSupervisor:
         async def _runner() -> None:
             try:
                 self._running = True
-                log.info("REST API server starting on http://127.0.0.1:%s", settings.port)
+                log.info(
+                    "REST API server starting on http://127.0.0.1:%s", settings.port
+                )
                 await self._server.serve()  # type: ignore[union-attr]
             except Exception as exc:  # noqa: BLE001
                 log.error("REST API server crashed: %s", exc)

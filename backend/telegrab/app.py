@@ -1,6 +1,6 @@
 """Application entry point.
 
-Run with `python -m telegrab` or via the `telegram-drive` script defined in
+Run with `python -m telegrab` or via the `telegrab` script defined in
 `pyproject.toml`. The launch sequence is:
 
   1. Start the asyncio runtime on a background thread.
@@ -19,6 +19,7 @@ the user runs `npm run dev` separately, then `python -m telegrab`.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import logging
 import os
 import sys
@@ -27,7 +28,8 @@ from pathlib import Path
 import webview
 
 from . import telegram as tg
-from .api import Bridge, RestApiSupervisor, host as host_cmds, serve_streaming
+from .api import Bridge, RestApiSupervisor, serve_streaming
+from .api import host as host_cmds
 from .infra import bus, get_runtime
 from .services import api_settings as api_cmd_module
 
@@ -93,7 +95,7 @@ def _resolve_frontend_url() -> str:
         return dist_index.as_uri()
 
     return "data:text/html," + (
-        "<h2>Telegram Drive</h2>"
+        "<h2>Telegrab</h2>"
         "<p>Frontend bundle not found.</p>"
         "<p>Run <code>npm run build</code> in <code>frontend/</code> "
         "or set <code>TELEGRAB_DEV_URL=http://localhost:5173</code>.</p>"
@@ -104,7 +106,7 @@ def _resolve_frontend_url() -> str:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Telegram Drive (Python)")
+    parser = argparse.ArgumentParser(description="Telegrab (Python)")
     parser.add_argument(
         "--debug", action="store_true", help="Open the webview devtools"
     )
@@ -162,14 +164,21 @@ def main() -> None:
 
     window.events.loaded += _on_loaded
 
+    def _on_maximized():
+        bus.emit("window-maximized", True)
+
+    def _on_restored():
+        bus.emit("window-maximized", False)
+
+    window.events.maximized += _on_maximized
+    window.events.restored += _on_restored
+
     try:
         webview.start(debug=args.debug)
     finally:
         log.info("Shutting down...")
-        try:
+        with contextlib.suppress(Exception):
             rest_supervisor.stop()
-        except Exception:
-            pass
         try:
             state = tg.get_state()
             if state.client is not None:

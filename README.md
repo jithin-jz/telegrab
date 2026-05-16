@@ -31,8 +31,8 @@ Grab the latest installer from the [Releases](https://github.com/jithin-jz/teleg
 
 | Platform | File |
 |---|---|
-| Windows 10/11 | `TelegramDrive.exe` |
-| macOS 10.15+ | `TelegramDrive.dmg` |
+| Windows 10/11 | `telegrab.exe` |
+| macOS 10.15+ | `telegrab.dmg` |
 
 You'll need **Telegram API credentials** on first launch — get them from [my.telegram.org](https://my.telegram.org) → *API development tools*.
 
