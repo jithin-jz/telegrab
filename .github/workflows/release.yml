@@ -39,7 +39,7 @@ jobs:
           python -m venv backend\.venv
           backend\.venv\Scripts\python.exe -m pip install --upgrade pip wheel
           backend\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
-          backend\.venv\Scripts\python.exe -m pip install pyinstaller==6.11.1
+          backend\.venv\Scripts\python.exe -m pip install pyinstaller==6.11.1 pillow
 
       - name: Install Node deps
         run: npm ci
@@ -79,7 +79,7 @@ jobs:
           python -m venv backend/.venv
           backend/.venv/bin/python -m pip install --upgrade pip wheel
           backend/.venv/bin/python -m pip install -r backend/requirements.txt
-          backend/.venv/bin/python -m pip install pyinstaller==6.11.1
+          backend/.venv/bin/python -m pip install pyinstaller==6.11.1 pillow
 
       - name: Install Node deps
         run: npm ci
