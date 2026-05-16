@@ -1,30 +1,139 @@
 @import "tailwindcss";
 
-/* stylelint-disable at-rule-no-unknown */
-/* Dark Theme (Default) - Using Tailwind v4 @theme directive */
+/* ═══════════════════════════════════════════════════════════════════════════
+   NOTION DESIGN SYSTEM — full token palette from frontend/DESIGN.md
+   ═══════════════════════════════════════════════════════════════════════════
+   Tailwind 4 reads @theme blocks to generate utility classes (bg-primary,
+   text-ink, rounded-lg, etc). The same tokens are exposed as CSS variables
+   for direct use in components.
+*/
 @theme {
-  --color-telegram-bg: #0e1621;
-  --color-telegram-surface: #17212b;
-  --color-telegram-primary: #ffae00;
-  --color-telegram-secondary: #2481cc;
-  --color-telegram-text: #ffffff;
-  --color-telegram-subtext: #8e9fb3;
-  --color-telegram-border: rgba(255, 255, 255, 0.1);
+  /* ─── brand & primary ─── */
+  --color-primary: #5645d4;
+  --color-primary-pressed: #4534b3;
+  --color-primary-deep: #3a2a99;
+  --color-on-primary: #ffffff;
+
+  --color-brand-navy: #0a1530;
+  --color-brand-navy-deep: #070f24;
+  --color-brand-navy-mid: #1a2a52;
+
+  --color-link-blue: #0075de;
+  --color-link-blue-pressed: #005bab;
+
+  /* ─── brand spectrum (echoes live product properties) ─── */
+  --color-brand-orange: #dd5b00;
+  --color-brand-orange-deep: #793400;
+  --color-brand-pink: #ff64c8;
+  --color-brand-pink-deep: #a02e6d;
+  --color-brand-purple: #7b3ff2;
+  --color-brand-purple-300: #d6b6f6;
+  --color-brand-purple-800: #391c57;
+  --color-brand-teal: #2a9d99;
+  --color-brand-green: #1aae39;
+  --color-brand-yellow: #f5d75e;
+  --color-brand-brown: #523410;
+
+  /* ─── card tints (pastel feature card backgrounds) ─── */
+  --color-tint-peach: #ffe8d4;
+  --color-tint-rose: #fde0ec;
+  --color-tint-mint: #d9f3e1;
+  --color-tint-lavender: #e6e0f5;
+  --color-tint-sky: #dcecfa;
+  --color-tint-yellow: #fef7d6;
+  --color-tint-yellow-bold: #f9e79f;
+  --color-tint-cream: #f8f5e8;
+  --color-tint-gray: #f0eeec;
+
+  /* ─── surface ─── */
+  --color-canvas: #ffffff;
+  --color-surface: #f6f5f4;
+  --color-surface-soft: #fafaf9;
+  --color-hairline: #e5e3df;
+  --color-hairline-soft: #ede9e4;
+  --color-hairline-strong: #c8c4be;
+
+  /* ─── text ─── */
+  --color-ink-deep: #000000;
+  --color-ink: #1a1a1a;
+  --color-charcoal: #37352f;
+  --color-slate: #5d5b54;
+  --color-steel: #787671;
+  --color-stone: #a4a097;
+  --color-muted: #bbb8b1;
+  --color-on-dark: #ffffff;
+  --color-on-dark-muted: #a4a097;
+
+  /* ─── semantic ─── */
+  --color-success: #1aae39;
+  --color-warning: #dd5b00;
+  --color-error: #e03131;
+
+  /* ─── radius scale ─── */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-3xl: 24px;
+  --radius-full: 9999px;
+
+  /* ─── font family ─── */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', Helvetica, sans-serif;
+
+  /* ═══════════════════════════════════════════════════════════════════
+     BACKWARD-COMPAT ALIASES — every existing `bg-telegram-*` /
+     `text-telegram-*` class in the React code keeps working, but now
+     renders with the Notion palette automatically.
+     ═══════════════════════════════════════════════════════════════════ */
+  --color-telegram-bg: #fafaf9;          /* was #0e1621 — light Notion default */
+  --color-telegram-surface: #ffffff;     /* was #17212b */
+  --color-telegram-primary: #5645d4;     /* was #ffae00 — Notion purple */
+  --color-telegram-secondary: #0075de;   /* was #2481cc — link-blue */
+  --color-telegram-text: #1a1a1a;        /* was #ffffff */
+  --color-telegram-subtext: #5d5b54;     /* was #8e9fb3 — slate */
+  --color-telegram-border: #e5e3df;      /* was rgba(255,255,255,0.1) — hairline */
+  --color-telegram-hover: #f6f5f4;       /* was rgba(255,255,255,0.05) — surface */
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THEME OVERRIDES
+   - Light: the @theme defaults above (pure Notion light)
+   - Dark : navy Notion — uses brand-navy series for surfaces, purple stays
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root {
+  /* default = light. Stored for the JS theme toggle. */
+  color-scheme: light;
+}
+
+:root.dark {
+  color-scheme: dark;
+  --color-telegram-bg: #070f24;          /* brand-navy-deep */
+  --color-telegram-surface: #0a1530;     /* brand-navy */
+  --color-telegram-primary: #5645d4;     /* primary stays */
+  --color-telegram-secondary: #4d9eef;   /* lighter link-blue for contrast */
+  --color-telegram-text: #ffffff;        /* on-dark */
+  --color-telegram-subtext: #a4a097;     /* on-dark-muted */
+  --color-telegram-border: rgba(255, 255, 255, 0.10);
   --color-telegram-hover: rgba(255, 255, 255, 0.05);
+
+  --color-canvas: #0a1530;
+  --color-surface: #070f24;
+  --color-surface-soft: #0d1a3d;
+  --color-hairline: rgba(255, 255, 255, 0.08);
+  --color-hairline-soft: rgba(255, 255, 255, 0.05);
+  --color-hairline-strong: rgba(255, 255, 255, 0.18);
+
+  --color-ink: #ffffff;
+  --color-charcoal: #ffffff;
+  --color-slate: #a4a097;
+  --color-steel: #787671;
 }
 
-/* Light Theme Overrides */
-:root.light {
-  --color-telegram-bg: #f0f2f5;
-  --color-telegram-surface: #ffffff;
-  --color-telegram-primary: #e69500;
-  --color-telegram-secondary: #2481cc;
-  --color-telegram-text: #1a1a1a;
-  --color-telegram-subtext: #65676b;
-  --color-telegram-border: rgba(0, 0, 0, 0.1);
-  --color-telegram-hover: rgba(0, 0, 0, 0.03);
-}
-
+/* ═══════════════════════════════════════════════════════════════════════════
+   Base
+   ═══════════════════════════════════════════════════════════════════════════ */
 body,
 #root {
   margin: 0;
@@ -32,217 +141,269 @@ body,
   width: 100vw;
   height: 100vh;
   overflow: hidden;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
+  font-family: var(--font-sans);
+  font-feature-settings: 'cv11', 'ss01', 'ss03';
   background: var(--color-telegram-bg);
   color: var(--color-telegram-text);
-  transition: background-color 0.3s ease, color 0.3s ease;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 200ms ease, color 200ms ease;
 }
 
-/* Auth screen gradient background */
+/* ═══════════════════════════════════════════════════════════════════════════
+   Auth screen — Notion navy hero band with decorative dots.
+   Replaces the old blue gradient with the signature deep-navy brand surface.
+   ═══════════════════════════════════════════════════════════════════════════ */
 .auth-gradient {
-  background: radial-gradient(120% 120% at 0% 0%, #3ca5ff 0%, #007aff 100%);
+  background:
+    radial-gradient(circle at 20% 18%, rgba(123, 63, 242, 0.20) 0%, transparent 38%),
+    radial-gradient(circle at 78% 28%, rgba(255, 100, 200, 0.16) 0%, transparent 35%),
+    radial-gradient(circle at 60% 82%, rgba(245, 215, 94, 0.14) 0%, transparent 38%),
+    linear-gradient(180deg, #0a1530 0%, #070f24 100%);
 }
-
 :root.light .auth-gradient {
-  background: linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%);
+  /* Light mode keeps the navy hero — it's Notion's signature anchor */
+  background:
+    radial-gradient(circle at 20% 18%, rgba(123, 63, 242, 0.22) 0%, transparent 38%),
+    radial-gradient(circle at 78% 28%, rgba(255, 100, 200, 0.18) 0%, transparent 35%),
+    radial-gradient(circle at 60% 82%, rgba(245, 215, 94, 0.16) 0%, transparent 38%),
+    linear-gradient(180deg, #0a1530 0%, #070f24 100%);
 }
 
-/* Glassmorphism Utilities - Dark */
+/* ═══════════════════════════════════════════════════════════════════════════
+   Glass — flatter, Notion-style; barely visible elevation on canvas
+   ═══════════════════════════════════════════════════════════════════════════ */
 .glass {
-  background: rgba(23, 33, 43, 0.7);
+  background: var(--color-canvas);
+  border: 1px solid var(--color-hairline);
+}
+:root.dark .glass {
+  background: rgba(10, 21, 48, 0.85);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--color-hairline);
 }
 
-:root.light .glass {
-  background: rgba(255, 255, 255, 0.85);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-}
-
-/* Auth-specific glass - works on gradient backgrounds in both themes */
+/* Auth glass = Notion card-base on the navy hero */
 .auth-glass {
-  background: rgba(23, 33, 43, 0.85);
+  background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  color: #1a1a1a;
+  box-shadow: rgba(15, 15, 15, 0.20) 0 24px 48px -8px;
+  border-radius: 12px;
+}
+:root.dark .auth-glass {
+  background: rgba(10, 21, 48, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  color: #ffffff;
+  box-shadow: rgba(15, 15, 15, 0.45) 0 24px 48px -8px;
 }
 
-:root.light .auth-glass {
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+/* Force dark text inside auth-glass in light mode (overrides existing white-text classes) */
+:root.light .auth-glass .text-white,
+.auth-glass .text-white {
   color: #1a1a1a;
 }
+:root.dark .auth-glass .text-white {
+  color: #ffffff;
+}
+.auth-glass .text-white\/60 { color: rgba(26, 26, 26, 0.65); }
+:root.dark .auth-glass .text-white\/60 { color: rgba(255, 255, 255, 0.60); }
 
-/* Force dark text inside auth-glass in light mode */
-:root.light .auth-glass .text-white {
-  color: #1a1a1a;
+.auth-glass .text-gray-400 { color: var(--color-slate); }
+.auth-glass .text-blue-200 { color: var(--color-link-blue); }
+
+.auth-glass .placeholder-gray-600::placeholder { color: var(--color-stone); }
+.auth-glass input {
+  background: var(--color-canvas);
+  border: 1px solid var(--color-hairline-strong);
+  color: var(--color-ink);
+  border-radius: 8px;
+}
+:root.dark .auth-glass input {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
 }
 
-:root.light .auth-glass .text-white\/60 {
-  color: rgba(26, 26, 26, 0.7);
-}
-
-:root.light .auth-glass .text-gray-400 {
-  color: #555;
-}
-
-:root.light .auth-glass .text-blue-200 {
-  color: #1e40af;
-}
-
-:root.light .auth-glass .placeholder-gray-600::placeholder {
-  color: #9ca3af;
-}
-
-:root.light .auth-glass input {
-  background: rgba(0, 0, 0, 0.05);
-  border-color: rgba(0, 0, 0, 0.15);
-  color: #1a1a1a;
-}
-
-/* Auth form icons - Direct overrides for maximum visibility */
+/* Auth form icons — readable on light glass */
 .auth-form-icon {
-  color: #ffffff !important;
-  /* Default (Dark Mode): Pure White */
-  opacity: 1 !important;
+  color: #37352f !important;
+  opacity: 0.85 !important;
   z-index: 20;
 }
-
-/* Light Mode Override */
-:root.light .auth-form-icon {
-  color: #000000 !important;
-  /* Light Mode: Pure Black */
-  opacity: 0.8 !important;
+:root.dark .auth-form-icon {
+  color: #ffffff !important;
+  opacity: 1 !important;
 }
 
 .glass-input {
-  background: rgba(14, 22, 33, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
+  background: var(--color-canvas);
+  border: 1px solid var(--color-hairline-strong);
+  border-radius: 8px;
+}
+:root.dark .glass-input {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
-:root.light .glass-input {
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(0, 0, 0, 0.15);
+/* ═══════════════════════════════════════════════════════════════════════════
+   Notion typography utilities — match DESIGN.md hierarchy
+   ═══════════════════════════════════════════════════════════════════════════ */
+.t-hero       { font-weight: 600; font-size: 80px; line-height: 1.05; letter-spacing: -2px; }
+.t-display-lg { font-weight: 600; font-size: 56px; line-height: 1.10; letter-spacing: -1px; }
+.t-h1         { font-weight: 600; font-size: 48px; line-height: 1.15; letter-spacing: -0.5px; }
+.t-h2         { font-weight: 600; font-size: 36px; line-height: 1.20; letter-spacing: -0.5px; }
+.t-h3         { font-weight: 600; font-size: 28px; line-height: 1.25; }
+.t-h4         { font-weight: 600; font-size: 22px; line-height: 1.30; }
+.t-h5         { font-weight: 600; font-size: 18px; line-height: 1.40; }
+.t-subtitle   { font-weight: 400; font-size: 18px; line-height: 1.50; }
+.t-body       { font-weight: 400; font-size: 16px; line-height: 1.55; }
+.t-body-md    { font-weight: 500; font-size: 16px; line-height: 1.55; }
+.t-body-sm    { font-weight: 400; font-size: 14px; line-height: 1.50; }
+.t-body-sm-md { font-weight: 500; font-size: 14px; line-height: 1.50; }
+.t-caption    { font-weight: 400; font-size: 13px; line-height: 1.40; }
+.t-caption-b  { font-weight: 600; font-size: 13px; line-height: 1.40; }
+.t-micro      { font-weight: 500; font-size: 12px; line-height: 1.40; }
+.t-micro-up   { font-weight: 600; font-size: 11px; line-height: 1.40; letter-spacing: 1px; text-transform: uppercase; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Notion button family
+   ═══════════════════════════════════════════════════════════════════════════ */
+.btn-primary {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-weight: 500; font-size: 14px;
+  padding: 10px 18px; border-radius: 8px;
+  transition: background 150ms ease;
+}
+.btn-primary:hover    { background: var(--color-primary-pressed); }
+.btn-primary:disabled { background: var(--color-hairline); color: var(--color-muted); }
+
+.btn-dark {
+  background: var(--color-ink-deep); color: var(--color-on-dark);
+  font-weight: 500; font-size: 14px;
+  padding: 10px 18px; border-radius: 8px;
 }
 
-/* Custom Scrollbar - Dark */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+.btn-secondary {
+  background: transparent; color: var(--color-ink);
+  border: 1px solid var(--color-hairline-strong);
+  font-weight: 500; font-size: 14px;
+  padding: 10px 18px; border-radius: 8px;
+  transition: background 150ms ease;
 }
-
-::-webkit-scrollbar-track {
-  background: transparent;
+.btn-secondary:hover { background: var(--color-surface); }
+:root.dark .btn-secondary {
+  color: var(--color-on-dark);
+  border-color: rgba(255, 255, 255, 0.18);
 }
+:root.dark .btn-secondary:hover { background: rgba(255, 255, 255, 0.06); }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   Custom scrollbars — Notion uses subtle hairline-grey thumbs
+   ═══════════════════════════════════════════════════════════════════════════ */
+::-webkit-scrollbar       { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--color-hairline-strong);
   border-radius: 99px;
+  border: 2px solid transparent;
+  background-clip: content-box;
 }
-
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(36, 129, 204, 0.6);
+  background: var(--color-stone);
+  background-clip: content-box;
 }
 
-/* Custom Scrollbar - Light */
-:root.light ::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.15);
-}
-
-:root.light ::-webkit-scrollbar-thumb:hover {
-  background: rgba(36, 129, 204, 0.5);
-}
-
-/* Progress Animation */
+/* ═══════════════════════════════════════════════════════════════════════════
+   Progress / decorative animations (kept from original)
+   ═══════════════════════════════════════════════════════════════════════════ */
 @keyframes progress-indeterminate {
-  0% {
-    transform: translateX(-100%);
-  }
-
-  50% {
-    transform: translateX(50%);
-  }
-
-  100% {
-    transform: translateX(200%);
-  }
+  0%   { transform: translateX(-100%); }
+  50%  { transform: translateX(50%); }
+  100% { transform: translateX(200%); }
 }
-
 .animate-progress-indeterminate {
   animation: progress-indeterminate 1.5s infinite linear;
 }
 
-/* Light mode specific overrides for common patterns */
-:root.light .bg-telegram-bg {
-  background-color: var(--color-telegram-bg);
-}
-
-:root.light .bg-telegram-surface {
-  background-color: var(--color-telegram-surface);
-}
-
+/* ═══════════════════════════════════════════════════════════════════════════
+   Light mode patches — translate the old white/black opacity utilities
+   used throughout the React code to readable Notion equivalents
+   ═══════════════════════════════════════════════════════════════════════════ */
 :root.light .border-white\/5,
-:root.light .border-white\/10 {
-  border-color: var(--color-telegram-border);
+:root.light .border-white\/10,
+:root.light .border-white\/20 {
+  border-color: var(--color-hairline) !important;
 }
 
 :root.light .bg-white\/5,
 :root.light .hover\:bg-white\/5:hover {
-  background-color: var(--color-telegram-hover);
+  background-color: var(--color-surface) !important;
 }
-
 :root.light .bg-white\/10,
 :root.light .hover\:bg-white\/10:hover {
-  background-color: rgba(0, 0, 0, 0.05);
+  background-color: var(--color-surface) !important;
 }
-
 :root.light .bg-black\/20,
 :root.light .bg-black\/30,
 :root.light .bg-black\/50 {
-  background-color: rgba(0, 0, 0, 0.08);
+  background-color: var(--color-surface) !important;
 }
 
-/* File card action buttons - more visible in light mode */
-:root.light .file-action-btn {
-  background-color: rgba(0, 0, 0, 0.6) !important;
+:root.light .text-white,
+:root.light .text-white\/80,
+:root.light .text-white\/90 {
+  color: var(--color-ink) !important;
+}
+:root.light .text-white\/60,
+:root.light .text-white\/70 {
+  color: var(--color-slate) !important;
+}
+:root.light .text-gray-400,
+:root.light .text-gray-500 {
+  color: var(--color-slate) !important;
+}
+
+/* File card action buttons — subtle on hover, visible against pastel tints */
+.file-action-btn {
+  background-color: rgba(0, 0, 0, 0.55) !important;
   color: white !important;
+  border-radius: 6px;
 }
-
-:root.light .file-action-btn:hover {
-  background-color: var(--color-telegram-primary) !important;
+.file-action-btn:hover {
+  background-color: var(--color-primary) !important;
 }
-
-/* Invert text colors for light mode where needed */
-:root.light .text-telegram-text {
-  color: var(--color-telegram-text);
-}
-
-:root.light .text-telegram-subtext {
-  color: var(--color-telegram-subtext);
+:root.light .file-action-btn {
+  background-color: rgba(26, 26, 26, 0.65) !important;
 }
 
 /* Card shadows for light mode */
 :root.light .shadow-2xl {
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+  box-shadow: rgba(15, 15, 15, 0.08) 0 4px 12px 0,
+              rgba(15, 15, 15, 0.04) 0 1px 2px 0;
 }
 
-/* Input styling for light mode */
+/* Text colours for light mode where the alias overrides need help */
+:root.light .text-telegram-text { color: var(--color-ink); }
+:root.light .text-telegram-subtext { color: var(--color-slate); }
+
+/* Inputs */
 :root.light input,
 :root.light textarea {
-  background-color: #ffffff;
-  border-color: rgba(0, 0, 0, 0.15);
-  color: #1a1a1a;
+  background-color: var(--color-canvas);
+  border-color: var(--color-hairline-strong);
+  color: var(--color-ink);
+  border-radius: 8px;
 }
-
 :root.light input::placeholder,
-:root.light textarea::placeholder {
-  color: #9ca3af;
-}
-
+:root.light textarea::placeholder { color: var(--color-stone); }
 :root.light input:focus,
 :root.light textarea:focus {
-  border-color: var(--color-telegram-primary);
+  border-color: var(--color-primary);
+  outline: 0;
+  box-shadow: 0 0 0 3px rgba(86, 69, 212, 0.12);
 }
