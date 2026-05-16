@@ -144,6 +144,16 @@ async def cmd_auth_qr_login(api_id: int, api_hash: str) -> str:
     client = await tg.ensure_client(int(api_id), api_hash)
     state = tg.get_state()
 
+    # If already authorized, tell the frontend to redirect
+    try:
+        if await client.is_user_authorized():
+            return "__authorized__"
+    except SessionPasswordNeededError:
+        # If the session exists but needs a password, we can skip QR/Phone and go to password
+        return "__password_required__"
+    except Exception:
+        pass
+
     if state.pending_qr_task is not None:
         state.pending_qr_task.cancel()
         state.pending_qr_task = None
@@ -151,7 +161,10 @@ async def cmd_auth_qr_login(api_id: int, api_hash: str) -> str:
 
     try:
         qr = await client.qr_login()
+    except SessionPasswordNeededError:
+        return "__password_required__"
     except Exception as exc:  # noqa: BLE001
+        log.warning("QR login initiation failed: %s", exc)
         raise RuntimeError(f"ExportLoginToken failed: {exc}") from exc
 
     state.pending_qr_login = qr

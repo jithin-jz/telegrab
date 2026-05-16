@@ -153,6 +153,11 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
         onLogin();
         return;
       }
+      if (url === '__password_required__') {
+        setLoginMethod('phone');
+        setStep('password');
+        return;
+      }
 
       setQrUrl(url);
       setQrPolling(true);
