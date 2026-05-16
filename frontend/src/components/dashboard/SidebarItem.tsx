@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { X } from 'lucide-react';
+import { cn } from '../../lib/cn';
 
 interface SidebarItemProps {
     icon: React.ElementType;
@@ -13,9 +14,12 @@ interface SidebarItemProps {
 
 /**
  * SidebarItem - Pure DOM event-based drop handling
- * 
+ *
  * With Tauri's dragDropEnabled: false, DOM events work reliably.
  * This component handles internal file moves via standard React drag events.
+ *
+ * Linear-style: active state shown by a left accent bar + tinted bg.
+ * Hover is a barely-there elevation (rgba white 0.04).
  */
 export function SidebarItem({ icon: Icon, label, active = false, onClick, onDrop, onDelete }: SidebarItemProps) {
     const [isOver, setIsOver] = useState(false);
@@ -36,7 +40,6 @@ export function SidebarItem({ icon: Icon, label, active = false, onClick, onDrop
             onDragLeave={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                // Only clear if truly leaving (not entering a child element)
                 const rect = e.currentTarget.getBoundingClientRect();
                 const x = e.clientX;
                 const y = e.clientY;
@@ -56,19 +59,41 @@ export function SidebarItem({ icon: Icon, label, active = false, onClick, onDrop
                     onDelete();
                 }
             }}
-            className={`group w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 ${active
-                ? 'bg-telegram-primary/10 text-telegram-primary'
-                : isOver
-                    ? 'bg-telegram-primary/30 text-telegram-text ring-2 ring-telegram-primary scale-[1.02] shadow-lg'
-                    : 'text-telegram-subtext hover:bg-telegram-hover hover:text-telegram-text'
-                }`}
+            className={cn(
+                'group relative w-full flex items-center gap-2.5 pl-3 pr-2 py-1.5 rounded-md text-[13px] font-medium transition-colors duration-150',
+                active
+                    ? 'bg-white/[0.04] text-foreground'
+                    : 'text-slate hover:bg-white/[0.03] hover:text-foreground',
+                isOver && 'bg-primary/15 text-foreground ring-1 ring-primary/60',
+            )}
         >
-            <Icon className={`w-4 h-4 ${isOver ? 'text-telegram-primary' : ''}`} />
+            {/* Left accent bar — only visible when active */}
+            <span
+                aria-hidden
+                className={cn(
+                    'absolute left-0 top-1/2 -translate-y-1/2 h-4 w-[2px] rounded-r-full transition-opacity',
+                    active ? 'bg-primary opacity-100' : 'opacity-0',
+                )}
+            />
+            <Icon
+                className={cn(
+                    'w-4 h-4 shrink-0 transition-colors',
+                    active ? 'text-primary' : 'text-stone group-hover:text-slate',
+                    isOver && 'text-primary',
+                )}
+                strokeWidth={1.75}
+            />
             <span className="flex-1 text-left truncate">{label}</span>
             {onDelete && (
-                <div onClick={(e) => { e.stopPropagation(); onDelete(); }} className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400">
-                    <Plus className="w-3 h-3 rotate-45" />
-                </div>
+                <span
+                    role="button"
+                    tabIndex={-1}
+                    onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                    className="opacity-0 group-hover:opacity-100 w-5 h-5 grid place-items-center rounded text-stone hover:text-rose-400 hover:bg-white/5 transition-colors"
+                    title="Delete folder"
+                >
+                    <X className="w-3 h-3" />
+                </span>
             )}
         </button>
     )

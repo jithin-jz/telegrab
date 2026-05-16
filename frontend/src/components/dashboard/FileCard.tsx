@@ -1,9 +1,10 @@
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
-import { Folder, Eye, Trash2 } from 'lucide-react';
+import { Folder, Eye, Trash2, Download, Check } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { TelegramFile } from '../../types';
 import { FileTypeIcon } from '../FileTypeIcon';
+import { cn } from '../../lib/cn';
 
 interface FileCardProps {
     file: TelegramFile;
@@ -95,63 +96,109 @@ export function FileCard({ file, onDelete, onDownload, onPreview, isSelected, on
                 onDragEnd={() => {
                     if (onDragEnd) onDragEnd();
                 }}
-                whileHover={{ y: -4 }}
-                className={`group cursor-pointer bg-telegram-surface rounded-xl overflow-hidden border hover:shadow-[0_4px_20px_rgba(0,0,0,0.2)] transition-all relative
-                ${isSelected ? 'border-telegram-primary bg-telegram-primary/5 ring-1 ring-telegram-primary' : 'border-telegram-border hover:border-telegram-primary/50'}
-                ${isDragOver ? 'ring-2 ring-telegram-primary bg-telegram-primary/20 scale-105' : ''}`}
+                whileHover={{ y: -2 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+                className={cn(
+                    'group relative cursor-pointer overflow-hidden rounded-xl border transition-colors duration-150',
+                    'bg-card',
+                    isSelected
+                        ? 'border-primary/60 shadow-[0_0_0_1px_var(--color-primary)] bg-primary/[0.04]'
+                        : 'border-hairline hover:border-hairline-strong',
+                    isDragOver && 'border-primary/80 bg-primary/[0.08] scale-[1.015]',
+                )}
                 style={height ? { height: `${height}px` } : { aspectRatio: '4/3' }}
             >
-                {/* Thumbnail or Icon */}
+                {/* Thumbnail or icon background */}
                 {thumbnail ? (
                     <div className="absolute inset-0">
-                        <img
-                            src={thumbnail}
-                            alt={file.name}
-                            className="w-full h-full object-cover"
-                        />
-                        {/* Gradient overlay for text readability */}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                        <img src={thumbnail} alt={file.name} className="w-full h-full object-cover" />
+                        {/* gradient overlay for label readability */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent" />
                     </div>
                 ) : (
-                    <div className="absolute inset-0 flex items-center justify-center p-4">
+                    <div className="absolute inset-x-0 top-0 bottom-[64px] flex items-center justify-center">
+                        {/* subtle radial tint behind the icon */}
+                        <div
+                            aria-hidden
+                            className="absolute inset-0 opacity-60 pointer-events-none"
+                            style={{
+                                background:
+                                    'radial-gradient(60% 60% at 50% 45%, rgba(124,92,255,0.10) 0%, transparent 70%)',
+                            }}
+                        />
                         {isFolder ? (
-                            <Folder className="w-12 h-12 text-telegram-primary" />
+                            <Folder className="w-10 h-10 text-primary relative" strokeWidth={1.5} />
                         ) : thumbnailLoading && isImageFile(file.name) ? (
-                            <div className="w-8 h-8 border-2 border-telegram-primary/30 border-t-telegram-primary rounded-full animate-spin" />
+                            <div className="w-7 h-7 border-2 border-primary/30 border-t-primary rounded-full animate-spin relative" />
                         ) : (
-                            <FileTypeIcon filename={file.name} size="lg" />
+                            <div className="relative">
+                                <FileTypeIcon filename={file.name} size="lg" />
+                            </div>
                         )}
                     </div>
                 )}
 
-                {/* Selection Checkmark */}
+                {/* Selection circle (top-left) */}
                 <div
                     onClick={(e) => {
                         e.stopPropagation();
                         if (onToggleSelection) onToggleSelection();
                     }}
-                    className={`absolute top-2 left-2 w-5 h-5 rounded-full border flex items-center justify-center transition-all z-10 cursor-pointer ${isSelected ? 'bg-telegram-primary border-telegram-primary' : 'border-white/50 bg-black/30 opacity-0 group-hover:opacity-100'}`}
+                    className={cn(
+                        'absolute top-2.5 left-2.5 w-5 h-5 rounded-full border flex items-center justify-center transition-all z-10 cursor-pointer',
+                        isSelected
+                            ? 'bg-primary border-primary scale-100'
+                            : 'border-white/30 bg-black/40 backdrop-blur-sm opacity-0 group-hover:opacity-100',
+                    )}
                 >
-                    {isSelected && <div className="w-1.5 h-1.5 bg-black rounded-full" />}
+                    {isSelected && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
                 </div>
 
-                {/* File info overlay at bottom */}
-                <div className={`absolute bottom-0 left-0 right-0 p-3 ${thumbnail ? 'text-white' : 'text-telegram-text'}`}>
-                    <h3 className="text-sm font-medium truncate w-full" title={file.name}>{file.name}</h3>
-                    <p className={`text-xs mt-0.5 ${thumbnail ? 'text-white/70' : 'text-telegram-subtext'}`}>{file.sizeStr}</p>
+                {/* Action buttons (top-right) — appear on hover */}
+                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                    {onPreview && (
+                        <button
+                            onClick={(e) => { e.stopPropagation(); onPreview(); }}
+                            className="w-7 h-7 grid place-items-center rounded-md bg-black/60 backdrop-blur text-white/80 hover:bg-primary hover:text-white transition-colors"
+                            title="Preview"
+                        >
+                            <Eye className="w-3.5 h-3.5" />
+                        </button>
+                    )}
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onDownload(); }}
+                        className="w-7 h-7 grid place-items-center rounded-md bg-black/60 backdrop-blur text-white/80 hover:bg-emerald-500 hover:text-white transition-colors"
+                        title="Download"
+                    >
+                        <Download className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                        className="w-7 h-7 grid place-items-center rounded-md bg-black/60 backdrop-blur text-white/80 hover:bg-rose-500 hover:text-white transition-colors"
+                        title="Delete"
+                    >
+                        <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                 </div>
 
-                {/* Quick actions on hover */}
-                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 z-10">
-                    <button onClick={(e) => { e.stopPropagation(); if (onPreview) onPreview() }} className="file-action-btn p-1 bg-black/50 rounded-full hover:bg-telegram-primary hover:text-white text-white/70" title="Preview">
-                        <Eye className="w-3 h-3" />
-                    </button>
-                    <button onClick={(e) => { e.stopPropagation(); onDownload() }} className="file-action-btn p-1 bg-black/50 rounded-full hover:bg-green-500 hover:text-white text-white/70" title="Download">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                    </button>
-                    <button onClick={(e) => { e.stopPropagation(); onDelete() }} className="file-action-btn p-1 bg-black/50 rounded-full hover:bg-red-500 hover:text-white text-white/70" title="Delete">
-                        <Trash2 className="w-3 h-3" />
-                    </button>
+                {/* Filename + size strip at the bottom */}
+                <div
+                    className={cn(
+                        'absolute bottom-0 left-0 right-0 px-3 py-2.5 border-t',
+                        thumbnail
+                            ? 'border-transparent text-white'
+                            : 'border-hairline-soft bg-card/60 backdrop-blur-[2px]',
+                    )}
+                >
+                    <h3
+                        className={cn('text-[13px] font-medium truncate leading-snug', thumbnail ? 'text-white' : 'text-foreground')}
+                        title={file.name}
+                    >
+                        {file.name}
+                    </h3>
+                    <p className={cn('text-[11px] mt-0.5', thumbnail ? 'text-white/70' : 'text-slate')}>
+                        {file.sizeStr}
+                    </p>
                 </div>
             </motion.div>
         </div>
