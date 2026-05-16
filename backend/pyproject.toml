@@ -1,7 +1,7 @@
 [project]
-name = "telegram-drive-backend"
+name = "telegrab"
 version = "1.4.0"
-description = "Python backend for Telegram Drive (replaces the Tauri/Rust backend)."
+description = "Fast, secure Telegram-based cloud storage powered by telegrab."
 requires-python = ">=3.11"
 authors = [{ name = "Telegram Drive" }]
 license = { text = "MIT" }

@@ -667,7 +667,7 @@ wheels = [
 ]
 
 [[package]]
-name = "telegram-drive-backend"
+name = "telegrab"
 version = "1.4.0"
 source = { editable = "." }
 dependencies = [
