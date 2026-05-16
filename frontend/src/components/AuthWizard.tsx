@@ -175,6 +175,8 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
     qrPollRef.current = setInterval(async () => {
       try {
         const res = await invoke<{ success: boolean; next_step?: string }>('cmd_auth_qr_poll');
+        console.log('[Auth] QR Poll Result:', res);
+        
         if (res.success) {
           setQrPolling(false);
           if (res.next_step === 'password') {

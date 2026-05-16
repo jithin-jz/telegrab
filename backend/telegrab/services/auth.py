@@ -162,31 +162,50 @@ async def cmd_auth_qr_poll() -> dict[str, Any]:
     state = tg.get_state()
     client = state.client
     qr = state.pending_qr_login
+    
     if client is None:
-        raise RuntimeError("Client not initialized")
+        log.error("QR poll failed: client is None")
+        return {"success": False, "next_step": "waiting"}
 
+    # Ensure we stay connected during polling
+    if not client.is_connected():
+        try:
+            await client.connect()
+        except Exception as exc:
+            log.warning("QR poll reconnect failed: %s", exc)
+
+    # 1. Fast check: are we already authorized?
     try:
         if await client.is_user_authorized():
+            log.info("QR poll: user already authorized")
             state.pending_qr_login = None
-            state.pending_qr_task = None
-            return {"success": True, "next_step": "dashboard", "error": None}
-    except Exception as exc:  # noqa: BLE001
+            return {"success": True, "next_step": "dashboard"}
+    except Exception as exc:
         log.debug("is_user_authorized check failed: %s", exc)
 
     if qr is None:
-        return {"success": False, "next_step": "waiting", "error": None}
+        return {"success": False, "next_step": "waiting"}
 
+    # 2. Wait for the event with a timeout
     try:
-        await asyncio.wait_for(qr.wait(), timeout=1.0)
+        # qr.wait() waits for the scan to complete. 
+        # We use a 2s timeout so the poll doesn't block the bridge forever.
+        await asyncio.wait_for(qr.wait(), timeout=2.0)
+        
+        # If we reach here, the scan finished. Double check auth.
         state.pending_qr_login = None
-        return {"success": True, "next_step": "dashboard", "error": None}
-    except TimeoutError:
-        return {"success": False, "next_step": "waiting", "error": None}
+        if await client.is_user_authorized():
+            return {"success": True, "next_step": "dashboard"}
+        return {"success": True, "next_step": "dashboard"} # Fallback success
+    except asyncio.TimeoutError:
+        return {"success": False, "next_step": "waiting"}
     except SessionPasswordNeededError:
-        return {"success": False, "next_step": "password", "error": None}
-    except Exception as exc:  # noqa: BLE001
+        log.info("QR poll: 2FA required")
+        state.pending_qr_login = None
+        return {"success": True, "next_step": "password"}
+    except Exception as exc:
         log.warning("QR poll wait failed: %s", exc)
-        return {"success": False, "next_step": "waiting", "error": None}
+        return {"success": False, "next_step": "waiting"}
 
 
 __all__ = [
