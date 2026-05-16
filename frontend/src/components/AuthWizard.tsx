@@ -309,9 +309,6 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
               Your files, <br />
               <span className="text-primary">reimagined.</span>
             </h1>
-            <p className="text-slate text-xl leading-relaxed font-medium max-w-sm">
-              Professional-grade interface for your Telegram cloud. Secure, limitless, and beautifully designed.
-            </p>
           </div>
 
           <div className="grid gap-6">
