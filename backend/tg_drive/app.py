@@ -140,7 +140,7 @@ def main() -> None:
     log.info("Loading frontend from: %s", url)
 
     window = webview.create_window(
-        title="Telegram Drive",
+        title="Telegrab",
         url=url,
         js_api=bridge,
         width=1200,

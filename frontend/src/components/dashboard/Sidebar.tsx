@@ -6,6 +6,7 @@ import { TelegramFolder, BandwidthStats } from '../../types';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { cn } from '../../lib/cn';
+import logoUrl from '../../assets/logo.svg';
 
 interface SidebarProps {
     folders: TelegramFolder[];
@@ -46,10 +47,12 @@ export function Sidebar({
         >
             {/* Brand header */}
             <div className="px-4 pt-4 pb-3 flex items-center gap-2.5">
-                <img src="/logo.svg" className="w-7 h-7" alt="Telegram Drive" />
+                <div className="w-8 h-8 rounded-lg bg-white/[0.04] border border-hairline grid place-items-center shadow-sm">
+                    <img src={logoUrl} className="w-7 h-7" alt="Telegrab" />
+                </div>
                 <div className="leading-tight">
-                    <div className="text-[14px] font-semibold tracking-tight text-foreground">Telegram Drive</div>
-                    <div className="text-[10px] text-stone uppercase tracking-[0.08em]">v1.4</div>
+                    <div className="text-[14px] font-semibold tracking-tight text-foreground">Telegrab</div>
+                    <div className="text-[10px] text-stone uppercase tracking-[0.08em]">private drive</div>
                 </div>
             </div>
 

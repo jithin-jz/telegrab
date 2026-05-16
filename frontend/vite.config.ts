@@ -40,4 +40,18 @@ export default defineConfig({
       ignored: ["**/backend/**"],
     },
   },
+
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return;
+          if (id.includes("pdfjs-dist")) return "pdf";
+          if (id.includes("framer-motion")) return "motion";
+          if (id.includes("@tanstack")) return "tanstack";
+          return "vendor";
+        },
+      },
+    },
+  },
 });

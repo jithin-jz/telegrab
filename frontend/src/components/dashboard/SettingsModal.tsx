@@ -5,6 +5,9 @@ import { invoke } from '@tauri-apps/api/core';
 import { toast } from 'sonner';
 import { useSettings } from '../../contexts/SettingsContext';
 import { useConfirm } from '../../contexts/ConfirmContext';
+import { Button } from '../ui/button';
+import { Card, CardContent } from '../ui/card';
+import { Input } from '../ui/input';
 
 interface SettingsModalProps {
     isOpen: boolean;
@@ -139,30 +142,40 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+                    className="fixed inset-0 z-[120] flex justify-end bg-black/45 backdrop-blur-[2px]"
                     onClick={onClose}
                 >
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                        className="bg-telegram-surface border border-telegram-border rounded-xl w-[440px] shadow-2xl overflow-hidden"
+                    <motion.aside
+                        initial={{ x: 480 }}
+                        animate={{ x: 0 }}
+                        exit={{ x: 480 }}
+                        transition={{ type: 'spring', damping: 32, stiffness: 360 }}
+                        className="h-full w-full max-w-[460px] bg-canvas border-l border-hairline shadow-2xl overflow-hidden flex flex-col"
                         onClick={e => e.stopPropagation()}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label="Settings"
                     >
                         {/* Header */}
-                        <div className="px-5 py-4 border-b border-telegram-border flex justify-between items-center">
-                            <h2 className="text-telegram-text font-semibold text-base">Settings</h2>
+                        <div className="px-5 py-4 border-b border-hairline flex justify-between items-start gap-4 bg-surface/80">
+                            <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                    <h2 className="text-telegram-text font-semibold text-base">Settings</h2>
+                                    <span className="h-1.5 w-1.5 rounded-full bg-success shadow-[0_0_8px_rgba(70,194,100,0.55)]" />
+                                </div>
+                                <p className="text-xs text-stone mt-1">Tune transfers, API access, and local storage.</p>
+                            </div>
                             <button
                                 onClick={onClose}
-                                className="p-1.5 hover:bg-telegram-hover rounded-lg text-telegram-subtext hover:text-telegram-text transition"
+                                className="w-8 h-8 grid place-items-center hover:bg-white/[0.04] rounded-md text-telegram-subtext hover:text-telegram-text transition"
+                                aria-label="Close settings"
                             >
                                 <X className="w-4 h-4" />
                             </button>
                         </div>
 
                         {/* Body */}
-                        <div className="px-5 py-4 space-y-6 max-h-[70vh] overflow-y-auto">
+                        <div className="flex-1 px-5 py-5 space-y-5 overflow-y-auto custom-scrollbar">
 
                             {/* Transfers Section */}
                             <section className="space-y-3">
@@ -172,7 +185,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                 </h3>
 
                                 {/* Max Concurrent Uploads */}
-                                <div className="flex items-center justify-between p-3 rounded-lg bg-telegram-hover/50">
+                                <Card className="bg-surface">
+                                    <CardContent className="flex items-center justify-between gap-4 p-3">
                                     <div className="flex items-center gap-2">
                                         <Upload className="w-4 h-4 text-telegram-subtext" />
                                         <div>
@@ -181,26 +195,34 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <button
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="icon"
                                             onClick={() => updateSetting('maxConcurrentUploads', Math.max(1, settings.maxConcurrentUploads - 1))}
-                                            className="w-7 h-7 flex items-center justify-center rounded-md bg-telegram-bg text-telegram-subtext hover:text-telegram-text hover:bg-telegram-border transition text-sm font-medium"
+                                            className="h-7 w-7 text-sm text-telegram-subtext hover:text-telegram-text"
                                         >
                                             -
-                                        </button>
+                                        </Button>
                                         <span className="text-sm text-telegram-text font-medium w-5 text-center">
                                             {settings.maxConcurrentUploads}
                                         </span>
-                                        <button
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="icon"
                                             onClick={() => updateSetting('maxConcurrentUploads', Math.min(10, settings.maxConcurrentUploads + 1))}
-                                            className="w-7 h-7 flex items-center justify-center rounded-md bg-telegram-bg text-telegram-subtext hover:text-telegram-text hover:bg-telegram-border transition text-sm font-medium"
+                                            className="h-7 w-7 text-sm text-telegram-subtext hover:text-telegram-text"
                                         >
                                             +
-                                        </button>
+                                        </Button>
                                     </div>
-                                </div>
+                                    </CardContent>
+                                </Card>
 
                                 {/* Max Concurrent Downloads */}
-                                <div className="flex items-center justify-between p-3 rounded-lg bg-telegram-hover/50">
+                                <Card className="bg-surface">
+                                    <CardContent className="flex items-center justify-between gap-4 p-3">
                                     <div className="flex items-center gap-2">
                                         <Download className="w-4 h-4 text-telegram-subtext" />
                                         <div>
@@ -209,23 +231,30 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <button
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="icon"
                                             onClick={() => updateSetting('maxConcurrentDownloads', Math.max(1, settings.maxConcurrentDownloads - 1))}
-                                            className="w-7 h-7 flex items-center justify-center rounded-md bg-telegram-bg text-telegram-subtext hover:text-telegram-text hover:bg-telegram-border transition text-sm font-medium"
+                                            className="h-7 w-7 text-sm text-telegram-subtext hover:text-telegram-text"
                                         >
                                             -
-                                        </button>
+                                        </Button>
                                         <span className="text-sm text-telegram-text font-medium w-5 text-center">
                                             {settings.maxConcurrentDownloads}
                                         </span>
-                                        <button
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="icon"
                                             onClick={() => updateSetting('maxConcurrentDownloads', Math.min(10, settings.maxConcurrentDownloads + 1))}
-                                            className="w-7 h-7 flex items-center justify-center rounded-md bg-telegram-bg text-telegram-subtext hover:text-telegram-text hover:bg-telegram-border transition text-sm font-medium"
+                                            className="h-7 w-7 text-sm text-telegram-subtext hover:text-telegram-text"
                                         >
                                             +
-                                        </button>
+                                        </Button>
                                     </div>
-                                </div>
+                                    </CardContent>
+                                </Card>
                             </section>
 
                             {/* REST API Section */}
@@ -236,7 +265,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                 </h3>
 
                                 {/* Enable Toggle */}
-                                <div className="flex items-center justify-between p-3 rounded-lg bg-telegram-hover/50">
+                                <Card className="bg-surface">
+                                    <CardContent className="flex items-center justify-between gap-4 p-3">
                                     <div className="flex items-center gap-2">
                                         <div className={`w-2 h-2 rounded-full ${apiSettings.running ? 'bg-green-400 shadow-[0_0_6px_rgba(74,222,128,0.5)]' : 'bg-gray-500'}`} />
                                         <div>
@@ -249,20 +279,23 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                     <button
                                         onClick={handleApiToggle}
                                         disabled={apiLoading}
-                                        className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${apiSettings.enabled ? 'bg-telegram-primary' : 'bg-telegram-border'} disabled:opacity-50`}
+                                        className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${apiSettings.enabled ? 'bg-telegram-primary' : 'bg-telegram-border'} disabled:opacity-50 shrink-0`}
+                                        aria-label={apiSettings.enabled ? 'Disable API server' : 'Enable API server'}
                                     >
                                         <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 ${apiSettings.enabled ? 'translate-x-5' : 'translate-x-0'}`} />
                                     </button>
-                                </div>
+                                    </CardContent>
+                                </Card>
 
                                 {/* Port */}
-                                <div className="flex items-center justify-between p-3 rounded-lg bg-telegram-hover/50">
+                                <Card className="bg-surface">
+                                    <CardContent className="flex items-center justify-between gap-4 p-3">
                                     <div>
                                         <p className="text-sm text-telegram-text font-medium">Port</p>
                                         <p className="text-xs text-telegram-subtext">1024 - 65535</p>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <input
+                                        <Input
                                             type="number"
                                             min="1024"
                                             max="65535"
@@ -270,13 +303,15 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                             onChange={e => setApiPort(e.target.value)}
                                             onBlur={handlePortApply}
                                             onKeyDown={e => { if (e.key === 'Enter') handlePortApply(); }}
-                                            className="w-20 bg-telegram-bg border border-telegram-border rounded-md px-2 py-1 text-sm text-telegram-text text-center focus:outline-none focus:border-telegram-primary/50 transition"
+                                            className="h-8 w-24 text-center"
                                         />
                                     </div>
-                                </div>
+                                    </CardContent>
+                                </Card>
 
                                 {/* API Key */}
-                                <div className="p-3 rounded-lg bg-telegram-hover/50 space-y-2.5">
+                                <Card className="bg-surface">
+                                    <CardContent className="space-y-2.5 p-3">
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
                                             <Key className="w-4 h-4 text-telegram-subtext" />
@@ -287,20 +322,23 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                                 </p>
                                             </div>
                                         </div>
-                                        <button
+                                        <Button
+                                            type="button"
+                                            variant="secondary"
+                                            size="sm"
                                             onClick={handleGenerateKey}
-                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-telegram-primary/10 text-telegram-primary hover:bg-telegram-primary/20 transition"
+                                            className="h-8 shrink-0 text-xs text-telegram-primary"
                                         >
                                             <RefreshCw className="w-3 h-3" />
                                             {apiSettings.key_set ? 'Regenerate' : 'Generate'}
-                                        </button>
+                                        </Button>
                                     </div>
 
                                     {/* One-time key reveal */}
                                     {generatedKey && (
-                                        <div className="mt-2 p-2.5 bg-telegram-bg rounded-lg border border-yellow-500/20">
+                                        <div className="mt-2 p-2.5 bg-canvas rounded-lg border border-yellow-500/20">
                                             <p className="text-[10px] text-yellow-400/80 uppercase tracking-wider font-semibold mb-1.5">
-                                                Copy now — this key will not be shown again
+                                                Copy now - this key will not be shown again
                                             </p>
                                             <div className="flex items-center gap-2">
                                                 <code className="flex-1 text-xs text-telegram-text font-mono bg-telegram-hover rounded px-2 py-1.5 overflow-x-auto select-all">
@@ -316,7 +354,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                             </div>
                                         </div>
                                     )}
-                                </div>
+                                    </CardContent>
+                                </Card>
                             </section>
 
                             {/* Storage Section */}
@@ -326,7 +365,8 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                     Storage
                                 </h3>
 
-                                <div className="flex items-center justify-between p-3 rounded-lg bg-telegram-hover/50">
+                                <Card className="bg-surface">
+                                    <CardContent className="flex items-center justify-between gap-4 p-3">
                                     <div className="flex items-center gap-2">
                                         <Trash2 className="w-4 h-4 text-telegram-subtext" />
                                         <div>
@@ -334,7 +374,10 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                             <p className="text-xs text-telegram-subtext">Remove cached previews and temp files</p>
                                         </div>
                                     </div>
-                                    <button
+                                    <Button
+                                        type="button"
+                                        variant="destructive"
+                                        size="sm"
                                         disabled={clearing}
                                         onClick={async () => {
                                             const ok = await confirm({
@@ -354,31 +397,37 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                                                 setClearing(false);
                                             }
                                         }}
-                                        className="px-3 py-1.5 rounded-lg text-xs font-medium bg-red-500/10 text-red-400 hover:bg-red-500/20 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                        className="h-8 shrink-0 bg-red-500/10 text-xs text-red-400 hover:bg-red-500/20"
                                     >
                                         {clearing ? 'Clearing...' : 'Clear'}
-                                    </button>
-                                </div>
+                                    </Button>
+                                    </CardContent>
+                                </Card>
                             </section>
                         </div>
 
                         {/* Footer */}
-                        <div className="px-5 py-3 border-t border-telegram-border flex items-center justify-between">
-                            <button
+                        <div className="px-5 py-3 border-t border-hairline bg-surface/80 flex items-center justify-between gap-3">
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
                                 onClick={resetSettings}
-                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs text-telegram-subtext hover:text-red-400 hover:bg-red-500/10 transition font-medium"
+                                className="h-8 text-xs text-telegram-subtext hover:text-red-400 hover:bg-red-500/10"
                             >
                                 <RotateCcw className="w-3.5 h-3.5" />
                                 Reset to Defaults
-                            </button>
-                            <button
+                            </Button>
+                            <Button
+                                type="button"
+                                size="sm"
                                 onClick={onClose}
-                                className="px-4 py-1.5 rounded-lg text-xs font-medium bg-telegram-primary text-white hover:bg-telegram-primary/90 transition"
+                                className="h-8 text-xs"
                             >
                                 Done
-                            </button>
+                            </Button>
                         </div>
-                    </motion.div>
+                    </motion.aside>
                 </motion.div>
             )}
         </AnimatePresence>

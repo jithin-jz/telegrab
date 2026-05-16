@@ -23,8 +23,8 @@ export function UploadQueue({ items, onClearFinished, onCancelAll, onCancelItem,
     const hasPendingOrActive = items.some(i => i.status === 'pending' || i.status === 'uploading');
 
     return (
-        <div className="fixed bottom-4 right-4 w-80 bg-telegram-surface border border-telegram-border rounded-xl shadow-2xl overflow-hidden z-[100]">
-            <div className="p-3 border-b border-telegram-border bg-telegram-hover flex justify-between items-center">
+        <div className="w-full bg-telegram-surface/95 backdrop-blur border border-telegram-border rounded-xl shadow-2xl overflow-hidden">
+            <div className="p-3 border-b border-telegram-border bg-telegram-hover flex justify-between items-center gap-3">
                 <h4 className="text-sm font-medium text-telegram-text">Uploads</h4>
                 <div className="flex gap-2">
                     {hasPendingOrActive && (
@@ -33,7 +33,7 @@ export function UploadQueue({ items, onClearFinished, onCancelAll, onCancelItem,
                     <button onClick={onClearFinished} className="text-xs text-telegram-primary hover:text-telegram-text transition-colors">Clear Finished</button>
                 </div>
             </div>
-            <div className="max-h-60 overflow-y-auto p-2 space-y-2">
+            <div className="max-h-60 overflow-y-auto p-2 space-y-2 custom-scrollbar">
                 {items.map(item => (
                     <div key={item.id} className="flex flex-col gap-1 p-2 bg-telegram-hover rounded">
                         <div className="flex items-center gap-3 text-sm">

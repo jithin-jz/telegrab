@@ -88,10 +88,11 @@ export function FileCard({ file, onDelete, onDownload, onPreview, isSelected, on
             <motion.div
                 layout
                 draggable={!isFolder}
-                onDragStart={(e: any) => {
+                onDragStart={(e) => {
+                    const dragEvent = e as unknown as React.DragEvent<HTMLDivElement>;
                     if (onDragStart) onDragStart(file.id);
-                    e.dataTransfer.setData("application/x-telegram-file-id", file.id.toString());
-                    e.dataTransfer.effectAllowed = 'move';
+                    dragEvent.dataTransfer.setData("application/x-telegram-file-id", file.id.toString());
+                    dragEvent.dataTransfer.effectAllowed = 'move';
                 }}
                 onDragEnd={() => {
                     if (onDragEnd) onDragEnd();
@@ -111,7 +112,7 @@ export function FileCard({ file, onDelete, onDownload, onPreview, isSelected, on
                 {/* Thumbnail or icon background */}
                 {thumbnail ? (
                     <div className="absolute inset-0">
-                        <img src={thumbnail} alt={file.name} className="w-full h-full object-cover" />
+                        <img src={thumbnail} alt={file.name} className="w-full h-full object-cover" loading="lazy" decoding="async" />
                         {/* gradient overlay for label readability */}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent" />
                     </div>

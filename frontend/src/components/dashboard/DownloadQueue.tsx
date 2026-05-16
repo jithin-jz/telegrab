@@ -24,18 +24,18 @@ export function DownloadQueue({ items, onClearFinished, onCancelAll, onCancelIte
     const completedCount = items.filter(i => i.status === 'success').length;
 
     return (
-        <div className="fixed bottom-4 right-4 w-80 bg-telegram-surface border border-telegram-border rounded-xl shadow-2xl overflow-hidden z-[100]">
-            <div className="p-3 border-b border-telegram-border bg-telegram-hover flex justify-between items-center">
-                <div className="flex items-center gap-2">
+        <div className="w-full bg-telegram-surface/95 backdrop-blur border border-telegram-border rounded-xl shadow-2xl overflow-hidden">
+            <div className="p-3 border-b border-telegram-border bg-telegram-hover flex justify-between items-center gap-3">
+                <div className="flex items-center gap-2 min-w-0">
                     <Download className="w-4 h-4 text-telegram-secondary" />
-                    <h4 className="text-sm font-medium text-telegram-text">Downloads</h4>
+                    <h4 className="text-sm font-medium text-telegram-text truncate">Downloads</h4>
                     {activeCount > 0 && (
-                        <span className="text-xs px-1.5 py-0.5 bg-telegram-secondary/20 text-telegram-secondary rounded-full">
+                        <span className="text-xs px-1.5 py-0.5 bg-telegram-secondary/20 text-telegram-secondary rounded-full shrink-0">
                             {activeCount} active
                         </span>
                     )}
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 shrink-0">
                     {activeCount > 0 && (
                         <button onClick={onCancelAll} className="text-xs text-red-400 hover:text-red-300 transition-colors">Cancel All</button>
                     )}
@@ -46,7 +46,7 @@ export function DownloadQueue({ items, onClearFinished, onCancelAll, onCancelIte
                     )}
                 </div>
             </div>
-            <div className="max-h-60 overflow-y-auto p-2 space-y-2">
+            <div className="max-h-60 overflow-y-auto p-2 space-y-2 custom-scrollbar">
                 {items.map(item => (
                     <div key={item.id} className="flex flex-col gap-1 p-2 bg-telegram-hover rounded">
                         <div className="flex items-center gap-3 text-sm">

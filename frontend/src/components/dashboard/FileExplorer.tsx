@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { Plus, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Plus, ArrowUpDown, ArrowUp, ArrowDown, UploadCloud } from 'lucide-react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { FileCard } from './FileCard';
 import { EmptyState } from './EmptyState';
@@ -9,6 +9,7 @@ import { FileListItem } from './FileListItem';
 
 type SortField = 'name' | 'size' | 'date';
 type SortDirection = 'asc' | 'desc';
+type ExplorerItem = TelegramFile | 'upload';
 
 interface FileExplorerProps {
     files: TelegramFile[];
@@ -102,8 +103,8 @@ export function FileExplorer({
 
 
     const gridRows = useMemo(() => {
-        const rows: (TelegramFile | 'upload')[][] = [];
-        const itemsWithUpload: (TelegramFile | 'upload')[] = [...sortedFiles, 'upload'];
+        const rows: ExplorerItem[][] = [];
+        const itemsWithUpload: ExplorerItem[] = ['upload', ...sortedFiles];
         for (let i = 0; i < itemsWithUpload.length; i += columns) {
             rows.push(itemsWithUpload.slice(i, i + columns));
         }
@@ -112,8 +113,8 @@ export function FileExplorer({
 
 
     const listItems = useMemo(() => {
-        return activeFolderId === null ? [...sortedFiles, 'upload' as const] : sortedFiles;
-    }, [sortedFiles, activeFolderId]);
+        return ['upload' as const, ...sortedFiles];
+    }, [sortedFiles]);
 
 
     const gridVirtualizer = useVirtualizer({
@@ -184,26 +185,31 @@ export function FileExplorer({
             {viewMode === 'grid' ? (
                 <>
 
-                    <div className="flex items-center gap-2 mb-4 text-xs text-telegram-subtext">
-                        <span>Sort by:</span>
-                        <button
-                            onClick={() => handleSort('name')}
-                            className={`px-2 py-1 rounded flex items-center gap-1 hover:bg-white/5 ${sortField === 'name' ? 'text-telegram-primary' : ''}`}
-                        >
-                            Name <SortIcon field="name" />
-                        </button>
-                        <button
-                            onClick={() => handleSort('size')}
-                            className={`px-2 py-1 rounded flex items-center gap-1 hover:bg-white/5 ${sortField === 'size' ? 'text-telegram-primary' : ''}`}
-                        >
-                            Size <SortIcon field="size" />
-                        </button>
-                        <button
-                            onClick={() => handleSort('date')}
-                            className={`px-2 py-1 rounded flex items-center gap-1 hover:bg-white/5 ${sortField === 'date' ? 'text-telegram-primary' : ''}`}
-                        >
-                            Date <SortIcon field="date" />
-                        </button>
+                    <div className="flex items-center justify-between gap-3 mb-4 text-xs text-telegram-subtext">
+                        <div className="flex items-center gap-2 min-w-0">
+                            <span className="font-medium text-slate">Sort</span>
+                            <button
+                                onClick={() => handleSort('name')}
+                                className={`h-7 px-2.5 rounded-md flex items-center gap-1.5 border border-transparent hover:bg-white/5 hover:text-foreground transition-colors ${sortField === 'name' ? 'text-primary bg-primary/10 border-primary/20' : ''}`}
+                            >
+                                Name <SortIcon field="name" />
+                            </button>
+                            <button
+                                onClick={() => handleSort('size')}
+                                className={`h-7 px-2.5 rounded-md flex items-center gap-1.5 border border-transparent hover:bg-white/5 hover:text-foreground transition-colors ${sortField === 'size' ? 'text-primary bg-primary/10 border-primary/20' : ''}`}
+                            >
+                                Size <SortIcon field="size" />
+                            </button>
+                            <button
+                                onClick={() => handleSort('date')}
+                                className={`h-7 px-2.5 rounded-md flex items-center gap-1.5 border border-transparent hover:bg-white/5 hover:text-foreground transition-colors ${sortField === 'date' ? 'text-primary bg-primary/10 border-primary/20' : ''}`}
+                            >
+                                Date <SortIcon field="date" />
+                            </button>
+                        </div>
+                        <span className="hidden sm:block text-[11px] text-stone">
+                            {files.length} item{files.length === 1 ? '' : 's'}
+                        </span>
                     </div>
 
 
@@ -230,11 +236,14 @@ export function FileExplorer({
                                                 <button
                                                     key="upload"
                                                     onClick={(e) => { e.stopPropagation(); onManualUpload(); }}
-                                                    className="border-2 border-dashed border-telegram-border rounded-xl flex flex-col items-center justify-center text-telegram-subtext hover:border-telegram-primary hover:text-telegram-primary transition-all group"
+                                                    className="border border-dashed border-primary/35 rounded-xl flex flex-col items-center justify-center text-slate hover:border-primary hover:text-foreground hover:bg-primary/[0.06] transition-all group bg-card/60"
                                                     style={{ height: `${cardHeight}px` }}
                                                 >
-                                                    <Plus className="w-8 h-8 mb-2 group-hover:scale-110 transition-transform" />
-                                                    <span className="text-sm font-medium">Upload File</span>
+                                                    <div className="w-11 h-11 rounded-lg bg-primary/10 border border-primary/20 grid place-items-center mb-3 group-hover:bg-primary/15 transition-colors">
+                                                        <UploadCloud className="w-5 h-5 text-primary group-hover:scale-110 transition-transform" />
+                                                    </div>
+                                                    <span className="text-sm font-medium text-foreground">Upload file</span>
+                                                    <span className="text-[11px] text-stone mt-1">Add to this folder</span>
                                                 </button>
                                             );
                                         }
@@ -266,7 +275,7 @@ export function FileExplorer({
             ) : (
                 <div className="flex flex-col w-full">
                     {/* List Header */}
-                    <div className="grid grid-cols-[2rem_2fr_6rem_8rem] gap-4 px-4 py-2 text-xs font-semibold text-telegram-subtext border-b border-telegram-border mb-2 select-none items-center">
+                    <div className="grid grid-cols-[2rem_2fr_6rem_8rem] gap-4 px-4 py-2 text-xs font-semibold text-telegram-subtext border-b border-telegram-border mb-2 select-none items-center sticky top-0 bg-canvas/95 backdrop-blur z-[1]">
                         <div className="text-center">#</div>
                         <button onClick={() => handleSort('name')} className="flex items-center gap-1 hover:text-telegram-text transition-colors">
                             Name <SortIcon field="name" />
@@ -295,10 +304,15 @@ export function FileExplorer({
                                     >
                                         <button
                                             onClick={(e) => { e.stopPropagation(); onManualUpload(); }}
-                                            className="flex items-center gap-4 px-4 py-3 rounded-lg cursor-pointer border border-dashed border-telegram-border text-telegram-subtext hover:text-telegram-text hover:bg-telegram-hover w-full"
+                                            className="flex items-center gap-4 px-4 py-3 rounded-lg cursor-pointer border border-dashed border-primary/35 text-slate hover:text-foreground hover:bg-primary/[0.06] hover:border-primary/70 w-full transition-colors"
                                         >
-                                            <div className="w-5 h-5 flex items-center justify-center"><Plus className="w-4 h-4" /></div>
-                                            <span className="text-sm font-medium">Upload File...</span>
+                                            <div className="w-8 h-8 flex items-center justify-center rounded-md bg-primary/10 text-primary border border-primary/20">
+                                                <Plus className="w-4 h-4" />
+                                            </div>
+                                            <div className="min-w-0 text-left">
+                                                <span className="block text-sm font-medium text-foreground">Upload file</span>
+                                                <span className="block text-[11px] text-stone">Add files to this location</span>
+                                            </div>
                                         </button>
                                     </div>
                                 );

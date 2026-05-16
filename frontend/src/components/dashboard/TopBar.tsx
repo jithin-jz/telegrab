@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { HardDrive, LayoutGrid, List, Settings, Search, ChevronRight, FolderInput, Download, Trash2 } from 'lucide-react';
 import { Button } from '../ui/button';
+import { Input } from '../ui/input';
 import { cn } from '../../lib/cn';
 
 interface TopBarProps {
@@ -49,29 +50,31 @@ export function TopBar({
                 <span className="text-foreground font-medium truncate">{currentFolderName}</span>
             </nav>
 
-            {/* Search — cmd+k-style command pill */}
+            {/* Search */}
             <div className="flex-1 max-w-md">
-                <label
+                <div
                     className={cn(
                         'group flex items-center gap-2.5 h-9 pl-3 pr-2 rounded-md',
                         'bg-white/[0.03] border border-hairline-strong/70',
-                        'focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20',
-                        'transition-colors',
+                        'focus-within:border-primary/70 focus-within:ring-1 focus-within:ring-primary/45',
+                        'transition-[border-color,box-shadow,background-color]',
                     )}
+                    role="search"
                 >
                     <Search className="w-3.5 h-3.5 text-stone shrink-0" />
-                    <input
+                    <Input
                         ref={searchRef}
                         type="text"
-                        placeholder="Search files…"
+                        placeholder="Search files..."
                         value={searchTerm}
                         onChange={(e) => onSearchChange(e.target.value)}
-                        className="flex-1 bg-transparent text-[13px] text-foreground placeholder:text-stone outline-none"
+                        aria-label="Search files"
+                        className="search-input h-full min-w-0 flex-1 border-0 bg-transparent px-0 py-0 text-[13px] text-foreground placeholder:text-stone"
                     />
-                    <kbd className="hidden sm:flex items-center gap-0.5 h-5 px-1.5 rounded text-[10px] font-medium text-stone bg-white/[0.04] border border-hairline shrink-0">
-                        <span className="text-[11px] leading-none">⌘</span>K
+                    <kbd className="hidden sm:flex h-5 items-center rounded border border-hairline bg-white/[0.04] px-1.5 text-[10px] font-medium text-stone shrink-0">
+                        Ctrl K
                     </kbd>
-                </label>
+                </div>
             </div>
 
             {/* Actions cluster */}
@@ -134,6 +137,7 @@ function IconButton({
     return (
         <button
             onClick={onClick}
+            aria-label={title}
             className="relative w-8 h-8 grid place-items-center rounded-md text-slate hover:text-foreground hover:bg-white/[0.04] transition-colors group"
             title={title}
         >

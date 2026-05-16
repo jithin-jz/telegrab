@@ -1,13 +1,13 @@
-# Telegram Drive
+# Telegrab
 
-**Telegram Drive** is an open-source, cross-platform desktop application that turns your Telegram account into an unlimited, secure cloud storage drive. Built with **React + Python (Telethon + FastAPI + pywebview)**.
+**Telegrab** is an open-source, cross-platform desktop application that turns your Telegram account into an unlimited, secure cloud storage drive. Built with **React + Python (Telethon + FastAPI + pywebview)**.
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue)
 
-## What is Telegram Drive?
+## What is Telegrab?
 
-Telegram Drive uses the Telegram API to upload, organise, and manage files directly on Telegram's servers. It treats your "Saved Messages" and private channels as folders, giving you a familiar file-explorer interface for your Telegram cloud.
+Telegrab uses the Telegram API to upload, organise, and manage files directly on Telegram's servers. It treats your "Saved Messages" and private channels as folders, giving you a familiar file-explorer interface for your Telegram cloud.
 
 ### Key features
 
@@ -34,7 +34,7 @@ Telegram Drive uses the Telegram API to upload, organise, and manage files direc
 
 ### Download (recommended)
 
-Pre-built installers are published on the [Releases page](https://github.com/caamer20/Telegram-Drive/releases):
+Pre-built installers are published on the [Releases page](https://github.com/jithin-jz/telegrab/releases):
 
 | Platform | File | Notes |
 |---|---|---|

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { motion, AnimatePresence } from "framer-motion";
-import { Phone, Key, Lock, ArrowRight, Settings, ShieldCheck, HelpCircle, ExternalLink, X, QrCode, AlertCircle } from "lucide-react";
+import { Phone, Key, Lock, ArrowRight, Settings, ShieldCheck, HelpCircle, ExternalLink, QrCode, AlertCircle, Cloud, Zap, Shield } from "lucide-react";
 import { load } from '@tauri-apps/plugin-store';
 import { open } from '@tauri-apps/plugin-shell';
 import { QRCodeSVG } from 'qrcode.react';
@@ -10,6 +10,17 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Alert, AlertDescription } from "./ui/alert";
+import { Card, CardContent } from "./ui/card";
+import {
+    Dialog,
+    DialogClose,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "./ui/dialog";
+import logoUrl from "../assets/logo.svg";
 
 type Step = "setup" | "phone" | "code" | "password";
 
@@ -28,7 +39,7 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
                     This application cannot function here because it requires access to the system backend (Rust).
                 </p>
                 <div className="p-4 bg-gray-800 rounded-xl border border-gray-700 text-sm text-gray-300">
-                    Please open the <strong>Telegram Drive</strong> window in your OS taskbar/dock to continue.
+                    Please open the <strong>Telegrab</strong> window in your OS taskbar/dock to continue.
                 </div>
             </div>
         )
@@ -245,18 +256,53 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
 
     return (
         <div className="h-full w-full auth-gradient flex items-center justify-center p-6 relative">
-            <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="auth-glass p-8 rounded-3xl shadow-2xl w-full max-w-md"
-            >
-                <div className="text-center mb-8">
-                    <div className="w-20 h-20 mb-6 mx-auto flex items-center justify-center filter drop-shadow-lg">
-                        <img src="/logo.svg" alt="Logo" className="w-full h-full" />
+            <div className="landing-split">
+                {/* ── LEFT: Project Info ── */}
+                <motion.div
+                    initial={{ opacity: 0, x: -30 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.6 }}
+                    className="landing-left"
+                >
+                    <div className="landing-left-inner">
+                        <div className="flex items-center gap-3 mb-8">
+                            <img src={logoUrl} alt="Telegrab" className="w-11 h-11 drop-shadow-lg" />
+                            <span className="text-2xl font-bold text-white tracking-tight">Telegrab</span>
+                        </div>
+
+                        <h2 className="t-h2 text-white mb-4" style={{fontSize:'36px'}}>Your files,<br/>your cloud.</h2>
+                        <p className="t-body text-white/60 mb-10 max-w-sm leading-relaxed">
+                            Turn your Telegram account into unlimited personal cloud storage. Upload, organise and stream any file — encrypted, private and completely free.
+                        </p>
+
+                        <div className="space-y-5">
+                            <div className="flex items-start gap-3">
+                                <div className="w-9 h-9 rounded-xl bg-white/[0.06] flex items-center justify-center shrink-0 mt-0.5"><Cloud className="w-4 h-4 text-primary" /></div>
+                                <div><p className="text-sm font-semibold text-white">Unlimited Storage</p><p className="text-xs text-white/40 mt-0.5">No caps — Telegram gives you infinite space for free.</p></div>
+                            </div>
+                            <div className="flex items-start gap-3">
+                                <div className="w-9 h-9 rounded-xl bg-white/[0.06] flex items-center justify-center shrink-0 mt-0.5"><Shield className="w-4 h-4 text-primary" /></div>
+                                <div><p className="text-sm font-semibold text-white">End-to-End Private</p><p className="text-xs text-white/40 mt-0.5">All data stays in your Telegram Saved Messages.</p></div>
+                            </div>
+                            <div className="flex items-start gap-3">
+                                <div className="w-9 h-9 rounded-xl bg-white/[0.06] flex items-center justify-center shrink-0 mt-0.5"><Zap className="w-4 h-4 text-primary" /></div>
+                                <div><p className="text-sm font-semibold text-white">Blazing Fast</p><p className="text-xs text-white/40 mt-0.5">Multi-part parallel uploads for maximum speed.</p></div>
+                            </div>
+                        </div>
                     </div>
-                    <h1 className="text-2xl font-bold text-white mb-1 tracking-tight">Telegram Drive</h1>
-                    <p className="text-sm text-white/60 font-medium">Self-Hosted Secure Storage</p>
-                </div>
+                </motion.div>
+
+                {/* ── RIGHT: Login Card ── */}
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.5, delay: 0.15 }}
+                    className="auth-glass p-8 rounded-3xl shadow-2xl w-full max-w-md landing-right"
+                >
+                    <div className="text-center mb-8">
+                        <h1 className="text-xl font-bold text-white mb-1 tracking-tight">Get Started</h1>
+                        <p className="text-sm text-white/60 font-medium">Connect your Telegram API</p>
+                    </div>
 
                 <AnimatePresence mode="wait">
                     {floodWait ? (
@@ -572,91 +618,83 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
                         </Alert>
                     </motion.div>
                 )}
-            </motion.div>
+                </motion.div>
+            </div>
 
 
-            <AnimatePresence>
-                {showHelp && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
-                        onClick={() => setShowHelp(false)}
-                    >
-                        <motion.div
-                            initial={{ scale: 0.95, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.95, opacity: 0 }}
-                            className="glass bg-telegram-surface border border-telegram-border rounded-2xl p-6 max-w-lg w-full max-h-[80vh] overflow-y-auto shadow-2xl"
-                            onClick={(e) => e.stopPropagation()}
+            <Dialog open={showHelp} onOpenChange={setShowHelp}>
+                <DialogContent className="max-w-md gap-0 overflow-hidden p-0">
+                    <DialogHeader className="border-b border-hairline px-5 py-4">
+                        <DialogTitle>Getting started</DialogTitle>
+                        <DialogDescription>
+                            You only need a Telegram API ID and API Hash.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-3 px-5 py-4">
+                        <Alert className="border-primary/20 bg-primary/10">
+                            <HelpCircle className="h-4 w-4 text-primary" />
+                            <AlertDescription className="text-slate">
+                                Credentials stay on this device and are used only to connect your Telegram account.
+                            </AlertDescription>
+                        </Alert>
+
+                        <HelpStep number="1" title="Open the developer portal">
+                            Sign in at <button type="button" onClick={() => open('https://my.telegram.org')} className="text-primary hover:underline">my.telegram.org</button>.
+                        </HelpStep>
+
+                        <HelpStep number="2" title="Create an app">
+                            Choose <span className="font-medium text-foreground">API development tools</span>, then create any app name.
+                        </HelpStep>
+
+                        <HelpStep number="3" title="Paste both values">
+                            Copy the <span className="font-medium text-foreground">API ID</span> and <span className="font-medium text-foreground">API Hash</span> into Telegrab.
+                        </HelpStep>
+                    </div>
+
+                    <DialogFooter className="border-t border-hairline px-5 py-4">
+                        <DialogClose asChild>
+                            <Button type="button" variant="outline">
+                                Done
+                            </Button>
+                        </DialogClose>
+                        <Button
+                            type="button"
+                            onClick={() => open('https://my.telegram.org')}
                         >
-                            <div className="flex items-center justify-between mb-6">
-                                <h2 className="text-xl font-bold text-telegram-text">Getting Started</h2>
-                                <button onClick={() => setShowHelp(false)} className="p-2 hover:bg-telegram-hover rounded-lg transition-colors">
-                                    <X className="w-5 h-5 text-telegram-subtext" />
-                                </button>
-                            </div>
-
-                            <div className="space-y-6 text-telegram-text">
-                                <div className="p-4 bg-telegram-primary/10 border border-telegram-primary/20 rounded-xl">
-                                    <p className="text-sm text-telegram-subtext">
-                                        <strong className="text-telegram-primary">Telegram Drive</strong> uses your Telegram account as secure cloud storage. You'll need a Telegram account and API credentials to get started.
-                                    </p>
-                                </div>
-
-                                <div className="space-y-4">
-                                    <h3 className="font-semibold flex items-center gap-2">
-                                        <span className="w-6 h-6 bg-telegram-primary text-white text-xs font-bold rounded-full flex items-center justify-center">1</span>
-                                        Go to Telegram's Developer Portal
-                                    </h3>
-                                    <p className="text-sm text-telegram-subtext ml-8">
-                                        Visit <button type="button" onClick={(e) => { e.preventDefault(); open('https://my.telegram.org'); }} className="text-telegram-primary underline hover:text-telegram-text cursor-pointer">my.telegram.org</button> and log in with your phone number.
-                                    </p>
-                                </div>
-
-                                <div className="space-y-4">
-                                    <h3 className="font-semibold flex items-center gap-2">
-                                        <span className="w-6 h-6 bg-telegram-primary text-white text-xs font-bold rounded-full flex items-center justify-center">2</span>
-                                        Create a New Application
-                                    </h3>
-                                    <p className="text-sm text-telegram-subtext ml-8">
-                                        Click on <strong>"API development tools"</strong> and create a new application. Use any name and description you like.
-                                    </p>
-                                </div>
-
-                                <div className="space-y-4">
-                                    <h3 className="font-semibold flex items-center gap-2">
-                                        <span className="w-6 h-6 bg-telegram-primary text-white text-xs font-bold rounded-full flex items-center justify-center">3</span>
-                                        Copy Your Credentials
-                                    </h3>
-                                    <p className="text-sm text-telegram-subtext ml-8">
-                                        After creating the app, you'll see your <strong>API ID</strong> (a number) and <strong>API Hash</strong> (a string). Copy both and paste them into the fields on the previous screen.
-                                    </p>
-                                </div>
-
-                                <div className="p-4 bg-telegram-hover rounded-xl border border-telegram-border">
-                                    <p className="text-xs text-telegram-subtext">
-                                        <strong>🔒 Privacy:</strong> Your credentials are stored locally on your device and are never sent to any third-party servers. All data goes directly between you and Telegram.
-                                    </p>
-                                </div>
-
-                                <button
-                                    type="button"
-                                    onClick={(e) => { e.preventDefault(); open('https://my.telegram.org'); }}
-                                    className="w-full bg-telegram-primary text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-telegram-primary/90 transition-colors"
-                                >
-                                    <ExternalLink className="w-4 h-4" />
-                                    Open my.telegram.org
-                                </button>
-                            </div>
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+                            Open portal
+                            <ExternalLink className="h-4 w-4" />
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             <div className="fixed top-[-20%] left-[-10%] w-[500px] h-[500px] bg-blue-600/20 rounded-full blur-[120px] pointer-events-none -z-10" />
             <div className="fixed bottom-[-10%] right-[-10%] w-[400px] h-[400px] bg-purple-600/10 rounded-full blur-[100px] pointer-events-none -z-10" />
         </div>
+    );
+}
+
+function HelpStep({
+    number,
+    title,
+    children,
+}: {
+    number: string;
+    title: string;
+    children: React.ReactNode;
+}) {
+    return (
+        <Card className="bg-surface/80">
+            <CardContent className="flex gap-3 p-3">
+                <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
+                    {number}
+                </span>
+                <div className="min-w-0">
+                    <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+                    <p className="mt-1 text-sm leading-5 text-slate">{children}</p>
+                </div>
+            </CardContent>
+        </Card>
     );
 }

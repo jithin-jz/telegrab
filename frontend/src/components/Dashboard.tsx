@@ -452,20 +452,26 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
             )}
 
 
-            <UploadQueue
-                items={uploadQueue}
-                onClearFinished={() => setUploadQueue(q => q.filter(i => i.status !== 'success' && i.status !== 'error' && i.status !== 'cancelled'))}
-                onCancelAll={cancelUploads}
-                onCancelItem={cancelUploadItem}
-                onRetryItem={retryUploadItem}
-            />
-            <DownloadQueue
-                items={downloadQueue}
-                onClearFinished={clearDownloads}
-                onCancelAll={cancelDownloads}
-                onCancelItem={cancelDownloadItem}
-                onRetryItem={retryDownloadItem}
-            />
+            <div className="fixed bottom-4 right-4 z-[100] flex w-[min(20rem,calc(100vw-2rem))] flex-col gap-3 pointer-events-none">
+                <div className="pointer-events-auto">
+                    <UploadQueue
+                        items={uploadQueue}
+                        onClearFinished={() => setUploadQueue(q => q.filter(i => i.status !== 'success' && i.status !== 'error' && i.status !== 'cancelled'))}
+                        onCancelAll={cancelUploads}
+                        onCancelItem={cancelUploadItem}
+                        onRetryItem={retryUploadItem}
+                    />
+                </div>
+                <div className="pointer-events-auto">
+                    <DownloadQueue
+                        items={downloadQueue}
+                        onClearFinished={clearDownloads}
+                        onCancelAll={cancelDownloads}
+                        onCancelItem={cancelDownloadItem}
+                        onRetryItem={retryDownloadItem}
+                    />
+                </div>
+            </div>
 
             <SettingsModal
                 isOpen={showSettings}

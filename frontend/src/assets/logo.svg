@@ -1,14 +1,11 @@
-<svg width="28" height="28" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="32" height="32" rx="8" fill="url(#td-bg-mark)" />
-  <rect x="7"  y="9"  width="14" height="2.5" rx="1.25" fill="white" fill-opacity="0.55" />
-  <rect x="9"  y="13" width="14" height="2.5" rx="1.25" fill="white" fill-opacity="0.78" />
-  <rect x="11" y="17" width="14" height="2.5" rx="1.25" fill="white" />
-  <path d="M6.6 23.2 L13.4 20.7 L11.2 24.3 L9.4 22.7 Z" fill="white" />
+<svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="40" height="40" rx="12" fill="url(#logo-grad)"/>
+  <path d="M12 18.5L28.5 11.5c.8-.35 1.6.45 1.25 1.25L22.5 29c-.3.7-1.2.8-1.6.15L17.5 24l-5.5-3.5c-.7-.45-.5-1.65.3-2Z" fill="white" fill-opacity="0.95"/>
+  <path d="M17.5 24l8-10.5" stroke="rgba(124,92,255,0.6)" stroke-width="1.2" stroke-linecap="round"/>
   <defs>
-    <linearGradient id="td-bg-mark" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
-      <stop offset="0%"  stop-color="#8B5CF6" />
-      <stop offset="55%" stop-color="#7C5CFF" />
-      <stop offset="100%" stop-color="#5E6AD2" />
+    <linearGradient id="logo-grad" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7c5cff"/>
+      <stop offset="1" stop-color="#5b8def"/>
     </linearGradient>
   </defs>
 </svg>

@@ -1,20 +1,14 @@
 <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Rounded square base with subtle gradient -->
-  <rect width="32" height="32" rx="8" fill="url(#td-bg)" />
-
-  <!-- Layered "drive" mark — three offset rounded bars suggesting stacked files -->
-  <rect x="7"  y="9"  width="14" height="2.5" rx="1.25" fill="white" fill-opacity="0.55" />
-  <rect x="9"  y="13" width="14" height="2.5" rx="1.25" fill="white" fill-opacity="0.78" />
-  <rect x="11" y="17" width="14" height="2.5" rx="1.25" fill="white" />
-
-  <!-- Telegram-style paper-plane accent in the bottom-left -->
-  <path d="M6.6 23.2 L13.4 20.7 L11.2 24.3 L9.4 22.7 Z" fill="white" />
-
+  <rect x="1" y="1" width="30" height="30" rx="9" fill="url(#telegrab-bg)" stroke="#FFFFFF" stroke-opacity="0.18" stroke-width="1"/>
+  <path d="M8.2 10.4h11.2c.7 0 1.2.5 1.2 1.2v1.1H9.4c-.7 0-1.2-.5-1.2-1.2v-1.1Z" fill="white" fill-opacity="0.38"/>
+  <path d="M7.4 15.2 24.1 8.6c.9-.4 1.8.5 1.4 1.4l-6.4 16.4c-.3.9-1.5 1-2 .2l-3.4-5-5.8-3.9c-.8-.5-.6-2.1.5-2.5Z" fill="white"/>
+  <path d="M13.7 21.6 25.2 9.2 17 26.6l-3.3-5Z" fill="#D7F7FF" fill-opacity="0.82"/>
+  <path d="M13.7 21.6 25.2 9.2" stroke="#5E6AD2" stroke-width="1.25" stroke-linecap="round"/>
   <defs>
-    <linearGradient id="td-bg" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
-      <stop offset="0%"  stop-color="#8B5CF6" />
-      <stop offset="55%" stop-color="#7C5CFF" />
-      <stop offset="100%" stop-color="#5E6AD2" />
+    <linearGradient id="telegrab-bg" x1="3" y1="2" x2="29" y2="30" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#22D3EE"/>
+      <stop offset="0.46" stop-color="#7C5CFF"/>
+      <stop offset="1" stop-color="#2B2D8F"/>
     </linearGradient>
   </defs>
 </svg>

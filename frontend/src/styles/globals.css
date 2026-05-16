@@ -133,7 +133,7 @@ body,
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Subtle ambient noise / vignette on the canvas to feel more like Linear */
+/* Subtle chrome on the canvas without adding decorative blobs. */
 body::before {
   content: "";
   position: fixed;
@@ -141,8 +141,9 @@ body::before {
   pointer-events: none;
   z-index: 0;
   background:
-    radial-gradient(80% 60% at 50% -10%, rgba(124, 92, 255, 0.08) 0%, transparent 60%),
-    radial-gradient(50% 40% at 100% 100%, rgba(91, 141, 239, 0.04) 0%, transparent 70%);
+    linear-gradient(180deg, rgba(124, 92, 255, 0.07) 0%, transparent 340px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 100%);
+  background-size: auto, 56px 56px;
 }
 #root { position: relative; z-index: 1; }
 
@@ -185,6 +186,38 @@ body::before {
 
 /* Auth form icons */
 .auth-form-icon { color: var(--color-slate); opacity: 0.85; z-index: 20; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Landing split layout — left info + right card
+   ═══════════════════════════════════════════════════════════════════════════ */
+.landing-split {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 64px;
+  width: 100%;
+  max-width: 960px;
+}
+.landing-left {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.landing-left-inner {
+  max-width: 420px;
+}
+.landing-right {
+  flex: 0 0 auto;
+  width: 100%;
+  max-width: 400px;
+}
+@media (max-width: 800px) {
+  .landing-split {
+    flex-direction: column;
+    gap: 32px;
+  }
+  .landing-left { display: none; }
+  .landing-right { max-width: 420px; }
+}
 
 /* ═══════════════════════════════════════════════════════════════════════════
    Notion typography utilities — kept for landing-page parity
@@ -323,6 +356,16 @@ textarea:focus {
   border-color: var(--color-primary);
   outline: 0;
   box-shadow: 0 0 0 3px rgba(124, 92, 255, 0.18);
+}
+
+.search-input,
+.search-input:focus,
+.search-input:focus-visible {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  outline: 0 !important;
 }
 
 /* Re-aliases for legacy text classes */
