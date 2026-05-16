@@ -32,12 +32,12 @@ if not FRONTEND_DIST.exists():
 def _icon():
     if sys.platform == "win32":
         candidates = [
-            FRONTEND_DIST.parent / "public" / "icon.ico",
+            BACKEND / "icon.png",
             ROOT / "icon.ico",
         ]
     elif sys.platform == "darwin":
         candidates = [
-            FRONTEND_DIST.parent / "public" / "icon.icns",
+            BACKEND / "icon.png",
             ROOT / "icon.icns",
         ]
     else:
