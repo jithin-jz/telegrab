@@ -1,12 +1,13 @@
 import { motion } from 'framer-motion';
 import { useState, useEffect, memo } from 'react';
-import { Folder, Eye, Trash2, Download, Check } from 'lucide-react';
+import { Folder, Eye, Trash2, Download, Check, Play } from 'lucide-react';
 import { invoke } from '../../lib/platform/core';
 import { TelegramFile } from '../../types';
 import { FileTypeIcon } from '../FileTypeIcon';
 import { cn } from '../../lib/cn';
 import { useQueryClient } from '@tanstack/react-query';
 import { fetchFiles } from '../../lib/api';
+import { isMediaFile } from '../../lib/utils';
 
 interface FileCardProps {
   file: TelegramFile;
@@ -129,15 +130,15 @@ export const FileCard = memo(function FileCard({
         onDragEnd={() => {
           if (onDragEnd) onDragEnd();
         }}
-        whileHover={{ y: -2 }}
-        transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+        whileHover={{ y: -1 }}
+        transition={{ duration: 0.16, ease: [0.4, 0, 0.2, 1] }}
         className={cn(
           'group relative cursor-pointer overflow-hidden rounded-xl border transition-colors duration-150',
           'bg-card gpu-accel',
           isSelected
             ? 'border-primary/60 bg-primary/[0.04] shadow-[0_0_0_1px_var(--color-primary)]'
             : 'border-hairline hover:border-hairline-strong',
-          isDragOver && 'border-primary/80 bg-primary/[0.08] scale-[1.015]'
+          isDragOver && 'border-primary/80 bg-primary/[0.08] scale-[1.012]'
         )}
         style={height ? { height: `${height}px` } : { aspectRatio: '4/3' }}
       >
@@ -201,10 +202,17 @@ export const FileCard = memo(function FileCard({
                 e.stopPropagation();
                 onPreview();
               }}
-              className="hover:bg-primary grid h-7 w-7 place-items-center rounded-md bg-black/60 text-white/80 backdrop-blur transition-colors hover:text-white"
-              title="Preview"
+              className={cn(
+                'grid h-7 w-7 place-items-center rounded-md bg-black/60 text-white/80 backdrop-blur transition-colors duration-150 hover:text-white',
+                isMediaFile(file.name) ? 'hover:bg-primary' : 'hover:bg-primary'
+              )}
+              title={isMediaFile(file.name) ? 'Play' : 'Preview'}
             >
-              <Eye className="h-3.5 w-3.5" />
+              {isMediaFile(file.name) ? (
+                <Play className="h-3.5 w-3.5 translate-x-[1px]" fill="currentColor" />
+              ) : (
+                <Eye className="h-3.5 w-3.5" />
+              )}
             </button>
           )}
           <button

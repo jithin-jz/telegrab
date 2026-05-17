@@ -50,7 +50,7 @@ export async function check(): Promise<Update | null> {
         };
         window.addEventListener('updateProgress', handler);
         try {
-          await invoke('cmd_download_and_install_update', { url: res.download_url });
+          await invoke('cmd_download_and_install_update', { url: res.download_url, sha256: res.sha256 || '' });
         } finally {
           window.removeEventListener('updateProgress', handler);
         }

@@ -31,7 +31,11 @@ _PROGRESS_INTERVAL_SECS = 0.25
 # ─────────────────────────────── listings ───────────────────────────────
 
 
-async def cmd_get_files(folder_id: int | None) -> list[dict[str, Any]]:
+async def cmd_get_files(
+    folder_id: int | None,
+    limit: int = 0,
+    offset_id: int = 0,
+) -> list[dict[str, Any]]:
     state = tg.get_state()
     client = state.client
     if client is None:
@@ -40,7 +44,12 @@ async def cmd_get_files(folder_id: int | None) -> list[dict[str, Any]]:
 
     peer = await tg.resolve_peer(client, folder_id)
     out: list[dict[str, Any]] = []
-    async for msg in client.iter_messages(peer):
+    kwargs: dict[str, Any] = {}
+    if limit > 0:
+        kwargs["limit"] = limit
+    if offset_id > 0:
+        kwargs["offset_id"] = offset_id
+    async for msg in client.iter_messages(peer, **kwargs):
         meta = tg.file_metadata_from_message(msg, folder_id)
         if meta is not None:
             out.append(meta)
@@ -58,7 +67,7 @@ async def cmd_search_global(query: str) -> list[dict[str, Any]]:
     result = await client(
         functions.messages.SearchGlobalRequest(
             q=query,
-            filter=types.InputMessagesFilterDocument(),
+            filter=types.InputMessagesFilterEmpty(),
             min_date=None,
             max_date=None,
             offset_rate=0,
@@ -108,9 +117,21 @@ async def cmd_upload_file(
     folder_id: int | None,
     transfer_id: str | None,
 ) -> str:
+    from . import dedup as dedup_mod
+    from . import vault as vault_mod
+
     p = Path(path)
     if not p.exists():
         raise RuntimeError(f"File not found: {path}")
+
+    # Vault encryption: encrypt file before upload if folder is an unlocked vault
+    encrypted_tmp: str | None = None
+    if folder_id and vault_mod.is_vault(folder_id):
+        if not vault_mod.is_unlocked(folder_id):
+            raise RuntimeError("Vault is locked. Unlock it first.")
+        encrypted_tmp = vault_mod.encrypt_file(path, folder_id)
+        path = encrypted_tmp
+        p = Path(path)
 
     size = p.stat().st_size
     ok, err = get_manager().can_transfer(size)
@@ -205,6 +226,21 @@ async def cmd_upload_file(
             },
         )
 
+    # Store file hash for duplicate detection
+    try:
+        original_path = encrypted_tmp or path
+        # Use the original file path for hashing (not the encrypted one)
+        src_path = path if not encrypted_tmp else str(Path(path))
+        file_hash = dedup_mod.compute_file_hash(src_path if not encrypted_tmp else original_path)
+        dedup_mod.store_hash(file_hash, folder_id, 0, file_name, size)
+    except Exception:
+        pass  # non-critical
+
+    # Cleanup encrypted temp file
+    if encrypted_tmp:
+        with contextlib.suppress(OSError):
+            Path(encrypted_tmp).unlink()
+
     return "File uploaded successfully"
 
 
@@ -218,6 +254,14 @@ async def cmd_download_file(
     transfer_id: str | None = None,
 ) -> str:
     tid = transfer_id or ""
+
+    # Sanitize: ensure the resolved save_path doesn't escape its parent directory
+    save_p = Path(save_path)
+    parent = save_p.parent.resolve()
+    # Resolve the full path and verify it's still within the intended parent
+    resolved = save_p.resolve()
+    if not str(resolved).startswith(str(parent)):
+        raise RuntimeError("Invalid save path: path traversal detected")
 
     state = tg.get_state()
     client = state.client
@@ -307,6 +351,17 @@ async def cmd_download_file(
             },
         )
 
+    # Vault decryption: decrypt file after download if folder is an unlocked vault
+    from . import vault as vault_mod
+    if folder_id and vault_mod.is_vault(folder_id) and vault_mod.is_unlocked(folder_id):
+        try:
+            decrypted_tmp = vault_mod.decrypt_file(save_path, folder_id)
+            # Replace the encrypted file with the decrypted one
+            import shutil
+            shutil.move(decrypted_tmp, save_path)
+        except Exception as exc:
+            log.warning("Vault decryption failed: %s", exc)
+
     return "Download successful"
 
 
@@ -364,8 +419,27 @@ async def cmd_move_files(
     return True
 
 
+async def cmd_get_files_cached(
+    folder_id: int | None,
+    limit: int = 100,
+    offset_id: int = 0,
+) -> dict[str, Any]:
+    from . import cache
+
+    cached = cache.get_cached_files(folder_id)
+    if cached:
+        return {"files": cached, "next_offset_id": 0, "from_cache": True}
+
+    result = await cmd_get_files(folder_id, limit=limit, offset_id=offset_id)
+    if result["files"]:
+        cache.upsert_files(folder_id, result["files"])
+    result["from_cache"] = False
+    return result
+
+
 __all__ = [
     "cmd_get_files",
+    "cmd_get_files_cached",
     "cmd_upload_file",
     "cmd_download_file",
     "cmd_delete_file",

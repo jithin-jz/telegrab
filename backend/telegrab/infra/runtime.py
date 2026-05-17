@@ -4,11 +4,16 @@ pywebview owns the main thread on Windows and macOS, so we run a dedicated
 event loop on a worker thread. Every JS-API method on the bridge is
 synchronous from pywebview's point of view but schedules its real work on
 this loop via `run_coro`.
+
+`run_coro` enforces a timeout by default so a hung Telegram RPC can't
+freeze the JS bridge call indefinitely. Long-running operations (uploads,
+downloads, streaming) explicitly opt out by passing `timeout=None`.
 """
 
 from __future__ import annotations
 
 import asyncio
+import concurrent.futures
 import logging
 import threading
 from collections.abc import Awaitable
@@ -18,6 +23,11 @@ from typing import TypeVar
 log = logging.getLogger(__name__)
 
 T = TypeVar("T")
+
+
+# Default timeout (seconds) for routine bridge calls. Network round-trips
+# to Telegram + a bit of slack. Long-running ops pass `timeout=None`.
+DEFAULT_BRIDGE_TIMEOUT = 60.0
 
 
 class AsyncRuntime:
@@ -63,12 +73,29 @@ class AsyncRuntime:
             raise RuntimeError("AsyncRuntime not started")
         return self._loop
 
-    def run_coro(self, coro: Awaitable[T], timeout: float | None = None) -> T:
-        """Run a coroutine on the runtime loop and block until it finishes."""
+    def run_coro(
+        self,
+        coro: Awaitable[T],
+        timeout: float | None = DEFAULT_BRIDGE_TIMEOUT,
+    ) -> T:
+        """Run a coroutine on the runtime loop and block until it finishes.
+
+        On timeout the underlying task is cancelled and a
+        :class:`TimeoutError` is raised so the caller can map it to a
+        user-friendly bridge error.
+        """
         if self._loop is None:
             raise RuntimeError("AsyncRuntime not started")
         fut: Future[T] = asyncio.run_coroutine_threadsafe(coro, self._loop)
-        return fut.result(timeout=timeout)
+        try:
+            return fut.result(timeout=timeout)
+        except concurrent.futures.TimeoutError as exc:
+            fut.cancel()
+            log.warning("run_coro timed out after %.1fs", timeout or 0)
+            raise TimeoutError(
+                f"Operation timed out after {timeout:.1f}s" if timeout else
+                "Operation timed out"
+            ) from exc
 
     def spawn(self, coro: Awaitable[T]) -> Future[T]:
         """Schedule a coroutine on the loop without blocking."""

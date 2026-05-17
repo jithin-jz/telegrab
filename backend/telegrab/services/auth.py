@@ -210,7 +210,7 @@ async def cmd_auth_qr_poll() -> dict[str, Any]:
         if await client.is_user_authorized():
             return {"success": True, "next_step": "dashboard"}
         return {"success": True, "next_step": "dashboard"} # Fallback success
-    except asyncio.TimeoutError:
+    except TimeoutError:
         return {"success": False, "next_step": "waiting"}
     except SessionPasswordNeededError:
         log.info("QR poll: 2FA required")

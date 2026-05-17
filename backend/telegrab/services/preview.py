@@ -148,6 +148,7 @@ async def cmd_clean_cache() -> None:
 
 async def cmd_get_thumbnail(message_id: int, folder_id: int | None) -> str:
     cache_dir = thumbnail_cache_dir()
+    _prune_preview_cache(cache_dir)
 
     try:
         for entry in cache_dir.iterdir():
@@ -189,7 +190,7 @@ async def cmd_get_thumbnail(message_id: int, folder_id: int | None) -> str:
 
     save_path = cache_dir / f"{message_id}.{ext}"
     try:
-        await client.download_media(msg, file=str(save_path))
+        await client.download_media(msg, file=str(save_path), thumb=-1)
     except Exception as exc:  # noqa: BLE001
         log.warning("Thumbnail download failed: %s", exc)
         return ""

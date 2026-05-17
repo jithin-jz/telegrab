@@ -116,21 +116,33 @@ export function useTelegramConnection(onLogoutParent: () => void) {
     setIsSyncing(true);
     try {
       const foundFolders = await invoke<TelegramFolder[]>('cmd_scan_folders');
-      const merged = [...folders];
+      const foundIds = new Set(foundFolders.map((f) => f.id));
+
+      // Remove folders that no longer exist on Telegram
+      const removed = folders.filter((f) => !foundIds.has(f.id)).length;
+
+      // Add new folders not yet in local list
+      const existingIds = new Set(folders.map((f) => f.id));
       let added = 0;
+      const merged = folders.filter((f) => foundIds.has(f.id));
       for (const f of foundFolders) {
-        if (!merged.find((existing) => existing.id === f.id)) {
+        if (!existingIds.has(f.id)) {
           merged.push(f);
           added++;
         }
       }
-      if (added > 0) {
-        setFolders(merged);
-        await store.set('folders', merged);
-        await store.save();
-        toast.success(`Scan complete. Found ${added} new folders.`);
+
+      setFolders(merged);
+      await store.set('folders', merged);
+      await store.save();
+
+      if (added > 0 || removed > 0) {
+        const parts: string[] = [];
+        if (added > 0) parts.push(`${added} added`);
+        if (removed > 0) parts.push(`${removed} removed`);
+        toast.success(`Sync complete. ${parts.join(', ')}.`);
       } else {
-        toast.info('Scan complete. No new folders found.');
+        toast.info('Scan complete. No changes.');
       }
     } catch {
       toast.error('Sync failed');
@@ -150,6 +162,37 @@ export function useTelegramConnection(onLogoutParent: () => void) {
       toast.success(`Folder "${name}" created.`);
     } catch (e) {
       toast.error('Failed to create folder: ' + e);
+      throw e;
+    }
+  };
+
+  const handleRenameFolder = async (folderId: number, newName: string) => {
+    const trimmed = newName.trim();
+    if (!trimmed) return;
+
+    const existing = folders.find((f) => f.id === folderId);
+    if (!existing || existing.name === trimmed) return;
+
+    // Optimistic update
+    const previous = folders;
+    const optimistic = folders.map((f) =>
+      f.id === folderId ? { ...f, name: trimmed } : f
+    );
+    setFolders(optimistic);
+
+    try {
+      await invoke<TelegramFolder>('cmd_rename_folder', {
+        folderId,
+        name: trimmed,
+      });
+      if (store) {
+        await store.set('folders', optimistic);
+        await store.save();
+      }
+      toast.success(`Renamed to "${trimmed}".`);
+    } catch (e) {
+      setFolders(previous);
+      toast.error('Failed to rename folder: ' + e);
       throw e;
     }
   };
@@ -218,6 +261,7 @@ export function useTelegramConnection(onLogoutParent: () => void) {
     handleLogout,
     handleSyncFolders,
     handleCreateFolder,
+    handleRenameFolder,
     handleFolderDelete,
     isNetworkError,
     forceLogout,

@@ -74,6 +74,54 @@ async def cmd_create_folder(name: str) -> dict[str, Any]:
     return {"id": chat_id, "name": name, "parent_id": None}
 
 
+# ─────────────────────────────────── rename ───────────────────────────────────
+
+
+async def cmd_rename_folder(folder_id: int, name: str) -> dict[str, Any]:
+    """Rename a folder by editing the underlying Telegram channel title.
+
+    The `[TD]` suffix tag is preserved so the folder is still picked up
+    by `cmd_scan_folders` on a fresh login.
+    """
+    new_name = (name or "").strip()
+    if not new_name:
+        raise RuntimeError("Folder name cannot be empty.")
+
+    state = tg.get_state()
+    client = state.client
+    if client is None:
+        log.info("[MOCK] rename folder %s -> %s", folder_id, new_name)
+        return {"id": int(folder_id), "name": new_name, "parent_id": None}
+
+    log.info("Renaming folder %s -> %s", folder_id, new_name)
+
+    entity = await tg.resolve_peer(client, int(folder_id))
+    if not isinstance(entity, types.Channel):
+        raise RuntimeError("Only channels (folders) can be renamed.")
+
+    try:
+        await client(
+            functions.channels.EditTitleRequest(
+                channel=types.InputChannel(
+                    channel_id=entity.id,
+                    access_hash=entity.access_hash or 0,
+                ),
+                title=f"{new_name} {FOLDER_TITLE_TAG}",
+            )
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise RuntimeError(f"Failed to rename folder: {exc}") from exc
+
+    # Refresh the cached peer so subsequent calls see the new title.
+    try:
+        entity.title = f"{new_name} {FOLDER_TITLE_TAG}"
+        state.peer_cache[int(folder_id)] = entity
+    except Exception:  # noqa: BLE001
+        pass
+
+    return {"id": int(folder_id), "name": new_name, "parent_id": None}
+
+
 async def cmd_delete_folder(folder_id: int) -> bool:
     state = tg.get_state()
     client = state.client
@@ -166,4 +214,9 @@ async def cmd_scan_folders() -> list[dict[str, Any]]:
     return folders
 
 
-__all__ = ["cmd_create_folder", "cmd_delete_folder", "cmd_scan_folders"]
+__all__ = [
+    "cmd_create_folder",
+    "cmd_rename_folder",
+    "cmd_delete_folder",
+    "cmd_scan_folders",
+]

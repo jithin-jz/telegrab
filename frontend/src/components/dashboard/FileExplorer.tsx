@@ -175,7 +175,7 @@ export function FileExplorer({
 
   if (loading) {
     return (
-      <div className="flex flex-1 flex-col p-6 animate-in fade-in duration-500">
+      <div className="flex flex-1 flex-col p-6 animate-in fade-in duration-200 ease-out">
         <div className="flex items-center gap-4 mb-8">
           <div className="h-8 w-32 bg-white/[0.04] rounded-md animate-pulse" />
           <div className="h-8 w-32 bg-white/[0.04] rounded-md animate-pulse" />
@@ -385,6 +385,7 @@ export function FileExplorer({
                   <FileListItem
                     file={file}
                     selectedIds={selectedIds}
+                    activeFolderId={activeFolderId}
                     onFileClick={onFileClick}
                     handleContextMenu={handleContextMenu}
                     onDragStart={onDragStart}

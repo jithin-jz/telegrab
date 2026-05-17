@@ -27,7 +27,7 @@ from fastapi.responses import StreamingResponse
 
 from .. import __version__
 from .. import telegram as tg
-from ..config import load_settings, verify_key
+from ..config import allowed_origins, load_settings, verify_key
 
 log = logging.getLogger(__name__)
 
@@ -48,9 +48,12 @@ def _create_app(initial_key_hash: str | None) -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_origins=allowed_origins(),
+        allow_credentials=False,
+        allow_methods=["GET", "HEAD", "OPTIONS"],
+        allow_headers=["X-API-Key", "Content-Type", "Accept", "Range"],
+        expose_headers=["Content-Length", "Content-Range", "Accept-Ranges"],
+        max_age=3600,
     )
 
     def require_key(x_api_key: str | None = Header(default=None)) -> None:

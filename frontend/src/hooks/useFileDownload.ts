@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { invoke } from '../lib/platform/core';
 import { save, open } from '../lib/platform/dialog';
 import { listen, type UnlistenFn } from '../lib/platform/event';
 import { toast } from 'sonner';
 import { DownloadItem, TelegramFile } from '../types';
+import { useSettings } from '../contexts/SettingsContext';
 import type { Store } from '../lib/platform/store';
 
 interface ProgressPayload {
@@ -15,12 +16,13 @@ interface ProgressPayload {
 }
 
 export function useFileDownload(store: Store | null) {
+  const { settings } = useSettings();
   const [downloadQueue, setDownloadQueue] = useState<DownloadItem[]>([]);
-  const [processing, setProcessing] = useState(false);
   const [initialized, setInitialized] = useState(false);
   const cancelledRef = useRef<Set<string>>(new Set());
+  const activeCountRef = useRef(0);
 
-  // Listen for progress events from Rust
+  // Listen for progress events
   useEffect(() => {
     let unlisten: UnlistenFn | undefined;
     listen<ProgressPayload>('download-progress', (event) => {
@@ -50,43 +52,43 @@ export function useFileDownload(store: Store | null) {
     if (!store || initialized) return;
     store.get<DownloadItem[]>('downloadQueue').then((saved) => {
       if (saved && saved.length > 0) {
-        const pending = saved.filter((i) => i.status === 'pending');
-        if (pending.length > 0) {
-          setDownloadQueue(pending);
-          toast.info(`Restored ${pending.length} pending downloads`);
+        const resumable = saved.filter((i) => i.status === 'pending' || i.status === 'paused');
+        if (resumable.length > 0) {
+          setDownloadQueue(resumable);
+          toast.info(`Restored ${resumable.length} pending downloads`);
         }
       }
       setInitialized(true);
     });
   }, [store, initialized]);
 
-  // Save queue when it changes (only pending items)
+  // Save queue when it changes (pending + paused items)
   useEffect(() => {
     if (!store || !initialized) return;
-    const pending = downloadQueue.filter((i) => i.status === 'pending');
-    store.set('downloadQueue', pending).then(() => store.save());
+    const persistable = downloadQueue.filter((i) => i.status === 'pending' || i.status === 'paused');
+    store.set('downloadQueue', persistable).then(() => store.save());
   }, [store, downloadQueue, initialized]);
 
-  // Queue Processor
-  useEffect(() => {
-    if (processing) return;
-    const nextItem = downloadQueue.find((i) => i.status === 'pending');
-    if (nextItem) {
-      processItem(nextItem);
-    }
-  }, [downloadQueue, processing]);
-
-  const processItem = async (item: DownloadItem) => {
-    setProcessing(true);
+  const processItem = useCallback(async (item: DownloadItem) => {
+    activeCountRef.current++;
     setDownloadQueue((q) =>
       q.map((i) => (i.id === item.id ? { ...i, status: 'downloading', progress: 0 } : i))
     );
 
     try {
-      const savePath = await save({ defaultPath: item.filename });
+      // If item has a dirPath (bulk download), use it directly; otherwise prompt save dialog
+      let savePath: string | null;
+      if (item.dirPath) {
+        // Sanitize filename to prevent path traversal
+        const safeName = item.filename.replace(/[/\\]/g, '_').replace(/\.\./g, '_');
+        savePath = `${item.dirPath}/${safeName}`;
+      } else {
+        savePath = await save({ defaultPath: item.filename });
+      }
+
       if (!savePath) {
         setDownloadQueue((q) => q.filter((i) => i.id !== item.id));
-        setProcessing(false);
+        activeCountRef.current--;
         return;
       }
 
@@ -122,13 +124,27 @@ export function useFileDownload(store: Store | null) {
         cancelledRef.current.delete(item.id);
       }
     } finally {
-      setProcessing(false);
+      activeCountRef.current--;
     }
-  };
+  }, []);
+
+  // Queue processor: launch up to maxConcurrentDownloads workers
+  useEffect(() => {
+    const max = settings.maxConcurrentDownloads;
+    const pending = downloadQueue.filter((i) => i.status === 'pending');
+    const slotsAvailable = max - activeCountRef.current;
+    const toStart = pending.slice(0, slotsAvailable);
+    for (const item of toStart) {
+      setDownloadQueue((q) =>
+        q.map((i) => (i.id === item.id ? { ...i, status: 'downloading' } : i))
+      );
+      processItem(item);
+    }
+  }, [downloadQueue, settings.maxConcurrentDownloads, processItem]);
 
   const queueDownload = (messageId: number, filename: string, folderId: number | null) => {
     const newItem: DownloadItem = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: crypto.randomUUID(),
       messageId,
       filename,
       folderId,
@@ -145,17 +161,15 @@ export function useFileDownload(store: Store | null) {
     });
     if (!dirPath) return;
 
-    for (const file of files) {
-      const newItem: DownloadItem = {
-        id: Math.random().toString(36).substr(2, 9),
-        messageId: file.id,
-        filename: file.name,
-        folderId,
-        status: 'pending',
-      };
-      setDownloadQueue((prev) => [...prev, newItem]);
-    }
-
+    const newItems: DownloadItem[] = files.map((file) => ({
+      id: crypto.randomUUID(),
+      messageId: file.id,
+      filename: file.name,
+      folderId,
+      dirPath: dirPath as string,
+      status: 'pending',
+    }));
+    setDownloadQueue((prev) => [...prev, ...newItems]);
     toast.info(`Queued ${files.length} files for download`);
   };
 
@@ -165,10 +179,10 @@ export function useFileDownload(store: Store | null) {
 
   const cancelAll = () => {
     setDownloadQueue((q) => {
-      const downloading = q.find((i) => i.status === 'downloading');
-      if (downloading) {
-        cancelledRef.current.add(downloading.id);
-        invoke('cmd_cancel_transfer', { transferId: downloading.id }).catch(() => {});
+      const downloading = q.filter((i) => i.status === 'downloading');
+      for (const item of downloading) {
+        cancelledRef.current.add(item.id);
+        invoke('cmd_cancel_transfer', { transferId: item.id }).catch(() => {});
       }
       return q
         .filter((i) => i.status !== 'pending')
@@ -210,6 +224,35 @@ export function useFileDownload(store: Store | null) {
     );
   };
 
+  const pauseItem = (id: string) => {
+    setDownloadQueue((q) => {
+      const item = q.find((i) => i.id === id);
+      if (item?.status === 'downloading') {
+        cancelledRef.current.add(id);
+        invoke('cmd_cancel_transfer', { transferId: id }).catch(() => {});
+        return q.map((i) =>
+          i.id === id
+            ? { ...i, status: 'paused' as const, resumeOffset: i.uploadedBytes || 0 }
+            : i
+        );
+      }
+      if (item?.status === 'pending') {
+        return q.map((i) => (i.id === id ? { ...i, status: 'paused' as const } : i));
+      }
+      return q;
+    });
+  };
+
+  const resumeItem = (id: string) => {
+    setDownloadQueue((q) =>
+      q.map((i) =>
+        i.id === id && i.status === 'paused'
+          ? { ...i, status: 'pending' as const, error: undefined }
+          : i
+      )
+    );
+  };
+
   return {
     downloadQueue,
     queueDownload,
@@ -218,5 +261,7 @@ export function useFileDownload(store: Store | null) {
     cancelAll,
     cancelItem,
     retryItem,
+    pauseItem,
+    resumeItem,
   };
 }

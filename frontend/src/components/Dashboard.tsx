@@ -17,17 +17,22 @@ import { DownloadQueue } from './dashboard/DownloadQueue';
 import { MoveToFolderModal } from './dashboard/MoveToFolderModal';
 import { PreviewModal } from './dashboard/PreviewModal';
 import { MediaPlayer } from './dashboard/MediaPlayer';
+import { MiniPlayer } from './dashboard/MiniPlayer';
 import { DragDropOverlay } from './dashboard/DragDropOverlay';
 import { ExternalDropBlocker } from './dashboard/ExternalDropBlocker';
 import { PdfViewer } from './dashboard/PdfViewer';
 import { SettingsModal } from './dashboard/SettingsModal';
+import { CommandPalette } from './dashboard/CommandPalette';
+import { UpdateBanner } from './UpdateBanner';
 
 // Hooks
 import { useTelegramConnection } from '../hooks/useTelegramConnection';
 import { useFileOperations } from '../hooks/useFileOperations';
 import { useFileUpload } from '../hooks/useFileUpload';
 import { useFileDownload } from '../hooks/useFileDownload';
+import { useSearch } from '../hooks/useSearch';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
+import { useUpdateCheck } from '../hooks/useUpdateCheck';
 import { useSettings } from '../contexts/SettingsContext';
 
 export function Dashboard({ onLogout }: { onLogout: () => void }) {
@@ -43,20 +48,41 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
     handleLogout,
     handleSyncFolders,
     handleCreateFolder,
+    handleRenameFolder,
     handleFolderDelete,
   } = useTelegramConnection(onLogout);
 
-  const { settings, updateSetting } = useSettings();
+  const { settings, updateSetting, isLoaded: settingsLoaded } = useSettings();
   const viewMode = settings.viewMode;
   const setViewMode = (mode: 'grid' | 'list') => updateSetting('viewMode', mode);
+
+  // Auto-update check: runs once when the dashboard mounts and the user
+  // has `Automatic Updates` turned on. The UpdateBanner stays mounted
+  // throughout the session and lets the user dismiss / install.
+  const {
+    available: updateAvailable,
+    version: updateVersion,
+    downloading: updateDownloading,
+    progress: updateProgress,
+    checkForUpdates,
+    downloadAndInstall,
+    dismissUpdate,
+  } = useUpdateCheck();
+  const startupCheckDone = useRef(false);
+  useEffect(() => {
+    if (!settingsLoaded) return;
+    if (startupCheckDone.current) return;
+    if (!settings.autoUpdate) return;
+    startupCheckDone.current = true;
+    // Fire-and-forget; failures are swallowed inside the hook.
+    checkForUpdates();
+  }, [settingsLoaded, settings.autoUpdate, checkForUpdates]);
 
   const [previewFile, setPreviewFile] = useState<TelegramFile | null>(null);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [showMoveModal, setShowMoveModal] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [searchResults, setSearchResults] = useState<TelegramFile[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [internalDragFileId, _setInternalDragFileId] = useState<number | null>(null);
   const internalDragRef = useRef<number | null>(null);
 
@@ -65,6 +91,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
     _setInternalDragFileId(id);
   };
   const [playingFile, setPlayingFile] = useState<TelegramFile | null>(null);
+  const [playerExpanded, setPlayerExpanded] = useState(false);
   const [pdfFile, setPdfFile] = useState<TelegramFile | null>(null);
   const [previewContextFiles, setPreviewContextFiles] = useState<TelegramFile[]>([]);
   const [previewContextIndex, setPreviewContextIndex] = useState(-1);
@@ -79,12 +106,10 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
     enabled: !!store,
   });
 
-  const displayedFiles = useMemo(() => {
-    if (searchTerm.length > 2) return searchResults;
-    return allFiles.filter((f: TelegramFile) =>
-      f.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [searchTerm, searchResults, allFiles]);
+  const { searchTerm, setSearchTerm, displayedFiles, isSearching } = useSearch({
+    allFiles,
+    activeFolderId,
+  });
 
   const { data: bandwidth } = useQuery({
     queryKey: ['bandwidth'],
@@ -92,14 +117,6 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
     refetchInterval: 5000,
     enabled: !!store,
   });
-
-  const {
-    handleBulkDelete,
-    handleBulkDownload,
-    handleBulkMove,
-    handleDownloadFolder,
-    handleGlobalSearch,
-  } = useFileOperations(activeFolderId, selectedIds, setSelectedIds, displayedFiles);
 
   const {
     uploadQueue,
@@ -113,11 +130,19 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
   const {
     downloadQueue,
     queueDownload,
+    queueBulkDownload,
     clearFinished: clearDownloads,
     cancelAll: cancelDownloads,
     cancelItem: cancelDownloadItem,
     retryItem: retryDownloadItem,
   } = useFileDownload(store);
+
+  const {
+    handleBulkDelete,
+    handleBulkDownload,
+    handleBulkMove,
+    handleDownloadFolder,
+  } = useFileOperations(activeFolderId, selectedIds, setSelectedIds, displayedFiles, queueBulkDownload);
 
   const handleSelectAll = useCallback(() => {
     setSelectedIds(displayedFiles.map((f: TelegramFile) => f.id));
@@ -134,6 +159,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
     setSearchTerm('');
     setPreviewFile(null);
     setPlayingFile(null);
+    setPlayerExpanded(false);
     setPdfFile(null);
   }, []);
 
@@ -169,44 +195,89 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
     enabled: !previewFile && !playingFile && !pdfFile && !showMoveModal, // Disable when modals are open
   });
 
+  // Ctrl+K command palette
+  useEffect(() => {
+    const handleCmdK = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setShowCommandPalette((v) => !v);
+      }
+    };
+    window.addEventListener('keydown', handleCmdK);
+    return () => window.removeEventListener('keydown', handleCmdK);
+  }, []);
+
+  // Arrow key navigation in file explorer
+  useEffect(() => {
+    const handleArrowNav = (e: KeyboardEvent) => {
+      if (previewFile || playingFile || pdfFile || showMoveModal || showCommandPalette) return;
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        e.preventDefault();
+        const ids = displayedFiles.map((f) => f.id);
+        if (ids.length === 0) return;
+
+        const currentIdx = selectedIds.length > 0 ? ids.indexOf(selectedIds[selectedIds.length - 1]) : -1;
+        let nextIdx: number;
+
+        if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+          nextIdx = currentIdx < ids.length - 1 ? currentIdx + 1 : 0;
+        } else {
+          nextIdx = currentIdx > 0 ? currentIdx - 1 : ids.length - 1;
+        }
+
+        if (e.shiftKey) {
+          setSelectedIds((prev) => [...new Set([...prev, ids[nextIdx]])]);
+        } else {
+          setSelectedIds([ids[nextIdx]]);
+        }
+        lastClickedRef.current = ids[nextIdx];
+      }
+    };
+    window.addEventListener('keydown', handleArrowNav);
+    return () => window.removeEventListener('keydown', handleArrowNav);
+  }, [displayedFiles, selectedIds, previewFile, playingFile, pdfFile, showMoveModal, showCommandPalette]);
+
   useEffect(() => {
     setSelectedIds([]);
     setShowMoveModal(false);
     setSearchTerm('');
-    setSearchResults([]);
     setPreviewFile(null);
     setPlayingFile(null);
+    setPlayerExpanded(false);
     setPdfFile(null);
     setPreviewContextFiles([]);
     setPreviewContextIndex(-1);
   }, [activeFolderId]);
 
-  useEffect(() => {
-    if (searchTerm.length <= 2) {
-      setSearchResults([]);
-      return;
-    }
-
-    const timer = setTimeout(async () => {
-      setIsSearching(true);
-      const results = await handleGlobalSearch(searchTerm);
-      setSearchResults(results);
-      setIsSearching(false);
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [searchTerm]);
+  const lastClickedRef = useRef<number | null>(null);
 
   const handleFileClick = useCallback(
     (e: React.MouseEvent, id: number) => {
       e.stopPropagation();
+      if (e.shiftKey && lastClickedRef.current !== null) {
+        // Range select: select all files between last clicked and current
+        const ids = displayedFiles.map((f) => f.id);
+        const lastIdx = ids.indexOf(lastClickedRef.current);
+        const currIdx = ids.indexOf(id);
+        if (lastIdx !== -1 && currIdx !== -1) {
+          const start = Math.min(lastIdx, currIdx);
+          const end = Math.max(lastIdx, currIdx);
+          const range = ids.slice(start, end + 1);
+          setSelectedIds((prev) => [...new Set([...prev, ...range])]);
+          return;
+        }
+      }
       if (e.metaKey || e.ctrlKey) {
         setSelectedIds((ids) => (ids.includes(id) ? ids.filter((i) => i !== id) : [...ids, id]));
       } else {
         setSelectedIds([id]);
       }
+      lastClickedRef.current = id;
     },
-    []
+    [displayedFiles]
   );
 
   const handleToggleSelection = useCallback((id: number) => {
@@ -410,12 +481,21 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
   // previewNeighbors is now a memoized object
 
   return (
-    <div
-      className="bg-canvas relative flex w-full flex-1 overflow-hidden"
-      onClick={() => setSelectedIds([])}
-      onDragOver={handleRootDragOver}
-      onDragEnter={handleRootDragEnter}
-    >
+    <div className="flex w-full flex-1 flex-col overflow-hidden">
+      <UpdateBanner
+        available={updateAvailable}
+        version={updateVersion}
+        downloading={updateDownloading}
+        progress={updateProgress}
+        onUpdate={downloadAndInstall}
+        onDismiss={dismissUpdate}
+      />
+      <div
+        className="bg-canvas relative flex w-full min-h-0 flex-1 overflow-hidden"
+        onClick={() => setSelectedIds([])}
+        onDragOver={handleRootDragOver}
+        onDragEnter={handleRootDragEnter}
+      >
       <ExternalDropBlocker onUploadClick={handleManualUpload} />
 
       <AnimatePresence>
@@ -428,10 +508,10 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
             key="move-modal"
           />
         )}
-        {playingFile && (
+        {playingFile && playerExpanded && (
           <MediaPlayer
             file={playingFile}
-            onClose={() => setPlayingFile(null)}
+            onClose={() => setPlayerExpanded(false)}
             onNext={handleNextPreview}
             onPrev={handlePrevPreview}
             currentIndex={previewContextIndex}
@@ -462,6 +542,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
         onDrop={handleDropOnFolder}
         onDelete={handleFolderDelete}
         onCreate={handleCreateFolder}
+        onRename={handleRenameFolder}
         isSyncing={isSyncing}
         isConnected={isConnected}
         onSync={handleSyncFolders}
@@ -557,7 +638,40 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
         </div>
       </div>
 
+      {/* Persistent mini media player (Spotify-style audio bar / YouTube-style
+          video card). Lifts to expanded MediaPlayer above when the user
+          clicks the maximise button. */}
+      <AnimatePresence>
+        {playingFile && !playerExpanded && (
+          <MiniPlayer
+            key={`mini-${playingFile.id}`}
+            file={playingFile}
+            onClose={() => {
+              setPlayingFile(null);
+              setPlayerExpanded(false);
+            }}
+            onExpand={() => setPlayerExpanded(true)}
+            onNext={handleNextPreview}
+            onPrev={handlePrevPreview}
+            currentIndex={previewContextIndex}
+            totalItems={previewContextFiles.length}
+            activeFolderId={activeFolderId}
+          />
+        )}
+      </AnimatePresence>
+
       <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
+      <CommandPalette
+        open={showCommandPalette}
+        onClose={() => setShowCommandPalette(false)}
+        folders={folders}
+        onNavigateFolder={setActiveFolderId}
+        onUpload={handleManualUpload}
+        onSettings={() => setShowSettings(true)}
+        onSync={handleSyncFolders}
+        onLogout={handleLogout}
+      />
+      </div>
     </div>
   );
 }

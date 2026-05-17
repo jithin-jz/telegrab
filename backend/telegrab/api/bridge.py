@@ -46,8 +46,20 @@ log = logging.getLogger(__name__)
 
 
 def _run(coro):
-    """Run an async coroutine on the runtime loop and return its result."""
+    """Run an async coroutine on the runtime loop and return its result.
+
+    Uses the runtime's default short timeout — suitable for routine RPCs
+    (auth, listing, metadata, etc.). Long-running calls should use
+    :func:`_run_long` instead.
+    """
     return get_runtime().run_coro(coro)
+
+
+def _run_long(coro):
+    """Run a coroutine without a timeout — for file transfers, streaming
+    info that may include large I/O, or long-running cancellable jobs.
+    """
+    return get_runtime().run_coro(coro, timeout=None)
 
 
 def _args(maybe_args: Any) -> dict:
@@ -100,12 +112,14 @@ class Bridge:
     def cmd_get_files(self, args: Any = None) -> list[dict]:
         a = _args(args)
         fid = a.get("folderId")
-        return _run(file_cmds.cmd_get_files(int(fid) if fid is not None else None))
+        return _run_long(
+            file_cmds.cmd_get_files(int(fid) if fid is not None else None)
+        )
 
     def cmd_upload_file(self, args: Any = None) -> str:
         a = _args(args)
         fid = a.get("folderId")
-        return _run(
+        return _run_long(
             file_cmds.cmd_upload_file(
                 a["path"],
                 int(fid) if fid is not None else None,
@@ -116,7 +130,7 @@ class Bridge:
     def cmd_download_file(self, args: Any = None) -> str:
         a = _args(args)
         fid = a.get("folderId")
-        return _run(
+        return _run_long(
             file_cmds.cmd_download_file(
                 int(a["messageId"]),
                 a["savePath"],
@@ -160,6 +174,12 @@ class Bridge:
         a = _args(args)
         return _run(folder_cmds.cmd_create_folder(a["name"]))
 
+    def cmd_rename_folder(self, args: Any = None) -> dict:
+        a = _args(args)
+        return _run(
+            folder_cmds.cmd_rename_folder(int(a["folderId"]), str(a["name"]))
+        )
+
     def cmd_delete_folder(self, args: Any = None) -> bool:
         a = _args(args)
         return _run(folder_cmds.cmd_delete_folder(int(a["folderId"])))
@@ -172,7 +192,7 @@ class Bridge:
     def cmd_get_preview(self, args: Any = None) -> str:
         a = _args(args)
         fid = a.get("folderId")
-        return _run(
+        return _run_long(
             preview_cmds.cmd_get_preview(
                 int(a["messageId"]), int(fid) if fid is not None else None
             )
@@ -181,7 +201,7 @@ class Bridge:
     def cmd_get_thumbnail(self, args: Any = None) -> str:
         a = _args(args)
         fid = a.get("folderId")
-        return _run(
+        return _run_long(
             preview_cmds.cmd_get_thumbnail(
                 int(a["messageId"]), int(fid) if fid is not None else None
             )
@@ -282,5 +302,79 @@ class Bridge:
         return updater_cmds.cmd_check_for_updates()
 
     def cmd_download_and_install_update(self, args: Any = None) -> None:
+        import threading
+
         a = _args(args)
-        updater_cmds.cmd_download_and_install_update(a["url"])
+        url = a["url"]
+        sha256 = a.get("sha256", "")
+        threading.Thread(
+            target=updater_cmds.cmd_download_and_install_update,
+            args=(url, sha256),
+            daemon=True,
+        ).start()
+
+    # ─────────────────────── cached files ───────────────────────
+
+    def cmd_get_files_cached(self, args: Any = None) -> dict:
+        a = _args(args)
+        fid = a.get("folderId")
+        return _run_long(
+            file_cmds.cmd_get_files_cached(int(fid) if fid is not None else None)
+        )
+
+    # ─────────────────────── tray ───────────────────────
+
+    def cmd_minimize_to_tray(self, args: Any = None) -> None:
+        host_cmds.cmd_minimize_to_tray()
+
+    # ─────────────────────── vaults ───────────────────────
+
+    def cmd_create_vault(self, args: Any = None) -> dict:
+        from ..services import vault as vault_cmds
+        a = _args(args)
+        return _run(vault_cmds.cmd_create_vault(a["name"], a["password"], int(a["folderId"])))
+
+    def cmd_unlock_vault(self, args: Any = None) -> bool:
+        from ..services import vault as vault_cmds
+        a = _args(args)
+        return _run(vault_cmds.cmd_unlock_vault(int(a["folderId"]), a["password"]))
+
+    def cmd_lock_vault(self, args: Any = None) -> bool:
+        from ..services import vault as vault_cmds
+        a = _args(args)
+        return _run(vault_cmds.cmd_lock_vault(int(a["folderId"])))
+
+    def cmd_list_vaults(self, args: Any = None) -> list:
+        from ..services import vault as vault_cmds
+        return _run(vault_cmds.cmd_list_vaults())
+
+    def cmd_delete_vault(self, args: Any = None) -> bool:
+        from ..services import vault as vault_cmds
+        a = _args(args)
+        return _run(vault_cmds.cmd_delete_vault(int(a["folderId"])))
+
+    # ─────────────────────── duplicate detection ───────────────────────
+
+    def cmd_check_duplicate(self, args: Any = None) -> dict:
+        from ..services import dedup as dedup_cmds
+        a = _args(args)
+        fid = a.get("folderId")
+        return _run(dedup_cmds.cmd_check_duplicate(a["path"], int(fid) if fid is not None else None))
+
+    # ─────────────────────── pinned files ───────────────────────
+
+    def cmd_pin_file(self, args: Any = None) -> bool:
+        from ..services import pins as pin_cmds
+        a = _args(args)
+        fid = a.get("folderId")
+        return _run(pin_cmds.cmd_pin_file(int(a["messageId"]), int(fid) if fid is not None else None, a["name"], int(a["size"])))
+
+    def cmd_unpin_file(self, args: Any = None) -> bool:
+        from ..services import pins as pin_cmds
+        a = _args(args)
+        fid = a.get("folderId")
+        return _run(pin_cmds.cmd_unpin_file(int(a["messageId"]), int(fid) if fid is not None else None))
+
+    def cmd_get_pinned_files(self, args: Any = None) -> list:
+        from ..services import pins as pin_cmds
+        return _run(pin_cmds.cmd_get_pinned_files())

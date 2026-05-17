@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Pencil, X } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { useQueryClient } from '@tanstack/react-query';
 import { fetchFiles } from '../../lib/api';
@@ -11,6 +11,7 @@ interface SidebarItemProps {
   onClick: () => void;
   onDrop: (e: React.DragEvent) => void;
   onDelete?: () => void;
+  onRename?: (newName: string) => void | Promise<void>;
   folderId: number | null;
 }
 
@@ -30,10 +31,27 @@ export function SidebarItem({
   onClick,
   onDrop,
   onDelete,
+  onRename,
   folderId,
 }: SidebarItemProps) {
   const [isOver, setIsOver] = useState(false);
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [editValue, setEditValue] = useState(label);
+  const inputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
+
+  // Keep edit field in sync if the label changes externally (e.g. server sync).
+  useEffect(() => {
+    if (!isRenaming) setEditValue(label);
+  }, [label, isRenaming]);
+
+  // Auto-focus + select-all when entering rename mode.
+  useEffect(() => {
+    if (isRenaming && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isRenaming]);
 
   const handleMouseEnter = () => {
     // Only pre-fetch if we have a folder ID and it's not the active one
@@ -46,9 +64,78 @@ export function SidebarItem({
     }
   };
 
+  const startRename = () => {
+    setEditValue(label);
+    setIsRenaming(true);
+  };
+
+  const commitRename = async () => {
+    const trimmed = editValue.trim();
+    if (!onRename || !trimmed || trimmed === label) {
+      setIsRenaming(false);
+      setEditValue(label);
+      return;
+    }
+    try {
+      await onRename(trimmed);
+    } catch {
+      // toast handled upstream; revert UI
+    } finally {
+      setIsRenaming(false);
+    }
+  };
+
+  const cancelRename = () => {
+    setEditValue(label);
+    setIsRenaming(false);
+  };
+
+  if (isRenaming) {
+    return (
+      <div
+        className={cn(
+          'group relative flex w-full items-center gap-2.5 rounded-md py-1.5 pr-2 pl-3',
+          'bg-white/[0.04]'
+        )}
+      >
+        <span
+          aria-hidden
+          className="bg-primary absolute top-1/2 left-0 h-4 w-[2px] -translate-y-1/2 rounded-r-full"
+        />
+        <Icon className="text-primary h-4 w-4 shrink-0" strokeWidth={1.75} />
+        <input
+          ref={inputRef}
+          value={editValue}
+          onChange={(e) => setEditValue(e.target.value)}
+          onKeyDown={(e) => {
+            e.stopPropagation();
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              commitRename();
+            } else if (e.key === 'Escape') {
+              e.preventDefault();
+              cancelRename();
+            }
+          }}
+          onBlur={commitRename}
+          onClick={(e) => e.stopPropagation()}
+          className="text-foreground placeholder:text-stone w-full flex-1 bg-transparent text-left text-[13px] font-medium outline-none"
+          maxLength={64}
+        />
+      </div>
+    );
+  }
+
   return (
     <button
       onClick={onClick}
+      onDoubleClick={(e) => {
+        if (onRename) {
+          e.preventDefault();
+          e.stopPropagation();
+          startRename();
+        }
+      }}
       onDragEnter={(e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -107,6 +194,20 @@ export function SidebarItem({
         strokeWidth={1.75}
       />
       <span className="flex-1 truncate text-left">{label}</span>
+      {onRename && (
+        <span
+          role="button"
+          tabIndex={-1}
+          onClick={(e) => {
+            e.stopPropagation();
+            startRename();
+          }}
+          className="text-stone hover:text-foreground grid h-5 w-5 place-items-center rounded opacity-0 transition-colors group-hover:opacity-100 hover:bg-white/5"
+          title="Rename folder"
+        >
+          <Pencil className="h-3 w-3" />
+        </span>
+      )}
       {onDelete && (
         <span
           role="button"

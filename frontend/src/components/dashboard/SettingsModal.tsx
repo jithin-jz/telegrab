@@ -13,6 +13,7 @@ import {
   Settings2,
   Cpu,
   Info,
+  CheckCircle2,
 } from 'lucide-react';
 import { invoke } from '../../lib/platform/core';
 import { useUpdateCheck } from '../../hooks/useUpdateCheck';
@@ -20,6 +21,7 @@ import { toast } from 'sonner';
 import { useSettings } from '../../contexts/SettingsContext';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import { cn } from '../../lib/cn';
+import { APP_VERSION } from '../../lib/version';
 
 // UI Components
 import { Button } from '../ui/button';
@@ -57,6 +59,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   } = useUpdateCheck();
   
   const [clearing, setClearing] = useState(false);
+  const [hasChecked, setHasChecked] = useState(false);
   const [apiSettings, setApiSettings] = useState<ApiSettings>({
     enabled: false,
     port: 8550,
@@ -85,6 +88,15 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       setKeyCopied(false);
     }
   }, [isOpen, fetchApiSettings]);
+
+  // Auto-check for updates the first time the modal opens. Subsequent
+  // opens reuse the cached state until the user hits "Check again".
+  useEffect(() => {
+    if (isOpen && !hasChecked && !checking) {
+      setHasChecked(true);
+      checkForUpdates();
+    }
+  }, [isOpen, hasChecked, checking, checkForUpdates]);
 
   useEffect(() => {
     if (!isOpen || !apiSettings.enabled) return;
@@ -175,14 +187,15 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-black/55 backdrop-blur-[6px]"
           onClick={onClose}
         >
           <motion.div
-            initial={{ scale: 0.95, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.95, opacity: 0 }}
-            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            initial={{ opacity: 0, scale: 0.97, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.97, y: 4 }}
+            transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
             className="bg-canvas border-hairline flex h-[600px] w-full max-w-[700px] flex-col overflow-hidden rounded-2xl border shadow-2xl"
             onClick={(e) => e.stopPropagation()}
             role="dialog"
@@ -251,10 +264,24 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   
                   <TabsTrigger
                     value="about"
-                    className="w-full justify-start gap-2 px-3 py-2 text-xs data-[state=active]:bg-white/5 data-[state=active]:text-foreground"
+                    className="relative w-full justify-start gap-2 px-3 py-2 text-xs data-[state=active]:bg-white/5 data-[state=active]:text-foreground"
                   >
                     <Info className="h-3.5 w-3.5" />
                     About
+                    {available && (
+                      <span
+                        className="ml-auto flex items-center gap-1.5"
+                        aria-label="Update available"
+                        title={`Update available: ${version ?? ''}`}
+                      >
+                        <span className="bg-primary text-on-primary rounded-full px-1.5 py-px text-[9px] font-semibold leading-none tracking-wide uppercase">
+                          New
+                        </span>
+                        <span className="bg-primary relative inline-flex h-1.5 w-1.5 rounded-full">
+                          <span className="bg-primary absolute inset-0 animate-ping rounded-full opacity-60" />
+                        </span>
+                      </span>
+                    )}
                   </TabsTrigger>
                 </TabsList>
               </div>
@@ -278,15 +305,21 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                           <Label className="text-sm font-medium">Automatic Updates</Label>
                           <p className="text-[11px] text-slate">Check for new versions on startup</p>
                         </div>
-                        <Switch defaultChecked />
+                        <Switch
+                          checked={settings.autoUpdate}
+                          onCheckedChange={(v) => updateSetting('autoUpdate', v)}
+                        />
                       </div>
-                      
+
                       <div className="flex items-center justify-between">
                         <div className="space-y-0.5">
                           <Label className="text-sm font-medium">Start Minimised</Label>
-                          <p className="text-[11px] text-slate">Launch the app in the system tray</p>
+                          <p className="text-[11px] text-slate">Launch the app minimised to the taskbar</p>
                         </div>
-                        <Switch />
+                        <Switch
+                          checked={settings.startMinimised}
+                          onCheckedChange={(v) => updateSetting('startMinimised', v)}
+                        />
                       </div>
                     </div>
                   </TabsContent>
@@ -472,46 +505,90 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     <div className="flex flex-col items-center text-center space-y-3 py-8">
                       <h3 className="text-2xl font-bold text-foreground tracking-tight">Telegrab</h3>
                       <div className="px-3 py-0.5 bg-primary/10 rounded-full border border-primary/20">
-                        <span className="text-[10px] font-bold text-primary uppercase tracking-widest">Version 1.4.0</span>
+                        <span className="text-[10px] font-bold text-primary uppercase tracking-widest">
+                          Version {APP_VERSION}
+                        </span>
                       </div>
                       <p className="text-sm text-slate">Professional Cloud Management for Telegram</p>
                     </div>
 
                     <Card className="bg-surface/30 border-hairline">
-                      <CardContent className="p-4 space-y-4">
-                        <div className="flex items-center justify-between">
+                      <CardContent className="p-4 space-y-3">
+                        {/* State: checking */}
+                        {checking && (
                           <div className="flex items-center gap-3">
-                            <ArrowUpCircle className="h-4 w-4 text-primary" />
+                            <RefreshCw className="text-slate h-4 w-4 animate-spin" />
                             <div className="space-y-0.5">
-                              <p className="text-sm font-medium">Software Update</p>
+                              <p className="text-sm font-medium">Checking for updates…</p>
                               <p className="text-[11px] text-slate">
-                                {available ? `v${version} available!` : checking ? "Checking..." : "Up to date"}
+                                Talking to the release server.
                               </p>
                             </div>
                           </div>
-                          {!available && (
-                            <Button size="sm" variant="outline" disabled={checking} onClick={checkForUpdates} className="h-8 text-xs">
-                              {checking ? <RefreshCw className="h-3 w-3 animate-spin mr-1.5" /> : <RefreshCw className="h-3 w-3 mr-1.5" />}
-                              Check
-                            </Button>
-                          )}
-                        </div>
+                        )}
 
-                        {available && (
-                          <div className="pt-2">
-                             <Button onClick={downloadAndInstall} className="w-full h-9 bg-primary text-on-primary">
-                               <Download className="mr-2 h-4 w-4" />
-                               Update to v{version}
-                             </Button>
-                             {downloading && (
-                               <div className="mt-4 space-y-2">
-                                 <div className="bg-primary/10 h-1.5 rounded-full overflow-hidden">
-                                   <motion.div className="bg-primary h-full" animate={{ width: `${progress}%` }} />
-                                 </div>
-                                 <p className="text-[10px] text-center text-slate">Downloading: {progress}%</p>
-                               </div>
-                             )}
+                        {/* State: up to date */}
+                        {!checking && !available && (
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                              <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                              <div className="space-y-0.5">
+                                <p className="text-sm font-medium">You're up to date</p>
+                                <p className="text-[11px] text-slate">
+                                  Telegrab v{APP_VERSION} is the latest version.
+                                </p>
+                              </div>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={checkForUpdates}
+                              className="h-8 text-xs"
+                            >
+                              <RefreshCw className="mr-1.5 h-3 w-3" />
+                              Check again
+                            </Button>
                           </div>
+                        )}
+
+                        {/* State: update available */}
+                        {!checking && available && (
+                          <>
+                            <div className="flex items-center gap-3">
+                              <ArrowUpCircle className="text-primary h-4 w-4" />
+                              <div className="space-y-0.5">
+                                <p className="text-sm font-medium">
+                                  New version {version} is available
+                                </p>
+                                <p className="text-[11px] text-slate">
+                                  Download the installer and Telegrab will restart automatically.
+                                </p>
+                              </div>
+                            </div>
+                            <Button
+                              onClick={downloadAndInstall}
+                              disabled={downloading}
+                              className="bg-primary text-on-primary hover:bg-primary-pressed h-9 w-full"
+                            >
+                              <Download className="mr-2 h-4 w-4" />
+                              {downloading ? 'Downloading…' : `Update to ${version}`}
+                            </Button>
+                            {downloading && (
+                              <div className="space-y-1.5">
+                                <div className="bg-primary/10 h-1.5 overflow-hidden rounded-full">
+                                  <motion.div
+                                    className="bg-primary h-full"
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${progress}%` }}
+                                    transition={{ duration: 0.2, ease: 'linear' }}
+                                  />
+                                </div>
+                                <p className="text-slate text-center text-[10px]">
+                                  Downloading… {progress}%
+                                </p>
+                              </div>
+                            )}
+                          </>
                         )}
                       </CardContent>
                     </Card>
