@@ -2,6 +2,13 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import path from 'node:path';
+import { readFileSync } from 'node:fs';
+
+// Read the app version from package.json so the UI has a single source of
+// truth and we don't have to keep `1.4.0` strings in sync across files.
+const pkgVersion: string = JSON.parse(
+  readFileSync(path.resolve(__dirname, 'package.json'), 'utf-8'),
+).version;
 
 // All Tauri SDK imports in the React code resolve to our pywebview-backed
 // platform shim under `src/lib/platform/`. The npm packages themselves are
@@ -22,6 +29,12 @@ const tauriShimAliases = {
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+
+  // Compile-time constants. Replaces `__APP_VERSION__` in source with the
+  // version from package.json so the UI doesn't have stale hardcoded strings.
+  define: {
+    __APP_VERSION__: JSON.stringify(pkgVersion),
+  },
 
   resolve: {
     alias: tauriShimAliases,

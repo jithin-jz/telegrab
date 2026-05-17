@@ -8,7 +8,8 @@ export function useFileOperations(
   activeFolderId: number | null,
   selectedIds: number[],
   setSelectedIds: (ids: number[]) => void,
-  displayedFiles: TelegramFile[]
+  displayedFiles: TelegramFile[],
+  queueBulkDownload?: (files: TelegramFile[], folderId: number | null) => Promise<void>
 ) {
   const queryClient = useQueryClient();
   const { confirm } = useConfirm();
@@ -63,9 +64,7 @@ export function useFileOperations(
   const handleDownload = async (id: number, name: string) => {
     try {
       const savePath = await import('../lib/platform/dialog').then((d) =>
-        d.save({
-          defaultPath: name,
-        })
+        d.save({ defaultPath: name })
       );
       if (!savePath) return;
       toast.info(`Download started: ${name}`);
@@ -78,34 +77,10 @@ export function useFileOperations(
 
   const handleBulkDownload = async () => {
     if (selectedIds.length === 0) return;
-    try {
-      const dirPath = await import('../lib/platform/dialog').then((d) =>
-        d.open({
-          directory: true,
-          multiple: false,
-          title: 'Select Download Destination',
-        })
-      );
-      if (!dirPath) return;
-      let successCount = 0;
-      const targetFiles = displayedFiles.filter((f) => selectedIds.includes(f.id));
-      toast.info(`Starting batch download of ${targetFiles.length} files...`);
-
-      for (const file of targetFiles) {
-        const filePath = `${dirPath}/${file.name}`;
-        try {
-          await invoke('cmd_download_file', {
-            messageId: file.id,
-            savePath: filePath,
-            folderId: activeFolderId,
-          });
-          successCount++;
-        } catch (e) {}
-      }
-      toast.success(`Downloaded ${successCount} files.`);
+    const targetFiles = displayedFiles.filter((f) => selectedIds.includes(f.id));
+    if (queueBulkDownload) {
+      await queueBulkDownload(targetFiles, activeFolderId);
       setSelectedIds([]);
-    } catch (e) {
-      toast.error(`Bulk download failed: ${e}`);
     }
   };
 
@@ -131,31 +106,8 @@ export function useFileOperations(
       toast.info('Folder is empty.');
       return;
     }
-    try {
-      const dirPath = await import('../lib/platform/dialog').then((d) =>
-        d.open({
-          directory: true,
-          multiple: false,
-          title: 'Download Folder To...',
-        })
-      );
-      if (!dirPath) return;
-      let successCount = 0;
-      toast.info(`Downloading folder contents (${displayedFiles.length} files)...`);
-      for (const file of displayedFiles) {
-        const filePath = `${dirPath}/${file.name}`;
-        try {
-          await invoke('cmd_download_file', {
-            messageId: file.id,
-            savePath: filePath,
-            folderId: activeFolderId,
-          });
-          successCount++;
-        } catch (e) {}
-      }
-      toast.success(`Folder Download Complete: ${successCount} files.`);
-    } catch (e) {
-      toast.error('Error: ' + e);
+    if (queueBulkDownload) {
+      await queueBulkDownload(displayedFiles, activeFolderId);
     }
   };
 

@@ -18,12 +18,14 @@ export interface QueueItem {
   id: string;
   path: string;
   folderId: number | null;
-  status: 'pending' | 'uploading' | 'success' | 'error' | 'cancelled';
+  status: 'pending' | 'uploading' | 'success' | 'error' | 'cancelled' | 'paused';
   error?: string;
   progress?: number; // 0-100
   uploadedBytes?: number;
   totalBytes?: number;
   speedBytesPerSec?: number;
+  resumeOffset?: number; // bytes already transferred (for resume)
+  skipDuplicateCheck?: boolean; // skip dedup (user chose "replace")
 }
 
 export interface BandwidthStats {
@@ -36,10 +38,12 @@ export interface DownloadItem {
   messageId: number;
   filename: string;
   folderId: number | null;
-  status: 'pending' | 'downloading' | 'success' | 'error' | 'cancelled';
+  dirPath?: string; // Pre-selected directory for bulk downloads
+  status: 'pending' | 'downloading' | 'success' | 'error' | 'cancelled' | 'paused';
   error?: string;
   progress?: number; // 0-100
   uploadedBytes?: number;
   totalBytes?: number;
   speedBytesPerSec?: number;
+  resumeOffset?: number; // bytes already transferred (for resume)
 }

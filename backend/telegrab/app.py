@@ -156,6 +156,26 @@ def main() -> None:
     bus.attach(window)
     host_cmds.attach_window(window)
 
+    # Initialize metadata cache
+    from .services.cache import init_cache
+    init_cache()
+
+    # Start system tray
+    from .services.tray import start_tray, stop_tray
+
+    def _tray_show():
+        if window:
+            window.show()
+
+    def _tray_quit():
+        if window:
+            window.destroy()
+
+    try:
+        start_tray(_tray_show, _tray_quit)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("Tray icon failed to start: %s", exc)
+
     def _on_loaded() -> None:
         try:
             window.evaluate_js(_BOOTSTRAP_JS)
@@ -177,6 +197,8 @@ def main() -> None:
         webview.start(debug=args.debug)
     finally:
         log.info("Shutting down...")
+        with contextlib.suppress(Exception):
+            stop_tray()
         with contextlib.suppress(Exception):
             rest_supervisor.stop()
         try:

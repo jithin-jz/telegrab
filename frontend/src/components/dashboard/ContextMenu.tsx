@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Eye, HardDrive, Trash2, FolderOpen, Pencil, Play, FileText } from 'lucide-react';
+import { Eye, HardDrive, Trash2, FolderOpen, Pencil, Play, FileText, Pin, PinOff } from 'lucide-react';
 import { TelegramFile } from '../../types';
 import { isMediaFile, isPdfFile } from '../../lib/utils';
 
@@ -11,6 +11,9 @@ interface ContextMenuProps {
   onDownload: () => void;
   onDelete: () => void;
   onPreview: () => void;
+  onPin?: () => void;
+  onUnpin?: () => void;
+  isPinned?: boolean;
 }
 
 export function ContextMenu({
@@ -21,6 +24,9 @@ export function ContextMenu({
   onDownload,
   onDelete,
   onPreview,
+  onPin,
+  onUnpin,
+  isPinned,
 }: ContextMenuProps) {
   const [adjustedPos, setAdjustedPos] = useState({ x, y });
   const menuRef = useRef<HTMLDivElement>(null);
@@ -119,6 +125,25 @@ export function ContextMenu({
         <Pencil className="h-4 w-4" />
         Rename
       </button>
+
+      {file.type !== 'folder' && (
+        <button
+          onClick={isPinned ? onUnpin : onPin}
+          className="text-foreground hover:bg-surface-soft flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors"
+        >
+          {isPinned ? (
+            <>
+              <PinOff className="h-4 w-4 text-amber-400" />
+              Unpin
+            </>
+          ) : (
+            <>
+              <Pin className="h-4 w-4 text-amber-400" />
+              Pin to Quick Access
+            </>
+          )}
+        </button>
+      )}
 
       <div className="bg-hairline my-1 h-px" />
 

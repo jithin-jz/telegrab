@@ -22,7 +22,7 @@ from .paths import (
     store_path,
     thumbnail_cache_dir,
 )
-from .stream import STREAM_PORT, StreamConfig, get_stream_config
+from .stream import STREAM_PORT, StreamConfig, allowed_origins, get_stream_config
 
 __all__ = [
     # paths
@@ -39,6 +39,7 @@ __all__ = [
     "STREAM_PORT",
     "StreamConfig",
     "get_stream_config",
+    "allowed_origins",
     # api settings
     "DEFAULT_API_PORT",
     "ApiSettingsFile",

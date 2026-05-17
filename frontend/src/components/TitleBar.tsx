@@ -71,14 +71,14 @@ export function TitleBar() {
       <div className="flex h-full items-center">
         <button
           onClick={handleMinimize}
-          className="text-slate flex h-full w-12 items-center justify-center transition-colors hover:bg-white/5 active:bg-white/10"
+          className="text-slate hover:text-foreground flex h-full w-12 items-center justify-center transition-colors duration-150 ease-out hover:bg-white/[0.04] active:bg-white/[0.08]"
           title="Minimize"
         >
           <Minus className="h-4 w-4" />
         </button>
         <button
           onClick={handleMaximize}
-          className="text-slate flex h-full w-12 items-center justify-center transition-colors hover:bg-white/5 active:bg-white/10"
+          className="text-slate hover:text-foreground flex h-full w-12 items-center justify-center transition-colors duration-150 ease-out hover:bg-white/[0.04] active:bg-white/[0.08]"
           title={isMaximized ? "Restore" : "Maximize"}
         >
           {isMaximized ? (
@@ -89,7 +89,7 @@ export function TitleBar() {
         </button>
         <button
           onClick={handleClose}
-          className="text-slate flex h-full w-12 items-center justify-center transition-colors hover:bg-rose-500 hover:text-white active:bg-rose-600"
+          className="text-slate flex h-full w-12 items-center justify-center transition-colors duration-150 ease-out hover:bg-rose-500 hover:text-white active:bg-rose-600"
           title="Close"
         >
           <X className="h-4 w-4" />

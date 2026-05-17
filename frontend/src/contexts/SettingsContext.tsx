@@ -4,6 +4,7 @@ import { load } from '../lib/platform/store';
 export interface Settings {
   viewMode: 'grid' | 'list';
   autoUpdate: boolean;
+  startMinimised: boolean;
   maxConcurrentUploads: number;
   maxConcurrentDownloads: number;
 }
@@ -11,6 +12,7 @@ export interface Settings {
 const defaultSettings: Settings = {
   viewMode: 'grid',
   autoUpdate: true,
+  startMinimised: false,
   maxConcurrentUploads: 6,
   maxConcurrentDownloads: 6,
 };

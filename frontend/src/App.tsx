@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { invoke } from './lib/platform/core';
 import { load } from './lib/platform/store';
 import { listen } from './lib/platform/event';
@@ -13,7 +13,7 @@ import './styles/globals.css';
 
 import { Toaster } from 'sonner';
 import { ConfirmProvider } from './contexts/ConfirmContext';
-import { SettingsProvider } from './contexts/SettingsContext';
+import { SettingsProvider, useSettings } from './contexts/SettingsContext';
 import { DropZoneProvider } from './contexts/DropZoneContext';
 
 const queryClient = new QueryClient();
@@ -32,6 +32,21 @@ const TelegramLogo = ({ className }: { className?: string }) => (
 
 function AppContent() {
   const [authStatus, setAuthStatus] = useState<AuthStatus>('loading');
+  const { settings, isLoaded: settingsLoaded } = useSettings();
+
+  // Minimise the window on launch if the user has Start Minimised enabled.
+  // Runs once per app session, as soon as the persisted setting is loaded.
+  const startMinimisedHandled = useRef(false);
+  useEffect(() => {
+    if (!settingsLoaded) return;
+    if (startMinimisedHandled.current) return;
+    startMinimisedHandled.current = true;
+    if (settings.startMinimised) {
+      invoke('cmd_window_minimize').catch(() => {
+        // best-effort; non-fatal if the host doesn't support it
+      });
+    }
+  }, [settingsLoaded, settings.startMinimised]);
 
   useEffect(() => {
     const checkSession = async () => {
@@ -57,7 +72,7 @@ function AppContent() {
         // Give the splash screen a tiny bit of extra time to look good
         setTimeout(() => {
           setAuthStatus(ok ? 'authenticated' : 'unauthenticated');
-        }, 1200);
+        }, 350);
       } catch (err) {
         console.warn('Session restore failed, showing login:', err);
         setAuthStatus('unauthenticated');
@@ -76,7 +91,7 @@ function AppContent() {
       unlisten = await listen<boolean>('window-maximized', (event) => {
         setIsTransitioning(true);
         setIsMaximized(event.payload);
-        setTimeout(() => setIsTransitioning(false), 500);
+        setTimeout(() => setIsTransitioning(false), 320);
       });
     };
     setup();
@@ -87,10 +102,10 @@ function AppContent() {
     <main 
       className={`text-foreground selection:bg-primary/30 relative flex h-screen w-screen flex-col overflow-hidden bg-canvas ${
         isMaximized ? 'rounded-none' : 'rounded-xl'
-      } transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]`}
+      } transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]`}
     >
       <TitleBar />
-      <div className={`flex-1 flex flex-col min-h-0 ${isTransitioning ? 'window-content-scale opacity-80 blur-[2px] scale-[0.995]' : 'window-content-scale'}`}>
+      <div className={`flex-1 flex flex-col min-h-0 ${isTransitioning ? 'window-content-scale opacity-90' : 'window-content-scale'}`}>
         <Toaster
           theme="dark"
           position="bottom-center"
@@ -110,109 +125,42 @@ function AppContent() {
               key="loading"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0, scale: 1.05, filter: 'blur(20px)' }}
-              transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1] }}
-              className="absolute inset-0 flex flex-col items-center justify-center bg-canvas z-50 overflow-hidden"
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.24, ease: [0.4, 0, 0.2, 1] }}
+              className="absolute inset-0 flex flex-col items-center justify-center bg-canvas z-50"
             >
-              {/* Ambient Background Pulse */}
-              <motion.div 
-                className="bg-primary/10 absolute inset-0 -z-10 blur-[120px]"
-                animate={{ 
-                  scale: [1, 1.2, 1],
-                  opacity: [0.3, 0.5, 0.3]
-                }}
-                transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-              />
-
-              <motion.div 
-                className="flex flex-col items-center gap-10"
-                initial={{ y: 30, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.2, duration: 1, type: 'spring', bounce: 0.3 }}
+              <motion.div
+                className="flex flex-col items-center gap-7"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
               >
-                <div className="relative group">
-                  <motion.div
-                    initial={{ scale: 0.8, opacity: 0, rotate: -10 }}
-                    animate={{ scale: 1, opacity: 1, rotate: 0 }}
-                    transition={{ 
-                      type: 'spring',
-                      stiffness: 200,
-                      damping: 25,
-                      delay: 0.3
-                    }}
-                    className="auth-glass border-white/10 flex h-28 w-28 items-center justify-center rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative z-10 overflow-hidden"
-                  >
-                    <TelegramLogo className="text-white w-14 h-14 drop-shadow-2xl" />
-                    
-                    {/* Shimmer Effect */}
-                    <motion.div 
-                      className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/20 to-transparent -translate-x-full"
-                      animate={{ translateX: ['100%', '-100%'] }}
-                      transition={{ duration: 2, repeat: Infinity, ease: "linear", repeatDelay: 1 }}
-                    />
-                  </motion.div>
-                  
-                  <motion.div 
-                    className="bg-primary/30 absolute -inset-8 -z-10 rounded-full blur-3xl"
-                    animate={{ 
-                      scale: [1, 1.3, 1],
-                      opacity: [0.2, 0.4, 0.2]
-                    }}
-                    transition={{ 
-                      duration: 5, 
-                      repeat: Infinity,
-                      ease: "easeInOut" 
-                    }}
-                  />
+                <div className="bg-surface border-hairline-strong flex h-16 w-16 items-center justify-center rounded-2xl border shadow-[0_8px_24px_rgba(0,0,0,0.32)]">
+                  <TelegramLogo className="text-primary h-8 w-8" />
                 </div>
 
-                <div className="flex flex-col items-center gap-4">
-                  <motion.h2 
-                    className="text-white text-4xl font-bold tracking-tighter"
-                    initial={{ opacity: 0, letterSpacing: "-0.05em" }}
-                    animate={{ opacity: 1, letterSpacing: "0em" }}
-                    transition={{ delay: 0.5, duration: 0.8 }}
-                  >
+                <div className="flex flex-col items-center gap-3">
+                  <h2 className="text-foreground text-[22px] font-semibold tracking-tight">
                     Telegrab
-                  </motion.h2>
-                  
-                  <motion.div 
-                    className="flex flex-col items-center gap-3"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.8 }}
-                  >
-                    <div className="flex gap-2">
-                      {[0, 1, 2].map((i) => (
-                        <motion.div
-                          key={i}
-                          className="h-1.5 w-1.5 rounded-full bg-primary"
-                          animate={{ 
-                            scale: [1, 1.5, 1],
-                            opacity: [0.3, 1, 0.3],
-                            boxShadow: ["0 0 0px var(--color-primary)", "0 0 8px var(--color-primary)", "0 0 0px var(--color-primary)"]
-                          }}
-                          transition={{ 
-                            duration: 1.5, 
-                            repeat: Infinity, 
-                            delay: i * 0.2 
-                          }}
-                        />
-                      ))}
-                    </div>
-                    <span className="text-stone/60 text-[11px] font-semibold uppercase tracking-[0.2em]">
-                      Initializing secure environment
-                    </span>
-                  </motion.div>
+                  </h2>
+                  <div className="flex items-center gap-1.5">
+                    {[0, 1, 2].map((i) => (
+                      <span
+                        key={i}
+                        className="bg-primary/80 dot-pulse h-1 w-1 rounded-full"
+                        style={{ animationDelay: `${i * 0.15}s` }}
+                      />
+                    ))}
+                  </div>
                 </div>
               </motion.div>
             </motion.div>
           ) : (
             <motion.div
               key="content"
-              initial={{ opacity: 0, scale: 0.98, filter: 'blur(10px)' }}
-              animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
-              transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
               className="flex-1 flex flex-col min-h-0"
             >
               {authStatus === 'authenticated' ? (

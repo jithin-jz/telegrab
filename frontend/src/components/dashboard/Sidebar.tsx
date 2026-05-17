@@ -15,6 +15,7 @@ interface SidebarProps {
   onDrop: (e: React.DragEvent, folderId: number | null) => void;
   onDelete: (id: number, name: string) => void;
   onCreate: (name: string) => Promise<void>;
+  onRename: (id: number, newName: string) => Promise<void>;
   isSyncing: boolean;
   isConnected: boolean;
   onSync: () => void;
@@ -29,6 +30,7 @@ export const Sidebar = memo(function Sidebar({
   onDrop,
   onDelete,
   onCreate,
+  onRename,
   isSyncing,
   isConnected,
   onSync,
@@ -99,6 +101,7 @@ export const Sidebar = memo(function Sidebar({
               onClick={() => setActiveFolderId(folder.id)}
               onDrop={(e: React.DragEvent) => onDrop(e, folder.id)}
               onDelete={() => onDelete(folder.id, folder.name)}
+              onRename={(newName: string) => onRename(folder.id, newName)}
               folderId={folder.id}
             />
           ))}
