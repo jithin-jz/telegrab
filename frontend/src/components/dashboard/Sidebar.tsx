@@ -6,7 +6,6 @@ import { TelegramFolder, BandwidthStats } from '../../types';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { cn } from '../../lib/cn';
-import logoUrl from '../../assets/logo.svg';
 
 interface SidebarProps {
   folders: TelegramFolder[];
@@ -58,9 +57,6 @@ export const Sidebar = memo(function Sidebar({
     >
       {/* Brand header */}
       <div className="flex items-center gap-2.5 px-4 pt-4 pb-3">
-        <div className="bg-hairline-soft border-hairline grid h-8 w-8 place-items-center rounded-lg border shadow-sm">
-          <img src={logoUrl} className="h-7 w-7" alt="Telegrab" />
-        </div>
         <div className="leading-tight">
           <div className="text-foreground text-[14px] font-semibold tracking-tight">Telegrab</div>
           <div className="text-stone text-[10px] tracking-[0.08em] uppercase">private drive</div>
