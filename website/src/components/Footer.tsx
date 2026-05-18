@@ -1,4 +1,7 @@
+import { useDownloadUrl } from '../hooks/useDownloadUrl'
+
 export function Footer() {
+  const { url } = useDownloadUrl()
   return (
     <footer className="border-t border-hairline-dark bg-canvas">
       <div className="mx-auto max-w-[1200px] px-8 py-12">
@@ -6,7 +9,7 @@ export function Footer() {
           <div>
             <h4 className="text-[12px] font-bold uppercase tracking-[0.96px] text-on-primary">Product</h4>
             <ul className="mt-4 space-y-3 text-[13px] text-on-primary-mute tracking-[0]">
-              <li><a href="https://github.com/jithin-jz/telegrab/releases/latest" target="_blank" rel="noopener noreferrer" className="hover:text-on-primary underline transition-colors">Download</a></li>
+              <li><a href={url} target="_blank" rel="noopener noreferrer" className="hover:text-on-primary underline transition-colors">Download</a></li>
               <li><a href="https://github.com/jithin-jz/telegrab" target="_blank" rel="noopener noreferrer" className="hover:text-on-primary underline transition-colors">Source Code</a></li>
             </ul>
           </div>

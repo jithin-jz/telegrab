@@ -1,10 +1,12 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useState, useEffect } from 'react'
+import { useDownloadUrl } from '../hooks/useDownloadUrl'
 
 export function Navbar() {
   const { pathname } = useLocation()
   const [stars, setStars] = useState<number | null>(null)
   const [open, setOpen] = useState(false)
+  const { url, label } = useDownloadUrl()
 
   useEffect(() => {
     fetch('https://api.github.com/repos/jithin-jz/telegrab')
@@ -49,12 +51,12 @@ export function Navbar() {
             Star{stars !== null && <span className="ml-1 text-on-primary/60">·</span>}{stars !== null && <span className="ml-1">{stars}</span>}
           </a>
           <a
-            href="https://github.com/jithin-jz/telegrab/releases/latest"
+            href={url}
             target="_blank"
             rel="noopener noreferrer"
             className="rounded-[32px] border border-on-primary px-4 py-2 text-[11px] font-bold uppercase tracking-[1.17px] text-on-primary transition-all active:scale-95 hover:bg-on-primary hover:text-canvas"
           >
-            Download
+            {label}
           </a>
         </div>
 
@@ -87,12 +89,12 @@ export function Navbar() {
               GitHub{stars !== null && ` · ${stars}`}
             </a>
             <a
-              href="https://github.com/jithin-jz/telegrab/releases/latest"
+              href={url}
               target="_blank"
               rel="noopener noreferrer"
               className="mt-2 inline-block rounded-[32px] border border-on-primary px-4 py-2.5 text-center text-[11px] font-bold uppercase tracking-[1.17px] text-on-primary"
             >
-              Download
+              {label}
             </a>
           </div>
         </div>

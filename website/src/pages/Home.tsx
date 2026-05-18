@@ -1,7 +1,9 @@
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
+import { useDownloadUrl } from '../hooks/useDownloadUrl'
 
 export function Home() {
+  const { url, label } = useDownloadUrl()
   return (
     <>
       {/* Hero — full viewport band */}
@@ -22,12 +24,12 @@ export function Home() {
             </p>
             <div className="mt-10">
               <a
-                href="https://github.com/jithin-jz/telegrab/releases/latest"
+                href={url}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-block rounded-[32px] border border-on-primary px-6 py-[18px] text-[13px] font-bold uppercase tracking-[1.17px] text-on-primary transition-all active:scale-95 hover:bg-on-primary hover:text-canvas"
               >
-                Download Now
+                {label}
               </a>
             </div>
           </motion.div>
@@ -77,12 +79,12 @@ export function Home() {
           </p>
           <div className="mt-10 flex flex-col items-center gap-6 sm:flex-row sm:justify-center">
             <a
-              href="https://github.com/jithin-jz/telegrab/releases/latest"
+              href={url}
               target="_blank"
               rel="noopener noreferrer"
               className="rounded-[32px] border border-on-primary px-6 py-[18px] text-[13px] font-bold uppercase tracking-[1.17px] text-on-primary transition-all active:scale-95 hover:bg-on-primary hover:text-canvas"
             >
-              Download
+              {label}
             </a>
             <Link
               to="/docs"
