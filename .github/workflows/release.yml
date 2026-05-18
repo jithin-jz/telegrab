@@ -152,7 +152,7 @@ jobs:
       - name: Get version from pyproject.toml
         id: version
         run: |
-          VERSION=$(grep -oP '(?<=version = ")[^"]+' backend/pyproject.toml)
+          VERSION=$(grep -m1 -oP '(?<=^version = ")[^"]+' backend/pyproject.toml)
           echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
           echo "name=Telegrab v${VERSION}" >> "$GITHUB_OUTPUT"
 
