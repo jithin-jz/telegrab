@@ -7,7 +7,7 @@ export function Navbar() {
     <nav className="fixed top-0 left-0 right-0 z-50">
       <div className="mx-auto flex h-16 max-w-[1200px] items-center justify-between px-8">
         <Link to="/" className="flex items-center gap-2.5">
-          <img src="/icon.png" alt="Telegrab" className="h-6 w-6" />
+          <img src="/logo.svg" alt="Telegrab" className="h-6 w-6" />
           <span className="text-[13px] font-bold uppercase tracking-[1.17px] text-on-primary">
             Telegrab
           </span>
