@@ -6,17 +6,13 @@ export function Home() {
     <>
       {/* Hero — full viewport band */}
       <section className="relative flex min-h-screen items-center justify-center bg-canvas">
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-canvas/80" />
         <div className="relative z-10 text-center px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
           >
-            <p className="text-[12px] uppercase tracking-[0.96px] text-on-primary-mute leading-[2]">
-              Cloud Storage Reimagined
-            </p>
-            <h1 className="mt-4 font-display text-[80px] font-bold uppercase leading-[0.95] tracking-[1.6px] text-on-primary sm:text-[80px] max-[768px]:text-[48px]">
+            <h1 className="font-display text-[80px] font-bold uppercase leading-[0.95] tracking-[1.6px] text-on-primary sm:text-[80px] max-[768px]:text-[48px]">
               UNLIMITED
               <br />
               STORAGE
@@ -41,10 +37,7 @@ export function Home() {
       {/* Features — dark soft band */}
       <section className="bg-canvas-soft border-t border-hairline-dark">
         <div className="mx-auto max-w-[1200px] px-8 py-24 text-center">
-          <p className="text-[12px] uppercase tracking-[0.96px] text-on-primary-mute leading-[2]">
-            Capabilities
-          </p>
-          <h2 className="mt-2 font-display text-[60px] font-bold uppercase leading-[1.2] tracking-[1.2px] text-on-primary max-[768px]:text-[40px]">
+          <h2 className="font-display text-[60px] font-bold uppercase leading-[1.2] tracking-[1.2px] text-on-primary max-[768px]:text-[40px]">
             EVERYTHING YOU NEED
           </h2>
 
@@ -62,10 +55,7 @@ export function Home() {
       {/* Tech — dark band */}
       <section className="bg-canvas border-t border-hairline-dark">
         <div className="mx-auto max-w-[1200px] px-8 py-24 text-center">
-          <p className="text-[12px] uppercase tracking-[0.96px] text-on-primary-mute leading-[2]">
-            Technology
-          </p>
-          <h2 className="mt-2 font-display text-[48px] font-bold uppercase leading-[1.25] tracking-[0.96px] text-on-primary max-[768px]:text-[32px]">
+          <h2 className="font-display text-[48px] font-bold uppercase leading-[1.25] tracking-[0.96px] text-on-primary max-[768px]:text-[32px]">
             BUILT FOR PERFORMANCE
           </h2>
           <div className="mt-12 grid gap-6 sm:grid-cols-3">

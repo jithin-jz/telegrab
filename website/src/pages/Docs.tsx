@@ -22,10 +22,7 @@ export function Docs() {
       <section className="bg-canvas pt-16 pb-16">
         <div className="mx-auto max-w-[680px] px-8 text-center">
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
-            <p className="text-[12px] uppercase tracking-[0.96px] text-on-primary-mute leading-[2]">
-              Documentation
-            </p>
-            <h1 className="mt-2 font-display text-[60px] font-bold uppercase leading-[1.2] tracking-[1.2px] text-on-primary max-[768px]:text-[40px]">
+            <h1 className="font-display text-[60px] font-bold uppercase leading-[1.2] tracking-[1.2px] text-on-primary max-[768px]:text-[40px]">
               INSTALLATION
             </h1>
             <p className="mt-4 text-[16px] leading-[1.7] tracking-[0.32px] text-on-primary-mute">
