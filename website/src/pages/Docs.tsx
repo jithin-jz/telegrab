@@ -19,7 +19,7 @@ export function Docs() {
   return (
     <>
       {/* Header */}
-      <section className="bg-canvas pt-32 pb-16">
+      <section className="bg-canvas pt-16 pb-16">
         <div className="mx-auto max-w-[680px] px-8 text-center">
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
             <p className="text-[12px] uppercase tracking-[0.96px] text-on-primary-mute leading-[2]">

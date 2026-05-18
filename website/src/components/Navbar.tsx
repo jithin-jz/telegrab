@@ -4,7 +4,7 @@ export function Navbar() {
   const { pathname } = useLocation()
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50">
+    <nav className="sticky top-0 z-50 border-b border-hairline-dark bg-canvas">
       <div className="mx-auto flex h-16 max-w-[1200px] items-center justify-between px-8">
         <Link to="/" className="flex items-center gap-2.5">
           <img src="/logo.svg" alt="Telegrab" className="h-6 w-6" />
