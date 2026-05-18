@@ -1,8 +1,4 @@
-"""Generate app.ico for the Windows installer.
-
-Renders the Telegram-style icon: white circle with paper plane cutout.
-Uses Pillow only (no Cairo/ImageMagick needed).
-"""
+"""Generate app.ico from the Telegrab icon (blue circle + white plane)."""
 from pathlib import Path
 from PIL import Image, ImageDraw
 from svg.path import parse_path
@@ -10,8 +6,7 @@ from svg.path import parse_path
 ROOT = Path(__file__).resolve().parent.parent
 ICO = ROOT / "assets" / "icons" / "app.ico"
 
-# The inner plane subpath (extracted from the full SVG 'd' attribute)
-# This is the 'm' subpath starting after the circle definition
+# The plane path from the SVG (white fill on blue circle)
 PLANE_D = (
     "M115.88 253.3c74.63-32.52 124.39-53.95 149.29-64.31"
     " 71.1-29.57 85.87-34.71 95.5-34.88 2.12-.03 6.85.49 9.92 2.98"
@@ -25,8 +20,7 @@ PLANE_D = (
 )
 
 
-def _sample_path(d: str, scale: float, num_points: int = 2000) -> list[tuple[float, float]]:
-    """Sample points along an SVG path."""
+def _sample_path(d: str, scale: float, num_points: int = 4000) -> list[tuple[float, float]]:
     path = parse_path(d)
     points = []
     for i in range(num_points):
@@ -40,29 +34,19 @@ def _sample_path(d: str, scale: float, num_points: int = 2000) -> list[tuple[flo
 
 
 def _render(size: int) -> Image.Image:
-    """Render icon: white circle background with white plane on dark bg."""
     scale = size / 512.0
     img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
 
-    # White filled circle (the outer shape)
-    draw.ellipse([0, 0, size - 1, size - 1], fill=(255, 255, 255, 255))
+    # Blue circle background (#2AABEE)
+    draw.ellipse([0, 0, size - 1, size - 1], fill=(42, 171, 238, 255))
 
-    # The plane is a "cutout" in the original SVG (even-odd fill rule).
-    # For the ICO we want: dark circle with white plane on top.
-    # So: draw dark circle, then white plane.
-    img2 = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    draw2 = ImageDraw.Draw(img2)
-
-    # Dark background circle
-    draw2.ellipse([0, 0, size - 1, size - 1], fill=(34, 34, 34, 255))
-
-    # White plane on top
+    # White plane
     plane_points = _sample_path(PLANE_D, scale)
     if plane_points:
-        draw2.polygon(plane_points, fill=(255, 255, 255, 255))
+        draw.polygon(plane_points, fill=(255, 255, 255, 255))
 
-    return img2
+    return img
 
 
 def main():

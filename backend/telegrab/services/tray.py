@@ -21,7 +21,7 @@ except ImportError:
 def _create_icon_image():
     img = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
-    draw.ellipse((4, 4, 60, 60), fill=(34, 197, 94, 255))
+    draw.ellipse((0, 0, 63, 63), fill=(42, 171, 238, 255))
     return img
 
 
