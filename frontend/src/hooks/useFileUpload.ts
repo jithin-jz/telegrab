@@ -150,7 +150,8 @@ export function useFileUpload(activeFolderId: number | null, store: Store | null
       );
       processItem(item);
     }
-  }, [uploadQueue, settings.maxConcurrentUploads, processItem]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uploadQueue, settings.maxConcurrentUploads]);
 
   const handleManualUpload = async () => {
     try {

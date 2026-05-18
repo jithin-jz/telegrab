@@ -430,11 +430,10 @@ async def cmd_get_files_cached(
     if cached:
         return {"files": cached, "next_offset_id": 0, "from_cache": True}
 
-    result = await cmd_get_files(folder_id, limit=limit, offset_id=offset_id)
-    if result["files"]:
-        cache.upsert_files(folder_id, result["files"])
-    result["from_cache"] = False
-    return result
+    files = await cmd_get_files(folder_id, limit=limit, offset_id=offset_id)
+    if files:
+        cache.upsert_files(folder_id, files)
+    return {"files": files, "next_offset_id": 0, "from_cache": False}
 
 
 __all__ = [

@@ -3,9 +3,17 @@ import { useState, useEffect } from 'react'
 const FALLBACK = 'https://github.com/jithin-jz/telegrab/releases/latest'
 
 function getOS(): 'windows' | 'mac' | 'unknown' {
-  const p = navigator.platform.toLowerCase()
-  if (p.includes('win')) return 'windows'
-  if (p.includes('mac')) return 'mac'
+  // Prefer modern API, fall back to userAgent
+  const uaData = (navigator as unknown as { userAgentData?: { platform?: string } }).userAgentData;
+  if (uaData?.platform) {
+    const p = uaData.platform.toLowerCase()
+    if (p.includes('win')) return 'windows'
+    if (p.includes('mac')) return 'mac'
+    return 'unknown'
+  }
+  const ua = navigator.userAgent.toLowerCase()
+  if (ua.includes('win')) return 'windows'
+  if (ua.includes('mac')) return 'mac'
   return 'unknown'
 }
 

@@ -140,7 +140,8 @@ export function useFileDownload(store: Store | null) {
       );
       processItem(item);
     }
-  }, [downloadQueue, settings.maxConcurrentDownloads, processItem]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [downloadQueue, settings.maxConcurrentDownloads]);
 
   const queueDownload = (messageId: number, filename: string, folderId: number | null) => {
     const newItem: DownloadItem = {

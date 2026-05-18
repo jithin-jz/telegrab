@@ -176,17 +176,21 @@ def main() -> None:
     icon = _resolve_icon()
     log.info("Loading frontend from: %s", url)
 
-    window = webview.create_window(
-        title="Telegrab",
-        url=url,
-        js_api=bridge,
-        width=1200,
-        height=800,
-        min_size=(900, 600),
-        frameless=True,
-        easy_drag=False,
-        background_color="#0a0a0c",
-    )
+    window_kwargs: dict = {
+        "title": "Telegrab",
+        "url": url,
+        "js_api": bridge,
+        "width": 1200,
+        "height": 800,
+        "min_size": (900, 600),
+        "frameless": True,
+        "easy_drag": False,
+        "background_color": "#0a0a0c",
+    }
+    if icon:
+        window_kwargs["icon"] = icon
+
+    window = webview.create_window(**window_kwargs)
 
     bus.attach(window)
     host_cmds.attach_window(window)

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, useRef, ReactNode } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 
 interface ConfirmOptions {
@@ -18,24 +18,26 @@ const ConfirmContext = createContext<ConfirmContextType | undefined>(undefined);
 export function ConfirmProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
   const [options, setOptions] = useState<ConfirmOptions>({ title: '', message: '' });
-  const [resolveRef, setResolveRef] = useState<((value: boolean) => void) | null>(null);
+  const resolveRef = useRef<((value: boolean) => void) | null>(null);
 
   const confirm = (opts: ConfirmOptions) => {
     setOptions(opts);
     setIsOpen(true);
     return new Promise<boolean>((resolve) => {
-      setResolveRef(() => resolve);
+      resolveRef.current = resolve;
     });
   };
 
   const handleConfirm = () => {
     setIsOpen(false);
-    if (resolveRef) resolveRef(true);
+    resolveRef.current?.(true);
+    resolveRef.current = null;
   };
 
   const handleCancel = () => {
     setIsOpen(false);
-    if (resolveRef) resolveRef(false);
+    resolveRef.current?.(false);
+    resolveRef.current = null;
   };
 
   return (

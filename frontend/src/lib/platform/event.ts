@@ -18,16 +18,15 @@ export function listen<T = unknown>(event: string, cb: EventCallback<T>): Promis
 }
 
 export function once<T = unknown>(event: string, cb: EventCallback<T>): Promise<UnlistenFn> {
-  return listen<T>(event, (e) => {
+  let unlistenRef: UnlistenFn | undefined;
+  const unlisten = listen<T>(event, (e) => {
     cb(e);
-    // Self-unsubscribe by returning the unlisten on the next tick.
     queueMicrotask(() => unlistenRef?.());
-  }).then((un) => {
+  });
+  return unlisten.then((un) => {
     unlistenRef = un;
     return un;
   });
-  // eslint-disable-next-line prefer-const
-  var unlistenRef: UnlistenFn | undefined;
 }
 
 /**

@@ -1,19 +1,19 @@
 import { Minus, Square, X, Copy } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { listen } from '../lib/platform/event';
+import { invoke } from '../lib/platform/core';
 
 export function TitleBar() {
   const [isMaximized, setIsMaximized] = useState(false);
 
   const handleMinimize = () => {
-    // Add a tiny delay to let the UI react if needed, though OS handles most of it
-    (window as any).pywebview?.api?.cmd_window_minimize();
+    invoke('cmd_window_minimize').catch(() => {});
   };
   const handleMaximize = () => {
     if (isMaximized) {
-      (window as any).pywebview?.api?.cmd_window_restore();
+      invoke('cmd_window_restore').catch(() => {});
     } else {
-      (window as any).pywebview?.api?.cmd_window_maximize();
+      invoke('cmd_window_maximize').catch(() => {});
     }
   };
 
@@ -31,12 +31,14 @@ export function TitleBar() {
       unlisten?.();
     };
   }, []);
-  const handleClose = () => (window as any).pywebview?.api?.cmd_window_close();
+  const handleClose = () => {
+    invoke('cmd_window_close').catch(() => {});
+  };
 
   const handleMouseDown = (e: React.MouseEvent) => {
     // Only drag if left button and not clicking a button
     if (e.button === 0 && !(e.target as HTMLElement).closest('button')) {
-      (window as any).pywebview?.drag();
+      (window as unknown as { pywebview?: { drag?: () => void } }).pywebview?.drag?.();
     }
   };
 
@@ -62,14 +64,14 @@ export function TitleBar() {
         <button
           onClick={handleMinimize}
           className="text-slate hover:text-foreground flex h-full w-12 items-center justify-center transition-colors duration-150 ease-out hover:bg-white/[0.04] active:bg-white/[0.08]"
-          title="Minimize"
+          aria-label="Minimize window"
         >
           <Minus className="h-4 w-4" />
         </button>
         <button
           onClick={handleMaximize}
           className="text-slate hover:text-foreground flex h-full w-12 items-center justify-center transition-colors duration-150 ease-out hover:bg-white/[0.04] active:bg-white/[0.08]"
-          title={isMaximized ? "Restore" : "Maximize"}
+          aria-label={isMaximized ? "Restore window" : "Maximize window"}
         >
           {isMaximized ? (
             <Copy className="h-3 w-3 rotate-180" />
@@ -80,7 +82,7 @@ export function TitleBar() {
         <button
           onClick={handleClose}
           className="text-slate flex h-full w-12 items-center justify-center transition-colors duration-150 ease-out hover:bg-rose-500 hover:text-white active:bg-rose-600"
-          title="Close"
+          aria-label="Close window"
         >
           <X className="h-4 w-4" />
         </button>

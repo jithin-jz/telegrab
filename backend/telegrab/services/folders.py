@@ -24,6 +24,17 @@ FOLDER_ABOUT_TAG = "[telegram-drive-folder]"
 
 
 async def cmd_create_folder(name: str) -> dict[str, Any]:
+    # Validate folder name
+    name = (name or "").strip()
+    if not name:
+        raise RuntimeError("Folder name cannot be empty.")
+    if len(name) > 128:
+        raise RuntimeError("Folder name too long (max 128 characters).")
+    # Reject control characters and path separators
+    import re
+    if re.search(r'[\x00-\x1f/\\]', name):
+        raise RuntimeError("Folder name contains invalid characters.")
+
     state = tg.get_state()
     client = state.client
     if client is None:

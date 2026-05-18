@@ -64,7 +64,7 @@ def _create_app() -> FastAPI:
     @app.get("/stream/{folder_id}/{message_id}")
     async def stream_media(
         folder_id: str = Path(...),
-        message_id: int = Path(...),
+        message_id: int = Path(..., gt=0),
         token: str | None = Query(default=None),
         range_header: str | None = Header(default=None, alias="range"),
     ):

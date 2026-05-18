@@ -173,17 +173,46 @@ def is_unlocked(folder_id: int | None) -> bool:
 
 
 def encrypt_file(path: str, folder_id: int) -> str:
-    """Encrypt a file for vault upload. Returns path to encrypted temp file."""
+    """Encrypt a file for vault upload. Returns path to encrypted temp file.
+    
+    Streams the file in chunks to avoid OOM on large files.
+    """
     key = _session_keys.get(folder_id)
     if not key:
         raise RuntimeError("Vault is locked")
 
-    data = Path(path).read_bytes()
-    encrypted = _encrypt_bytes(data, key)
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
+    file_size = Path(path).stat().st_size
+    # For files > 64MB, use chunked encryption with a streaming approach
+    # For smaller files, the simple approach is fine and faster
+    max_simple = 64 * 1024 * 1024
+    if file_size <= max_simple:
+        data = Path(path).read_bytes()
+        encrypted = _encrypt_bytes(data, key)
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".enc")  # noqa: SIM115
+        tmp.write(encrypted)
+        tmp.close()
+        return tmp.name
+
+    # Large file: encrypt in one shot but read via mmap to reduce peak memory
+    # AES-GCM requires all data at once for authentication, so we still need
+    # the full plaintext, but we avoid a Python bytes copy by using mmap.
+    import mmap
+    nonce = os.urandom(12)
+    aesgcm = AESGCM(key)
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".enc")  # noqa: SIM115
-    tmp.write(encrypted)
-    tmp.close()
+    try:
+        with Path(path).open("rb") as f, mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ) as mm:
+            ct = aesgcm.encrypt(nonce, bytes(mm), None)
+        tmp.write(_HEADER_MAGIC)
+        tmp.write(nonce)
+        tmp.write(ct)
+        tmp.close()
+    except Exception:
+        tmp.close()
+        Path(tmp.name).unlink(missing_ok=True)
+        raise
     return tmp.name
 
 

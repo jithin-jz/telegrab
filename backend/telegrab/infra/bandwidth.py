@@ -34,10 +34,14 @@ def _today() -> str:
 class BandwidthManager:
     """Thread-safe bandwidth bookkeeping with on-disk persistence."""
 
+    _SAVE_INTERVAL = 5.0  # seconds between disk writes
+
     def __init__(self) -> None:
         self._path = bandwidth_path()
         self._lock = threading.Lock()
         self._stats = self._load()
+        self._dirty = False
+        self._last_save = 0.0
 
     def _load(self) -> BandwidthStats:
         try:
@@ -51,10 +55,22 @@ class BandwidthManager:
         except (FileNotFoundError, json.JSONDecodeError, OSError):
             return BandwidthStats(date=_today())
 
-    def _save_locked(self) -> None:
+    def _save_if_needed(self) -> None:
+        import time as _time
+        now = _time.monotonic()
+        if not self._dirty:
+            return
+        if now - self._last_save < self._SAVE_INTERVAL:
+            return
+        self._flush_locked()
+
+    def _flush_locked(self) -> None:
+        import time as _time
         try:
             with self._path.open("w", encoding="utf-8") as fh:
                 json.dump(asdict(self._stats), fh)
+            self._dirty = False
+            self._last_save = _time.monotonic()
         except OSError as exc:
             log.warning("Bandwidth save failed: %s", exc)
 
@@ -63,7 +79,8 @@ class BandwidthManager:
         if self._stats.date != today:
             log.info("Bandwidth reset (old=%s, new=%s)", self._stats.date, today)
             self._stats = BandwidthStats(date=today)
-            self._save_locked()
+            self._dirty = True
+            self._flush_locked()
 
     def can_transfer(self, bytes_count: int) -> tuple[bool, str | None]:
         with self._lock:
@@ -80,13 +97,21 @@ class BandwidthManager:
         with self._lock:
             self._check_reset_locked()
             self._stats.up_bytes += bytes_count
-            self._save_locked()
+            self._dirty = True
+            self._save_if_needed()
 
     def add_down(self, bytes_count: int) -> None:
         with self._lock:
             self._check_reset_locked()
             self._stats.down_bytes += bytes_count
-            self._save_locked()
+            self._dirty = True
+            self._save_if_needed()
+
+    def flush(self) -> None:
+        """Force a save (call on shutdown)."""
+        with self._lock:
+            if self._dirty:
+                self._flush_locked()
 
     def get_stats(self) -> dict:
         with self._lock:

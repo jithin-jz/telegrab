@@ -1,37 +1,33 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { invoke } from '../lib/platform/core';
 
 /**
- * Network detection for Tauri apps using lightweight backend check
- *
- * Uses cmd_is_network_available which does a simple TCP connection test
- * to Telegram servers without using grammers (avoids stack overflow).
- *
- * Polls every 10 seconds - very lightweight (~2ms per check).
+ * Network detection using lightweight backend TCP check to Telegram servers.
+ * Polls every 10 seconds (~2ms per check).
  */
 export function useNetworkStatus() {
   const [isOnline, setIsOnline] = useState(true);
+  const mountedRef = useRef(true);
 
   useEffect(() => {
-    // Check network status
+    mountedRef.current = true;
+
     const checkNetwork = async () => {
       try {
-        // Use the lightweight TCP check (no grammers involved)
         const available = await invoke<boolean>('cmd_is_network_available');
-        setIsOnline(available);
-      } catch (error) {
-        // If the command fails, assume offline
-        setIsOnline(false);
+        if (mountedRef.current) setIsOnline(available);
+      } catch {
+        if (mountedRef.current) setIsOnline(false);
       }
     };
 
-    // Initial check
     checkNetwork();
+    const interval = setInterval(checkNetwork, 10_000);
 
-    // Poll every 10 seconds (very lightweight, ~2ms per check)
-    const interval = setInterval(checkNetwork, 10000);
-
-    return () => clearInterval(interval);
+    return () => {
+      mountedRef.current = false;
+      clearInterval(interval);
+    };
   }, []);
 
   return isOnline;

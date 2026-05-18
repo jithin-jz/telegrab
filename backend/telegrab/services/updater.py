@@ -174,6 +174,7 @@ def cmd_check_for_updates() -> dict | None:
 def cmd_download_and_install_update(download_url: str, expected_sha256: str = "") -> None:
     """Download the update to user's Downloads folder, verify checksum, run it, and close the app."""
     import hashlib
+    import shutil
 
     if not download_url:
         raise ValueError("No download URL provided")
@@ -182,6 +183,17 @@ def cmd_download_and_install_update(download_url: str, expected_sha256: str = ""
 
     downloads_dir = Path.home() / "Downloads"
     downloads_dir.mkdir(parents=True, exist_ok=True)
+
+    # Check available disk space before downloading
+    disk_usage = shutil.disk_usage(str(downloads_dir))
+    # Require at least 200MB free (typical installer is ~30MB, but leave headroom)
+    min_free_bytes = 200 * 1024 * 1024
+    if disk_usage.free < min_free_bytes:
+        raise RuntimeError(
+            f"Insufficient disk space. Need at least 200 MB free, "
+            f"but only {disk_usage.free // (1024 * 1024)} MB available in Downloads."
+        )
+
     filename = Path(download_url.split("?")[0].split("#")[0]).name
     # Sanitize filename to prevent path traversal
     filename = filename.replace("..", "").replace("/", "").replace("\\", "")

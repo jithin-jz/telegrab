@@ -31,22 +31,22 @@ export class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="bg-telegram-bg flex h-screen w-screen items-center justify-center p-8">
-          <div className="bg-telegram-surface border-telegram-border w-full max-w-md rounded-2xl border p-8 text-center shadow-2xl">
+        <div className="bg-canvas flex h-screen w-screen items-center justify-center p-8">
+          <div className="bg-surface border-hairline w-full max-w-md rounded-2xl border p-8 text-center shadow-2xl">
             <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-red-500/10">
               <AlertTriangle className="h-8 w-8 text-red-400" />
             </div>
-            <h1 className="text-telegram-text mb-2 text-xl font-semibold">Something went wrong</h1>
-            <p className="text-telegram-subtext mb-6 text-sm">
+            <h1 className="text-foreground mb-2 text-xl font-semibold">Something went wrong</h1>
+            <p className="text-slate mb-6 text-sm">
               The application encountered an unexpected error. Please try reloading.
             </p>
 
             {this.state.error && (
               <details className="mb-6 text-left">
-                <summary className="text-telegram-subtext hover:text-telegram-text cursor-pointer text-xs transition-colors">
+                <summary className="text-slate hover:text-foreground cursor-pointer text-xs transition-colors">
                   Technical Details
                 </summary>
-                <pre className="bg-telegram-hover mt-2 max-h-32 overflow-auto rounded-lg p-3 text-xs text-red-400">
+                <pre className="bg-canvas mt-2 max-h-32 overflow-auto rounded-lg p-3 text-xs text-red-400">
                   {this.state.error.message}
                 </pre>
               </details>
@@ -54,7 +54,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
             <button
               onClick={this.handleReload}
-              className="bg-telegram-primary hover:bg-telegram-primary/90 inline-flex items-center gap-2 rounded-lg px-6 py-3 font-medium text-black transition-colors"
+              className="bg-primary hover:bg-primary-pressed text-on-primary inline-flex items-center gap-2 rounded-lg px-6 py-3 font-medium transition-colors"
             >
               <RefreshCw className="h-4 w-4" />
               Reload Application
