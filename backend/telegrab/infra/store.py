@@ -93,10 +93,13 @@ def _restrict_permissions(path: Path) -> None:
             import subprocess
             username = os.environ.get("USERNAME", "")
             if username:
+                si = subprocess.STARTUPINFO()
+                si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
                 subprocess.run(
                     ["icacls", str(path), "/inheritance:r",
                      "/grant:r", f"{username}:(R,W)"],
                     capture_output=True, check=False,
+                    startupinfo=si,
                 )
         except Exception:
             pass

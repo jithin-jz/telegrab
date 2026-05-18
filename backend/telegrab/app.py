@@ -25,6 +25,25 @@ import os
 import sys
 from pathlib import Path
 
+# Hide any console window on Windows (frozen exe with console=False can still
+# flash a conhost if a subprocess inherits the creation flags).
+if sys.platform == "win32":
+    import ctypes
+    ctypes.windll.user32.ShowWindow(ctypes.windll.kernel32.GetConsoleWindow(), 0)
+
+    # Prevent child processes from spawning visible console windows.
+    import subprocess
+    _startupinfo = subprocess.STARTUPINFO()
+    _startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    _startupinfo.wShowWindow = 0
+    _original_popen_init = subprocess.Popen.__init__
+
+    def _patched_popen_init(self, *args, **kwargs):  # noqa: ANN001, ANN002, ANN003
+        kwargs.setdefault("startupinfo", _startupinfo)
+        _original_popen_init(self, *args, **kwargs)
+
+    subprocess.Popen.__init__ = _patched_popen_init
+
 import webview
 
 from . import telegram as tg
