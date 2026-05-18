@@ -110,6 +110,36 @@ def _run_pyinstaller(py: Path, clean: bool) -> None:
     subprocess.check_call(cmd, cwd=str(ROOT))
 
 
+def _run_inno_setup() -> None:
+    """Run Inno Setup to produce a proper Windows installer."""
+    if sys.platform != "win32":
+        print("[build] Skipping Inno Setup (Windows only).")
+        return
+
+    iss = INSTALLER / "telegrab_setup.iss"
+    if not iss.exists():
+        sys.exit(f"[build] Inno Setup script not found: {iss}")
+
+    # Find ISCC.exe
+    iscc_paths = [
+        Path(r"C:\Program Files (x86)\Inno Setup 6\ISCC.exe"),
+        Path(r"C:\Program Files\Inno Setup 6\ISCC.exe"),
+    ]
+    iscc = next((p for p in iscc_paths if p.exists()), shutil.which("iscc"))
+    if not iscc:
+        sys.exit(
+            "[build] Inno Setup not found. Install it:\n"
+            "  winget install JRSoftware.InnoSetup"
+        )
+
+    print(f"[build] Running Inno Setup: {iscc}")
+    subprocess.check_call([str(iscc), str(iss)])
+    setup_exe = DIST_OUT / "Telegrab-1.4.0-Setup.exe"
+    if setup_exe.exists():
+        size_mb = setup_exe.stat().st_size / (1024 * 1024)
+        print(f"[build] Installer created: {setup_exe} ({size_mb:.1f} MB)")
+
+
 def _report() -> None:
     print()
     print("=" * 60)
@@ -147,6 +177,11 @@ def main() -> int:
         action="store_true",
         help="Force a fresh `npm run build` even if dist/ exists",
     )
+    parser.add_argument(
+        "--installer",
+        action="store_true",
+        help="Run Inno Setup after PyInstaller to produce a Setup.exe (Windows only)",
+    )
     args = parser.parse_args()
 
     print(f"[build] Building telegrab installer for {sys.platform} ({platform.machine()})")
@@ -154,6 +189,8 @@ def main() -> int:
     _ensure_pyinstaller(py)
     _ensure_frontend_build(force=args.rebuild_frontend)
     _run_pyinstaller(py, clean=args.clean)
+    if args.installer:
+        _run_inno_setup()
     _report()
     return 0
 
