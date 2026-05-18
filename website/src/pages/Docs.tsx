@@ -57,15 +57,14 @@ export function Docs() {
 
           <Step title="01 — Download & Install">
             <p className="text-[16px] text-on-primary-mute leading-[1.7] tracking-[0.32px]">
-              Download the latest installer from GitHub Releases, or use winget on Windows:
+              Download the latest installer from GitHub Releases:
             </p>
             <div className="mt-4 space-y-3">
-              <CodeBlock title="Windows — winget">{`winget install jithin-jz.telegrab`}</CodeBlock>
-              <CodeBlock title="Windows — manual">{`# Download the Setup installer from:
+              <CodeBlock title="Windows">{`# Download the Setup installer from:
 https://github.com/jithin-jz/telegrab/releases/latest
 
 # Run the installer
-Telegrab-1.4.0-Setup.exe`}</CodeBlock>
+Telegrab-Setup.exe`}</CodeBlock>
               <CodeBlock title="macOS">{`# Download the .dmg or .zip from:
 https://github.com/jithin-jz/telegrab/releases/latest
 
@@ -115,10 +114,7 @@ https://github.com/jithin-jz/telegrab/releases/latest
           <Step title="Uninstall">
             <div className="space-y-3">
               <CodeBlock title="Windows">{`# Via Settings
-Settings → Apps → Installed apps → Telegrab → Uninstall
-
-# Via winget
-winget uninstall jithin-jz.telegrab`}</CodeBlock>
+Settings → Apps → Installed apps → Telegrab → Uninstall`}</CodeBlock>
               <CodeBlock title="macOS">{`# Drag to Trash
 Move Telegrab.app from Applications to Trash`}</CodeBlock>
             </div>
