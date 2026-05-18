@@ -54,7 +54,7 @@ export function TitleBar() {
       onDoubleClick={handleDoubleClick}
     >
       <div className="pointer-events-none flex items-center gap-2 px-3">
-        <img src="/icon.png" alt="Telegrab" className="h-5 w-5 rounded-md" />
+        <img src="/logo.svg" alt="Telegrab" className="h-5 w-5 rounded-md" />
         <span className="text-ink-deep text-xs font-bold tracking-tight">Telegrab</span>
       </div>
 

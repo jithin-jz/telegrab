@@ -295,7 +295,7 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
         >
           <div className="flex items-center gap-4">
             <div className="auth-glass border-white/10 shadow-primary/20 flex h-12 w-12 items-center justify-center rounded-2xl shadow-xl relative overflow-hidden group">
-              <img src="/icon.png" alt="Telegrab" className="w-7 h-7 relative z-10" />
+              <img src="/logo.svg" alt="Telegrab" className="w-7 h-7 relative z-10" />
               <motion.div 
                 className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/20 to-transparent -translate-x-full"
                 animate={{ translateX: ['100%', '-100%'] }}

@@ -1,54 +1,73 @@
-"""Generate app.ico for the Windows installer using Pillow only."""
+"""Generate app.ico for the Windows installer.
+
+Renders the Telegram-style icon: white circle with paper plane cutout.
+Uses Pillow only (no Cairo/ImageMagick needed).
+"""
 from pathlib import Path
 from PIL import Image, ImageDraw
+from svg.path import parse_path
 
 ROOT = Path(__file__).resolve().parent.parent
-ICO = ROOT / "installer" / "app.ico"
+ICO = ROOT / "assets" / "icons" / "app.ico"
+
+# The inner plane subpath (extracted from the full SVG 'd' attribute)
+# This is the 'm' subpath starting after the circle definition
+PLANE_D = (
+    "M115.88 253.3c74.63-32.52 124.39-53.95 149.29-64.31"
+    " 71.1-29.57 85.87-34.71 95.5-34.88 2.12-.03 6.85.49 9.92 2.98"
+    " 2.59 2.1 3.3 4.94 3.64 6.93.34 2 .77 6.53.43 10.08"
+    "-3.85 40.48-20.52 138.71-29 184.05-3.59 19.19-10.66 25.62-17.5 26.25"
+    "-14.86 1.37-26.15-9.83-40.55-19.27-22.53-14.76-35.26-23.96-57.13-38.37"
+    "-25.28-16.66-8.89-25.81 5.51-40.77 3.77-3.92 69.27-63.5 70.54-68.9"
+    ".16-.68.31-3.2-1.19-4.53s-3.71-.87-5.3-.51c-2.26.51-38.25 24.3-107.98 71.37"
+    "-10.22 7.02-19.48 10.43-27.77 10.26-9.14-.2-26.72-5.17-39.79-9.42"
+    "-16.03-5.21-28.77-7.97-27.66-16.82.57-4.61 6.92-9.32 19.04-14.14z"
+)
 
 
-def _draw_icon(size: int) -> Image.Image:
-    """Draw the Telegrab icon: Telegram-style paper plane on a blue circle."""
+def _sample_path(d: str, scale: float, num_points: int = 2000) -> list[tuple[float, float]]:
+    """Sample points along an SVG path."""
+    path = parse_path(d)
+    points = []
+    for i in range(num_points):
+        t = i / num_points
+        try:
+            pt = path.point(t)
+            points.append((pt.real * scale, pt.imag * scale))
+        except (ZeroDivisionError, ValueError):
+            continue
+    return points
+
+
+def _render(size: int) -> Image.Image:
+    """Render icon: white circle background with white plane on dark bg."""
+    scale = size / 512.0
     img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
 
-    # Blue circle background (Telegram blue)
-    draw.ellipse([0, 0, size - 1, size - 1], fill=(42, 171, 238, 255))
+    # White filled circle (the outer shape)
+    draw.ellipse([0, 0, size - 1, size - 1], fill=(255, 255, 255, 255))
 
-    # Paper plane shape scaled to icon size
-    s = size / 512.0
-    plane_points = [
-        (116 * s, 253 * s),
-        (265 * s, 189 * s),
-        (360 * s, 154 * s),
-        (390 * s, 148 * s),
-        (395 * s, 151 * s),
-        (394 * s, 161 * s),
-        (365 * s, 345 * s),
-        (348 * s, 364 * s),
-        (330 * s, 371 * s),
-        (290 * s, 352 * s),
-        (267 * s, 337 * s),
-        (233 * s, 314 * s),
-        (303 * s, 245 * s),
-        (304 * s, 240 * s),
-        (302 * s, 237 * s),
-        (298 * s, 238 * s),
-        (210 * s, 300 * s),
-        (182 * s, 319 * s),
-        (155 * s, 310 * s),
-        (142 * s, 305 * s),
-        (116 * s, 296 * s),
-        (108 * s, 280 * s),
-        (116 * s, 253 * s),
-    ]
-    draw.polygon(plane_points, fill=(255, 255, 255, 255))
+    # The plane is a "cutout" in the original SVG (even-odd fill rule).
+    # For the ICO we want: dark circle with white plane on top.
+    # So: draw dark circle, then white plane.
+    img2 = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    draw2 = ImageDraw.Draw(img2)
 
-    return img
+    # Dark background circle
+    draw2.ellipse([0, 0, size - 1, size - 1], fill=(34, 34, 34, 255))
+
+    # White plane on top
+    plane_points = _sample_path(PLANE_D, scale)
+    if plane_points:
+        draw2.polygon(plane_points, fill=(255, 255, 255, 255))
+
+    return img2
 
 
 def main():
     sizes = [16, 32, 48, 64, 128, 256]
-    imgs = [_draw_icon(s) for s in sizes]
+    imgs = [_render(s) for s in sizes]
     imgs[-1].save(
         str(ICO),
         format="ICO",

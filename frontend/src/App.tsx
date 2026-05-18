@@ -21,7 +21,7 @@ const queryClient = new QueryClient();
 type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated';
 
 const TelegramLogo = ({ className }: { className?: string }) => (
-  <img src="/icon.png" alt="Telegrab" className={className} />
+  <img src="/logo.svg" alt="Telegrab" className={className} />
 );
 
 function AppContent() {
