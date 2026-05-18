@@ -86,6 +86,21 @@ _BOOTSTRAP_JS = r"""
 """
 
 
+def _resolve_icon() -> str | None:
+    """Return the path to the app icon for the window/taskbar."""
+    meipass = getattr(sys, "_MEIPASS", None)
+    if meipass:
+        ico = Path(meipass) / "app.ico"
+        if ico.exists():
+            return str(ico)
+
+    repo_root = Path(__file__).resolve().parent.parent.parent
+    ico = repo_root / "assets" / "icons" / "app.ico"
+    if ico.exists():
+        return str(ico)
+    return None
+
+
 def _resolve_frontend_url() -> str:
     """Return the URL pywebview should load.
 
@@ -158,6 +173,7 @@ def main() -> None:
 
     bridge = Bridge()
     url = _resolve_frontend_url()
+    icon = _resolve_icon()
     log.info("Loading frontend from: %s", url)
 
     window = webview.create_window(

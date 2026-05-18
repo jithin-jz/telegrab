@@ -6,7 +6,7 @@ import { TelegramFolder, BandwidthStats } from '../../types';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { cn } from '../../lib/cn';
-import logoUrl from '../../assets/logo.svg';
+import logoUrl from '../../assets/icon.png';
 
 interface SidebarProps {
   folders: TelegramFolder[];
