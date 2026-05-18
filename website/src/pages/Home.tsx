@@ -86,9 +86,9 @@ export function Home() {
             </a>
             <Link
               to="/docs"
-              className="text-[13px] font-bold uppercase tracking-[1.17px] text-on-primary underline transition-opacity hover:opacity-70"
+              className="rounded-[32px] border border-on-primary/40 px-6 py-[18px] text-[13px] font-bold uppercase tracking-[1.17px] text-on-primary transition-all active:scale-95 hover:border-on-primary"
             >
-              Installation Guide →
+              Installation Guide
             </Link>
           </div>
         </div>
