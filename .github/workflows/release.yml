@@ -50,13 +50,15 @@ jobs:
         working-directory: frontend
 
       - name: Build installer
-        run: python installer/build.py --clean
+        run: python installer/build.py --clean --installer
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: telegrab-windows-x64
-          path: dist-installer/telegrab.exe
+          path: |
+            dist-installer/Telegrab-*-Setup.exe
+            dist-installer/telegrab.exe
           retention-days: 30
 
   # ──────────────────────────── macOS build ────────────────────────────
@@ -155,6 +157,7 @@ jobs:
           draft: false
           generate_release_notes: true
           files: |
+            artifacts/windows/Telegrab-*-Setup.exe
             artifacts/windows/telegrab.exe
             artifacts/macos/telegrab.dmg
             artifacts/macos/telegrab-macos.zip
