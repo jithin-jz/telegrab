@@ -4,51 +4,49 @@ import { Link } from 'react-router-dom'
 export function Home() {
   return (
     <>
-      {/* Hero — dark tile */}
-      <section className="bg-surface-dark text-on-dark">
-        <div className="mx-auto max-w-[980px] px-6 py-20 text-center">
+      {/* Hero — full viewport band */}
+      <section className="relative flex min-h-screen items-center justify-center bg-canvas">
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-canvas/80" />
+        <div className="relative z-10 text-center px-8">
           <motion.div
-            initial={{ opacity: 0, y: 16 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
+            transition={{ duration: 0.8 }}
           >
-            <h1 className="font-display text-[56px] font-semibold leading-[1.07] tracking-[-0.28px] sm:text-[56px]">
-              Your Telegram.{' '}
-              <br className="hidden sm:block" />
-              Unlimited Storage.
+            <p className="text-[12px] uppercase tracking-[0.96px] text-on-primary-mute leading-[2]">
+              Cloud Storage Reimagined
+            </p>
+            <h1 className="mt-4 font-display text-[80px] font-bold uppercase leading-[0.95] tracking-[1.6px] text-on-primary sm:text-[80px] max-[768px]:text-[48px]">
+              UNLIMITED
+              <br />
+              STORAGE
             </h1>
-            <p className="mx-auto mt-4 max-w-[600px] text-[21px] font-normal leading-[1.19] tracking-[0.231px] text-body-muted">
+            <p className="mx-auto mt-6 max-w-[500px] text-[16px] leading-[1.7] tracking-[0.32px] text-on-primary-mute">
               Telegrab turns your Telegram account into unlimited, private cloud storage. No caps, no subscription fees.
             </p>
-            <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+            <div className="mt-10">
               <a
                 href="https://github.com/jithin-jz/telegrab/releases/latest"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="rounded-full bg-primary-on-dark px-[22px] py-[11px] text-[17px] font-normal text-on-dark tracking-[-0.374px] transition-transform active:scale-95"
+                className="inline-block rounded-[32px] border border-on-primary px-6 py-[18px] text-[13px] font-bold uppercase tracking-[1.17px] text-on-primary transition-all active:scale-95 hover:bg-on-primary hover:text-canvas"
               >
-                Download for Free
+                Download Now
               </a>
-              <Link
-                to="/docs"
-                className="text-[17px] font-normal text-primary-on-dark tracking-[-0.374px] transition-opacity hover:opacity-80"
-              >
-                Learn more →
-              </Link>
             </div>
           </motion.div>
         </div>
       </section>
 
-      {/* Features — light tile */}
-      <section className="bg-canvas">
-        <div className="mx-auto max-w-[980px] px-6 py-20 text-center">
-          <h2 className="font-display text-[40px] font-semibold leading-[1.1] text-ink">
-            Everything you need.
-          </h2>
-          <p className="mt-2 text-[21px] font-normal leading-[1.19] tracking-[0.231px] text-ink-subtle">
-            A complete cloud storage solution built on Telegram.
+      {/* Features — dark soft band */}
+      <section className="bg-canvas-soft border-t border-hairline-dark">
+        <div className="mx-auto max-w-[1200px] px-8 py-24 text-center">
+          <p className="text-[12px] uppercase tracking-[0.96px] text-on-primary-mute leading-[2]">
+            Capabilities
           </p>
+          <h2 className="mt-2 font-display text-[60px] font-bold uppercase leading-[1.2] tracking-[1.2px] text-on-primary max-[768px]:text-[40px]">
+            EVERYTHING YOU NEED
+          </h2>
 
           <div className="mt-16 grid gap-12 text-left sm:grid-cols-2 lg:grid-cols-3">
             <Feature title="Unlimited Storage" desc="Powered by Telegram's cloud infrastructure. No storage limits, no subscription fees." />
@@ -61,15 +59,15 @@ export function Home() {
         </div>
       </section>
 
-      {/* Tech — parchment tile */}
-      <section className="bg-parchment">
-        <div className="mx-auto max-w-[980px] px-6 py-20 text-center">
-          <h2 className="font-display text-[40px] font-semibold leading-[1.1] text-ink">
-            Built for performance.
-          </h2>
-          <p className="mt-2 text-[21px] font-normal leading-[1.19] tracking-[0.231px] text-ink-subtle">
-            Modern stack. Native feel.
+      {/* Tech — dark band */}
+      <section className="bg-canvas border-t border-hairline-dark">
+        <div className="mx-auto max-w-[1200px] px-8 py-24 text-center">
+          <p className="text-[12px] uppercase tracking-[0.96px] text-on-primary-mute leading-[2]">
+            Technology
           </p>
+          <h2 className="mt-2 font-display text-[48px] font-bold uppercase leading-[1.25] tracking-[0.96px] text-on-primary max-[768px]:text-[32px]">
+            BUILT FOR PERFORMANCE
+          </h2>
           <div className="mt-12 grid gap-6 sm:grid-cols-3">
             <TechCard label="Frontend" value="React 18, TypeScript, Tailwind CSS" />
             <TechCard label="Backend" value="Python 3.11+, Telethon (MTProto), FastAPI" />
@@ -78,32 +76,30 @@ export function Home() {
         </div>
       </section>
 
-      {/* CTA — dark tile */}
-      <section className="bg-surface-dark-2 text-on-dark">
-        <div className="mx-auto max-w-[980px] px-6 py-20 text-center">
-          <h2 className="font-display text-[40px] font-semibold leading-[1.1]">
-            Ready to get started?
+      {/* CTA — dark band */}
+      <section className="bg-canvas-soft border-t border-hairline-dark">
+        <div className="mx-auto max-w-[1200px] px-8 py-24 text-center">
+          <h2 className="font-display text-[60px] font-bold uppercase leading-[1.2] tracking-[1.2px] text-on-primary max-[768px]:text-[40px]">
+            GET STARTED
           </h2>
-          <p className="mt-2 text-[21px] font-normal leading-[1.19] tracking-[0.231px] text-body-muted">
+          <p className="mt-4 text-[16px] leading-[1.7] tracking-[0.32px] text-on-primary-mute">
             Download Telegrab and start using your unlimited cloud storage today.
           </p>
-          <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+          <div className="mt-10 flex flex-col items-center gap-6 sm:flex-row sm:justify-center">
             <a
               href="https://github.com/jithin-jz/telegrab/releases/latest"
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-full bg-primary-on-dark px-[22px] py-[11px] text-[17px] font-normal text-on-dark tracking-[-0.374px] transition-transform active:scale-95"
+              className="rounded-[32px] border border-on-primary px-6 py-[18px] text-[13px] font-bold uppercase tracking-[1.17px] text-on-primary transition-all active:scale-95 hover:bg-on-primary hover:text-canvas"
             >
-              Download Now
+              Download
             </a>
-            <a
-              href="https://github.com/jithin-jz/telegrab"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[17px] font-normal text-primary-on-dark tracking-[-0.374px] transition-opacity hover:opacity-80"
+            <Link
+              to="/docs"
+              className="text-[13px] font-bold uppercase tracking-[1.17px] text-on-primary underline transition-opacity hover:opacity-70"
             >
-              View on GitHub →
-            </a>
+              Installation Guide →
+            </Link>
           </div>
         </div>
       </section>
@@ -117,18 +113,19 @@ function Feature({ title, desc }: { title: string; desc: string }) {
       initial={{ opacity: 0, y: 12 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
+      className="border-t border-hairline-dark pt-6"
     >
-      <h3 className="text-[17px] font-semibold text-ink leading-[1.24] tracking-[-0.374px]">{title}</h3>
-      <p className="mt-1 text-[14px] font-normal text-ink-subtle leading-[1.43] tracking-[-0.224px]">{desc}</p>
+      <h3 className="text-[13px] font-bold uppercase tracking-[1.17px] text-on-primary">{title}</h3>
+      <p className="mt-2 text-[16px] leading-[1.7] tracking-[0.32px] text-on-primary-mute">{desc}</p>
     </motion.div>
   )
 }
 
 function TechCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[18px] border border-hairline bg-canvas p-6 text-left">
-      <p className="text-[14px] font-semibold text-ink tracking-[-0.224px]">{label}</p>
-      <p className="mt-1 text-[14px] text-ink-subtle leading-[1.43] tracking-[-0.224px]">{value}</p>
+    <div className="border border-hairline-dark rounded-[8px] p-6 text-left">
+      <p className="text-[12px] font-bold uppercase tracking-[0.96px] text-on-primary-mute">{label}</p>
+      <p className="mt-2 text-[16px] leading-[1.5] tracking-[0.32px] text-on-primary">{value}</p>
     </div>
   )
 }

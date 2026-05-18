@@ -1,23 +1,18 @@
 @import "tailwindcss";
 
 @theme {
-  --color-canvas: #ffffff;
-  --color-parchment: #f5f5f7;
-  --color-surface-dark: #272729;
-  --color-surface-dark-2: #2a2a2c;
-  --color-surface-black: #000000;
-  --color-primary: #0066cc;
-  --color-primary-focus: #0071e3;
-  --color-primary-on-dark: #2997ff;
-  --color-ink: #1d1d1f;
-  --color-ink-muted: #333333;
-  --color-ink-subtle: #7a7a7a;
-  --color-on-dark: #ffffff;
-  --color-body-muted: #cccccc;
-  --color-hairline: #e0e0e0;
-  --color-divider-soft: #f0f0f0;
-  --font-display: 'SF Pro Display', 'Inter', system-ui, -apple-system, sans-serif;
-  --font-body: 'SF Pro Text', 'Inter', system-ui, -apple-system, sans-serif;
+  --color-canvas: #000000;
+  --color-canvas-soft: #0a0a0a;
+  --color-canvas-light: #ffffff;
+  --color-canvas-cool: #f0f0fa;
+  --color-ink: #000000;
+  --color-ink-mute: #5a5a5f;
+  --color-on-primary: #ffffff;
+  --color-on-primary-mute: #f0f0fa;
+  --color-hairline-dark: #3a3a3f;
+  --color-hairline-light: #e0e0e8;
+  --font-display: 'D-DIN-Bold', 'Inter', 'Arial Narrow', Arial, Verdana, sans-serif;
+  --font-body: 'D-DIN', 'Inter', Arial, Verdana, sans-serif;
 }
 
 html {
@@ -25,14 +20,14 @@ html {
 }
 
 body {
-  background: var(--color-canvas);
-  color: var(--color-ink);
+  background: #000000;
+  color: #ffffff;
   font-family: var(--font-body);
-  font-size: 17px;
-  line-height: 1.47;
-  letter-spacing: -0.374px;
+  font-size: 16px;
+  line-height: 1.5;
+  letter-spacing: 0.32px;
 }
 
 ::selection {
-  background: rgba(0, 102, 204, 0.15);
+  background: rgba(255, 255, 255, 0.2);
 }
