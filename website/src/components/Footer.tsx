@@ -22,7 +22,6 @@ export function Footer() {
             <ul className="mt-4 space-y-3 text-[13px] text-on-primary-mute tracking-[0]">
               <li><a href="https://github.com/jithin-jz" target="_blank" rel="noopener noreferrer" className="hover:text-on-primary underline transition-colors">GitHub</a></li>
               <li><a href="https://www.linkedin.com/in/jithin-kr" target="_blank" rel="noopener noreferrer" className="hover:text-on-primary underline transition-colors">LinkedIn</a></li>
-              <li><a href="https://www.instagram.com/jithin.jz/" target="_blank" rel="noopener noreferrer" className="hover:text-on-primary underline transition-colors">Instagram</a></li>
             </ul>
           </div>
           <div>
