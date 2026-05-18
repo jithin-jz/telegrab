@@ -130,7 +130,7 @@ def cmd_check_for_updates() -> dict | None:
 
     log.info("Update found: %s -> %s", __version__, latest_raw)
 
-    # Pick the asset for this OS.
+    # Pick the asset for this OS (prefer installer over portable).
     download_url: str | None = None
     is_mac = sys.platform == "darwin"
     is_win = sys.platform == "win32"
@@ -139,9 +139,11 @@ def cmd_check_for_updates() -> dict | None:
         if is_mac and (name.endswith(".dmg") or name.endswith(".zip")):
             download_url = asset.get("browser_download_url")
             break
-        if is_win and name.endswith(".exe"):
+        if is_win and "setup" in name and name.endswith(".exe"):
             download_url = asset.get("browser_download_url")
             break
+        if is_win and name.endswith(".exe") and not download_url:
+            download_url = asset.get("browser_download_url")
         if not is_mac and not is_win and (
             name.endswith(".appimage") or name.endswith(".deb") or name.endswith(".rpm")
         ):

@@ -302,16 +302,10 @@ class Bridge:
         return updater_cmds.cmd_check_for_updates()
 
     def cmd_download_and_install_update(self, args: Any = None) -> None:
-        import threading
-
         a = _args(args)
         url = a["url"]
         sha256 = a.get("sha256", "")
-        threading.Thread(
-            target=updater_cmds.cmd_download_and_install_update,
-            args=(url, sha256),
-            daemon=True,
-        ).start()
+        updater_cmds.cmd_download_and_install_update(url, sha256)
 
     # ─────────────────────── cached files ───────────────────────
 

@@ -1,6 +1,5 @@
 import { useState, useCallback } from 'react';
 import { check, type Update } from '../lib/platform/updater';
-import { relaunch } from '../lib/platform/process';
 
 interface UpdateState {
   checking: boolean;
@@ -50,7 +49,7 @@ export function useUpdateCheck() {
   const downloadAndInstall = useCallback(async () => {
     if (!update) return;
 
-    setState((s) => ({ ...s, downloading: true, progress: 0 }));
+    setState((s) => ({ ...s, downloading: true, progress: 0, error: null }));
     let downloaded = 0;
     let contentLength = 0;
 
@@ -68,8 +67,7 @@ export function useUpdateCheck() {
           }
         }
       });
-
-      await relaunch();
+      // Backend launches the installer and exits the app automatically.
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to install update';
       setState((s) => ({
