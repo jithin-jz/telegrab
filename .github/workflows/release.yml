@@ -149,11 +149,18 @@ jobs:
           name: telegrab-macos
           path: artifacts/macos
 
+      - name: Get version from pyproject.toml
+        id: version
+        run: |
+          VERSION=$(grep -oP '(?<=version = ")[^"]+' backend/pyproject.toml)
+          echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "name=Telegrab v${VERSION}" >> "$GITHUB_OUTPUT"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: "${{ github.ref_type == 'tag' && github.ref_name || format('build-{0}', github.run_number) }}"
-          name: "${{ github.ref_type == 'tag' && github.ref_name || format('Auto-Build {0}', github.run_number) }}"
+          tag_name: "${{ github.ref_type == 'tag' && github.ref_name || steps.version.outputs.tag }}"
+          name: "${{ github.ref_type == 'tag' && github.ref_name || steps.version.outputs.name }}"
           draft: false
           generate_release_notes: true
           files: |
