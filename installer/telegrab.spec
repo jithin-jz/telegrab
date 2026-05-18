@@ -33,12 +33,10 @@ def _icon():
     if sys.platform == "win32":
         candidates = [
             SPEC_DIR / "app.ico",
-            ROOT / "icon.ico",
         ]
     elif sys.platform == "darwin":
         candidates = [
             SPEC_DIR / "app.icns",
-            ROOT / "icon.icns",
         ]
     else:
         return None
