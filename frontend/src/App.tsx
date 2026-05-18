@@ -21,7 +21,12 @@ const queryClient = new QueryClient();
 type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated';
 
 const TelegramLogo = ({ className }: { className?: string }) => (
-  <img src="/logo.svg" alt="Telegrab" className={className} />
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" className={className}>
+    <rect width="512" height="512" rx="96" fill="url(#tg-grad)"/>
+    <defs><linearGradient id="tg-grad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#6366f1"/><stop offset="100%" stopColor="#8b5cf6"/></linearGradient></defs>
+    <path d="M160 200h192M256 200v160" stroke="#fff" strokeWidth="48" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+    <path d="M200 260l56-56 56 56" stroke="#fff" strokeWidth="36" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity="0.7"/>
+  </svg>
 );
 
 function AppContent() {

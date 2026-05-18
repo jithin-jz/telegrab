@@ -56,7 +56,11 @@ export function TitleBar() {
       onDoubleClick={handleDoubleClick}
     >
       <div className="pointer-events-none flex items-center gap-2 px-3">
-        <img src="/logo.svg" alt="Telegrab" className="h-5 w-5 rounded-md" />
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" className="h-5 w-5 rounded-md">
+          <rect width="512" height="512" rx="96" fill="#6366f1"/>
+          <path d="M160 200h192M256 200v160" stroke="#fff" strokeWidth="48" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+          <path d="M200 260l56-56 56 56" stroke="#fff" strokeWidth="36" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity="0.7"/>
+        </svg>
         <span className="text-ink-deep text-xs font-bold tracking-tight">Telegrab</span>
       </div>
 

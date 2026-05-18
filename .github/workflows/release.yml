@@ -45,6 +45,15 @@ jobs:
           backend\.venv\Scripts\python.exe -m pip install ./backend
           backend\.venv\Scripts\python.exe -m pip install pyinstaller==6.11.1 pillow
 
+      - name: Sync version from tag
+        shell: pwsh
+        run: |
+          $tag = if ("${{ github.ref_type }}" -eq "tag") { "${{ github.ref_name }}" } elseif ("${{ github.event.inputs.version }}") { "${{ github.event.inputs.version }}" } else { "" }
+          if ($tag) {
+            $ver = $tag -replace '^v', ''
+            backend\.venv\Scripts\python.exe scripts/bump_version.py $ver
+          }
+
       - name: Install Node deps
         run: npm ci
         working-directory: frontend
@@ -90,6 +99,14 @@ jobs:
           backend/.venv/bin/python -m pip install --upgrade pip wheel
           backend/.venv/bin/python -m pip install ./backend
           backend/.venv/bin/python -m pip install pyinstaller==6.11.1 pillow
+
+      - name: Sync version from tag
+        run: |
+          TAG="${{ github.ref_type == 'tag' && github.ref_name || github.event.inputs.version || '' }}"
+          if [ -n "$TAG" ]; then
+            VER="${TAG#v}"
+            backend/.venv/bin/python scripts/bump_version.py "$VER"
+          fi
 
       - name: Install Node deps
         run: npm ci

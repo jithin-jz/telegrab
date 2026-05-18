@@ -124,7 +124,9 @@ def _apply_native_styles() -> None:
     try:
         _ensure_configured()
         user32 = ctypes.windll.user32
-        hwnd = user32.FindWindowW(None, "Telegrab")
+        hwnd = getattr(_window, 'hwnd', None)
+        if not hwnd:
+            hwnd = user32.FindWindowW(None, "Telegrab")
         if not hwnd:
             log.warning("Telegrab window not found; skipping native styles.")
             return
@@ -309,7 +311,10 @@ def cmd_window_minimize() -> None:
     if sys.platform == "win32":
         try:
             _ensure_configured()
-            hwnd = ctypes.windll.user32.FindWindowW(None, "Telegrab")
+            # Use pywebview's native handle if available, fall back to FindWindowW
+            hwnd = getattr(_window, 'hwnd', None)
+            if not hwnd:
+                hwnd = ctypes.windll.user32.FindWindowW(None, "Telegrab")
             if hwnd:
                 ctypes.windll.user32.ShowWindow(hwnd, _SW_MINIMIZE)
                 return
@@ -366,11 +371,19 @@ def cmd_window_maximize() -> None:
     if not _window:
         return
 
+    if sys.platform == "darwin":
+        # macOS: pywebview's maximize works correctly with the dock
+        _window.maximize()
+        bus.emit("window-maximized", True)
+        return
+
     if sys.platform == "win32":
         try:
             _ensure_configured()
             user32 = ctypes.windll.user32
-            hwnd = user32.FindWindowW(None, "Telegrab")
+            hwnd = getattr(_window, 'hwnd', None)
+            if not hwnd:
+                hwnd = user32.FindWindowW(None, "Telegrab")
             if hwnd:
                 # If the OS thinks we're minimized/maximized, normalise first
                 # so SetWindowPos lands us in the right place.
@@ -418,11 +431,18 @@ def cmd_window_restore() -> None:
     if not _window:
         return
 
+    if sys.platform == "darwin":
+        _window.restore()
+        bus.emit("window-maximized", False)
+        return
+
     if sys.platform == "win32":
         try:
             _ensure_configured()
             user32 = ctypes.windll.user32
-            hwnd = user32.FindWindowW(None, "Telegrab")
+            hwnd = getattr(_window, 'hwnd', None)
+            if not hwnd:
+                hwnd = user32.FindWindowW(None, "Telegrab")
             if hwnd:
                 if _max_state["maximized"] and _max_state["saved_rect"]:
                     x, y, w, h = _max_state["saved_rect"]

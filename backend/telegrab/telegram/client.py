@@ -110,13 +110,14 @@ async def ensure_client(api_id: int, api_hash: str | None = None) -> TelegramCli
 
 
 def _build_client(session_str: str, api_id: int, api_hash: str) -> TelegramClient:
+    from .. import __version__
     return TelegramClient(
         session_str,
         api_id,
         api_hash,
         device_model="Desktop",
-        system_version="Telegram Drive",
-        app_version="1.4.0",
+        system_version="Telegrab",
+        app_version=__version__,
         lang_code="en",
         system_lang_code="en",
     )
