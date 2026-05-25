@@ -1,9 +1,10 @@
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import { useDownloadUrl } from '../hooks/useDownloadUrl'
 
 export function Home() {
-  const { url, label } = useDownloadUrl()
+  const { url, label, downloadCount } = useDownloadUrl()
   return (
     <>
       {/* Hero — full viewport band */}
@@ -31,6 +32,19 @@ export function Home() {
               >
                 {label}
               </a>
+              {downloadCount !== null && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                  className="mt-4 flex items-center justify-center gap-2 text-[12px] tracking-[0.96px] text-on-primary-mute uppercase"
+                >
+                  <span className="inline-block h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>
+                    Downloads: <span className="font-bold text-on-primary"><AnimatedNumber value={downloadCount} /></span>
+                  </span>
+                </motion.div>
+              )}
             </div>
           </motion.div>
         </div>
@@ -93,6 +107,19 @@ export function Home() {
               Installation Guide
             </Link>
           </div>
+          {downloadCount !== null && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
+              viewport={{ once: true }}
+              className="mt-6 flex items-center justify-center gap-2 text-[12px] tracking-[0.96px] text-on-primary-mute uppercase"
+            >
+              <span className="inline-block h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>
+                Total Downloads: <span className="font-bold text-on-primary"><AnimatedNumber value={downloadCount} /></span>
+              </span>
+            </motion.div>
+          )}
         </div>
       </section>
     </>
@@ -120,4 +147,35 @@ function TechCard({ label, value }: { label: string; value: string }) {
       <p className="mt-2 text-[16px] leading-[1.5] tracking-[0.32px] text-on-primary">{value}</p>
     </div>
   )
+}
+
+function AnimatedNumber({ value }: { value: number }) {
+  const [displayValue, setDisplayValue] = useState(0)
+
+  useEffect(() => {
+    let start = 0
+    const end = value
+    if (start === end) return
+
+    const duration = 1500 // ms
+    const startTime = performance.now()
+
+    const updateNumber = (now: number) => {
+      const elapsed = now - startTime
+      const progress = Math.min(elapsed / duration, 1)
+      const easeProgress = progress * (2 - progress)
+      const current = Math.floor(easeProgress * end)
+      setDisplayValue(current)
+
+      if (progress < 1) {
+        requestAnimationFrame(updateNumber)
+      } else {
+        setDisplayValue(end)
+      }
+    }
+
+    requestAnimationFrame(updateNumber)
+  }, [value])
+
+  return <>{displayValue}</>
 }
