@@ -62,7 +62,7 @@ def main() -> None:
     update_init(FILES["init"], version)
     update_package_json(FILES["frontend_pkg"], version)
 
-    print(f"✓ Version synced to {version} across:")
+    print(f"OK Version synced to {version} across:")
     for name, path in FILES.items():
         print(f"  - {path.relative_to(ROOT)}")
 
