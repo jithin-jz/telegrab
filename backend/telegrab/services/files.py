@@ -208,7 +208,7 @@ async def cmd_upload_file(
                 filename=file_name,
                 progress_callback=progress_cb
             )
-        await client.send_file(
+        sent_msg = await client.send_file(
             peer,
             file=uploaded_file,
             caption="",
@@ -241,7 +241,8 @@ async def cmd_upload_file(
         # Use the original file path for hashing (not the encrypted one)
         src_path = path if not encrypted_tmp else str(Path(path))
         file_hash = dedup_mod.compute_file_hash(src_path if not encrypted_tmp else original_path)
-        dedup_mod.store_hash(file_hash, folder_id, 0, file_name, size)
+        msg_id = sent_msg.id if sent_msg else 0
+        dedup_mod.store_hash(file_hash, folder_id, msg_id, file_name, size)
     except Exception:
         pass  # non-critical
 
@@ -396,6 +397,13 @@ async def cmd_delete_file(message_id: int, folder_id: int | None) -> bool:
 
     peer = await tg.resolve_peer(client, folder_id)
     await client.delete_messages(peer, [int(message_id)])
+    
+    # Remove hash entry when a file is deleted
+    from . import dedup as dedup_mod
+    try:
+        dedup_mod.remove_hash(int(message_id), folder_id)
+    except Exception:
+        pass
     return True
 
 

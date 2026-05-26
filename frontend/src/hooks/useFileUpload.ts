@@ -201,11 +201,17 @@ export function useFileUpload(activeFolderId: number | null, store: Store | null
     });
   };
 
-  const retryItem = (id: string) => {
+  const retryItem = (id: string, skipDuplicateCheck?: boolean) => {
     setUploadQueue((q) =>
       q.map((i) =>
         i.id === id && (i.status === 'error' || i.status === 'cancelled')
-          ? { ...i, status: 'pending' as const, error: undefined, progress: undefined }
+          ? {
+              ...i,
+              status: 'pending' as const,
+              error: undefined,
+              progress: undefined,
+              skipDuplicateCheck: skipDuplicateCheck ?? i.skipDuplicateCheck,
+            }
           : i
       )
     );

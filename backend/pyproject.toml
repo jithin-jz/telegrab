@@ -1,6 +1,6 @@
 [project]
 name = "telegrab"
-version = "1.0.4"
+version = "1.0.5"
 description = "Fast, secure Telegram-based cloud storage powered by telegrab."
 requires-python = ">=3.11"
 authors = [{ name = "Telegram Drive" }]

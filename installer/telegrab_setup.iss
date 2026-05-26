@@ -7,7 +7,7 @@
 ;   iscc installer/telegrab_setup.iss
 
 #define MyAppName "Telegrab"
-#define MyAppVersion "1.0.4"
+#define MyAppVersion "1.0.5"
 #define MyAppPublisher "Telegrab"
 #define MyAppURL "https://github.com/jithin-jz/telegrab"
 #define MyAppExeName "telegrab.exe"

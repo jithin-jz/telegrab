@@ -15,7 +15,7 @@ interface UploadQueueProps {
   onClearFinished: () => void;
   onCancelAll: () => void;
   onCancelItem: (id: string) => void;
-  onRetryItem: (id: string) => void;
+  onRetryItem: (id: string, skipDuplicateCheck?: boolean) => void;
 }
 
 export function UploadQueue({
@@ -87,13 +87,24 @@ export function UploadQueue({
                   </button>
                 )}
                 {(item.status === 'error' || item.status === 'cancelled') && (
-                  <button
-                    onClick={() => onRetryItem(item.id)}
-                    className="flex-shrink-0 text-gray-400 transition-colors hover:text-blue-400"
-                    title="Retry"
-                  >
-                    <RotateCcw className="h-3.5 w-3.5" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {item.status === 'error' && item.error?.includes('Duplicate') && (
+                      <button
+                        onClick={() => onRetryItem(item.id, true)}
+                        className="text-[10px] font-semibold text-amber-400 hover:text-amber-300 transition-colors bg-amber-500/10 hover:bg-amber-500/20 px-2 py-0.5 rounded border border-amber-500/20"
+                        title="Upload duplicate anyway"
+                      >
+                        Force Upload
+                      </button>
+                    )}
+                    <button
+                      onClick={() => onRetryItem(item.id)}
+                      className="flex-shrink-0 text-gray-400 transition-colors hover:text-blue-400"
+                      title="Retry"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 )}
               </div>
               {item.status === 'uploading' && (
