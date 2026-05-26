@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { check, type Update } from '../lib/platform/updater';
+import { toast } from 'sonner';
 
 interface UpdateState {
   checking: boolean;
@@ -38,6 +39,7 @@ export function useUpdateCheck() {
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to check for updates';
+      toast.error(message);
       setState((s) => ({
         ...s,
         checking: false,
@@ -70,6 +72,7 @@ export function useUpdateCheck() {
       // Backend launches the installer and exits the app automatically.
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to install update';
+      toast.error(message);
       setState((s) => ({
         ...s,
         downloading: false,

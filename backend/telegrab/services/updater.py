@@ -255,12 +255,32 @@ def cmd_download_and_install_update(download_url: str, expected_sha256: str = ""
 
     try:
         if sys.platform == "win32":
-            subprocess.Popen([
-                str(dest_path),
-                "/SILENT",
-                "/SUPPRESSMSGBOXES",
-                "/NORESTART"
-            ])
+            # To ensure the parent process (telegrab.exe) has fully exited and released
+            # all file locks before the installer attempts to overwrite it, we write
+            # a temporary batch file that loops checking tasklist for the current PID.
+            # Once the process has exited, it launches the installer silently and deletes itself.
+            pid = os.getpid()
+            bat_path = downloads_dir / "telegrab_updater.bat"
+            bat_content = (
+                f'@echo off\n'
+                f':loop\n'
+                f'tasklist /FI "PID eq {pid}" 2>NUL | find "{pid}" >NUL\n'
+                f'if %ERRORLEVEL%==0 (\n'
+                f'    ping 127.0.0.1 -n 2 > nul\n'
+                f'    goto loop\n'
+                f')\n'
+                f'"{dest_path}" /SILENT /SUPPRESSMSGBOXES /NORESTART\n'
+                f'del "%~f0"\n'
+            )
+            try:
+                bat_path.write_text(bat_content, encoding="utf-8")
+                cmd = [os.environ.get("COMSPEC", "cmd.exe"), "/c", str(bat_path)]
+                # DETACHED_PROCESS (0x00000008) ensures the cmd shell runs independently in background
+                subprocess.Popen(cmd, creationflags=0x00000008)
+            except Exception as exc:
+                log.error("Failed to write or run batch file: %s. Falling back to direct launch.", exc)
+                # Fallback to direct launch if batch file creation fails
+                subprocess.Popen([str(dest_path), "/SILENT", "/SUPPRESSMSGBOXES", "/NORESTART"])
         elif sys.platform == "darwin":
             subprocess.Popen(["open", str(dest_path)])
         else:
