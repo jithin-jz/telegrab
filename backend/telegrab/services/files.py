@@ -200,14 +200,19 @@ async def cmd_upload_file(
     file_name = Path(path).name
 
     try:
+        from ..telegram import fast_transfer
+        with p.open("rb") as f:
+            uploaded_file = await fast_transfer.upload_file(
+                client,
+                f,
+                progress_callback=progress_cb
+            )
         await client.send_file(
             peer,
-            file=path,
+            file=uploaded_file,
             caption="",
             file_name=file_name,
             force_document=True,
-            progress_callback=progress_cb,
-            part_size_kb=512,  # 512KB chunks for faster uploads
         )
     except asyncio.CancelledError:
         tg.clear_cancellation(tid)
@@ -330,7 +335,17 @@ async def cmd_download_file(
         last_emit_bytes = received
 
     try:
-        await client.download_media(msg, file=save_path, progress_callback=progress_cb)
+        if isinstance(msg.media, types.MessageMediaDocument):
+            from ..telegram import fast_transfer
+            with save_p.open("wb") as f:
+                await fast_transfer.download_file(
+                    client,
+                    msg.media.document,
+                    f,
+                    progress_callback=progress_cb
+                )
+        else:
+            await client.download_media(msg, file=save_path, progress_callback=progress_cb)
     except asyncio.CancelledError:
         tg.clear_cancellation(tid)
         with contextlib.suppress(OSError):
