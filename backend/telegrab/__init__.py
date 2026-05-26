@@ -3,4 +3,4 @@
 Replaces the Tauri/Rust backend with a pywebview + Telethon + FastAPI stack.
 """
 
-__version__ = "1.0.1"
+__version__ = "1.0.2"
