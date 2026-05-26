@@ -255,7 +255,12 @@ def cmd_download_and_install_update(download_url: str, expected_sha256: str = ""
 
     try:
         if sys.platform == "win32":
-            os.startfile(dest_path)  # type: ignore[attr-defined]
+            subprocess.Popen([
+                str(dest_path),
+                "/SILENT",
+                "/SUPPRESSMSGBOXES",
+                "/NORESTART"
+            ])
         elif sys.platform == "darwin":
             subprocess.Popen(["open", str(dest_path)])
         else:

@@ -120,6 +120,8 @@ def attach_window(window: webview.Window) -> None:
 
 def _apply_native_styles() -> None:
     """Re-add resize / sysmenu style bits on the frameless window."""
+    if not getattr(_window, "frameless", False):
+        return
     time.sleep(0.5)
     try:
         _ensure_configured()

@@ -205,6 +205,7 @@ async def cmd_upload_file(
             uploaded_file = await fast_transfer.upload_file(
                 client,
                 f,
+                filename=file_name,
                 progress_callback=progress_cb
             )
         await client.send_file(

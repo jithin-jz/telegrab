@@ -256,10 +256,17 @@ def stream_file(file_to_stream: BinaryIO, chunk_size=1024):
 
 async def _internal_transfer_to_telegram(client: TelegramClient,
                                          response: BinaryIO,
-                                         progress_callback: callable
+                                         filename: str | None = None,
+                                         progress_callback: callable = None
                                          ) -> tuple[TypeInputFile, int]:
     file_id = helpers.generate_random_long()
     file_size = Path(response.name).stat().st_size
+
+    if not filename:
+        try:
+            filename = Path(response.name).name
+        except Exception:
+            filename = "upload"
 
     hash_md5 = hashlib.md5()
     uploader = ParallelTransferrer(client)
@@ -288,8 +295,8 @@ async def _internal_transfer_to_telegram(client: TelegramClient,
         await uploader.upload(bytes(buffer))
     await uploader.finish_upload()
     if is_large:
-        return InputFileBig(file_id, part_count, "upload"), file_size
-    return InputFile(file_id, part_count, "upload", hash_md5.hexdigest()), file_size
+        return InputFileBig(file_id, part_count, filename), file_size
+    return InputFile(file_id, part_count, filename, hash_md5.hexdigest()), file_size
 
 
 async def download_file(client: TelegramClient,
@@ -313,6 +320,7 @@ async def download_file(client: TelegramClient,
 
 async def upload_file(client: TelegramClient,
                       file: BinaryIO,
+                      filename: str | None = None,
                       progress_callback: callable = None,
                       ) -> TypeInputFile:
-    return (await _internal_transfer_to_telegram(client, file, progress_callback))[0]
+    return (await _internal_transfer_to_telegram(client, file, filename, progress_callback))[0]
