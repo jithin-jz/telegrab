@@ -139,11 +139,11 @@ class ParallelTransferrer:
         self.senders = None
 
     @staticmethod
-    def _get_connection_count(file_size: int, max_count: int = 8,
+    def _get_connection_count(file_size: int, max_count: int = 12,
                               full_size: int = 20 * 1024 * 1024) -> int:
-        if file_size > full_size:
-            return max_count
-        return max(2, math.ceil((file_size / full_size) * max_count))
+        if file_size > 10 * 1024 * 1024:
+            return 12
+        return 4
 
     async def _init_download(self, connections: int, file: TypeLocation, part_count: int,
                              part_size: int) -> None:
@@ -204,7 +204,8 @@ class ParallelTransferrer:
     async def init_upload(self, file_id: int, file_size: int, part_size_kb: float | None = None,
                           connection_count: int | None = None) -> tuple[int, int, bool]:
         connection_count = connection_count or self._get_connection_count(file_size)
-        part_size = (part_size_kb or utils.get_appropriated_part_size(file_size)) * 1024
+        part_size_kb = part_size_kb or (512.0 if file_size > 10 * 1024 * 1024 else utils.get_appropriated_part_size(file_size))
+        part_size = int(part_size_kb * 1024)
         part_count = (file_size + part_size - 1) // part_size
         is_large = file_size > 10 * 1024 * 1024
         await self._init_upload(connection_count, file_id, part_count, is_large)
@@ -221,7 +222,8 @@ class ParallelTransferrer:
                        part_size_kb: float | None = None,
                        connection_count: int | None = None) -> AsyncGenerator[bytes, None]:
         connection_count = connection_count or self._get_connection_count(file_size)
-        part_size = (part_size_kb or utils.get_appropriated_part_size(file_size)) * 1024
+        part_size_kb = part_size_kb or (512.0 if file_size > 10 * 1024 * 1024 else utils.get_appropriated_part_size(file_size))
+        part_size = int(part_size_kb * 1024)
         part_count = math.ceil(file_size / part_size)
         log.debug("Starting parallel download: %d %d %d %s", 
                   connection_count, part_size, part_count, str(file))
