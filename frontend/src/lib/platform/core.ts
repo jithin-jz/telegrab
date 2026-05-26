@@ -1,16 +1,15 @@
 /**
- * Shim for `@tauri-apps/api/core`.
+ * Desktop platform core — invoke & file-src helpers.
  *
- * Re-implements `invoke` and `convertFileSrc` on top of `window.pywebview.api`.
+ * Implements `invoke` and `convertFileSrc` on top of `window.pywebview.api`.
  */
 
 import { callPy } from './internal';
 
 /**
- * Invoke a backend command. Drop-in replacement for Tauri's `invoke`.
+ * Invoke a backend command.
  *
- * Tauri called `invoke('cmd_x', {foo, bar})`. Our backend exposes the
- * exact same command names on `window.pywebview.api.cmd_x` and accepts a
+ * The backend exposes command names on `window.pywebview.api.cmd_x` and accepts a
  * single args object.
  */
 export function invoke<T = unknown>(cmd: string, args?: Record<string, unknown>): Promise<T> {
@@ -20,9 +19,8 @@ export function invoke<T = unknown>(cmd: string, args?: Record<string, unknown>)
 /**
  * Convert a local file path into a URL the webview can load.
  *
- * Tauri served local files via `tauri://localfile/...`; pywebview can load
- * `file://` URLs directly when `webview.settings['ALLOW_FILE_URLS']` is true,
- * which we set in `app.py`.
+ * pywebview can load `file://` URLs directly when
+ * `webview.settings['ALLOW_FILE_URLS']` is true, which we set in `app.py`.
  */
 export function convertFileSrc(filePath: string, _protocol = 'asset'): string {
   if (!filePath) return filePath;

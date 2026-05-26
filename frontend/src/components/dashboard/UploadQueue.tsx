@@ -1,5 +1,6 @@
 import { QueueItem } from '../../types';
 import { X, RotateCcw, AlertCircle } from 'lucide-react';
+import { getUploadProgress, useUploadProgressTick } from '../../hooks/useFileUpload';
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B';
@@ -24,6 +25,8 @@ export function UploadQueue({
   onCancelItem,
   onRetryItem,
 }: UploadQueueProps) {
+  useUploadProgressTick(); // subscribe to progress updates
+
   if (items.length === 0) return null;
 
   const hasPendingOrActive = items.some((i) => i.status === 'pending' || i.status === 'uploading');
@@ -50,95 +53,87 @@ export function UploadQueue({
         </div>
       </div>
       <div className="custom-scrollbar max-h-60 space-y-1.5 overflow-y-auto p-2">
-        {items.map((item) => (
-          <div
-            key={item.id}
-            className="border-hairline-soft flex flex-col gap-1 rounded-lg border bg-white/[0.03] p-2 transition-colors hover:bg-white/[0.05]"
-          >
-            <div className="flex items-center gap-3 text-[13px]">
-              <div
-                className={`h-2 w-2 flex-shrink-0 rounded-full shadow-sm ${
-                  item.status === 'pending'
-                    ? 'bg-amber-400'
-                    : item.status === 'uploading'
-                      ? 'bg-primary animate-pulse shadow-[0_0_6px_rgba(124,92,255,0.4)]'
-                      : item.status === 'cancelled'
-                        ? 'bg-stone'
-                        : item.status === 'error'
-                          ? 'bg-rose-500'
-                          : 'bg-emerald-500'
-                }`}
-              />
-              <div className="text-foreground/90 flex-1 truncate font-medium" title={item.path}>
-                {item.path.split('/').pop()}
+        {items.map((item) => {
+          const progress = item.status === 'uploading' ? getUploadProgress(item.id) : undefined;
+          return (
+            <div
+              key={item.id}
+              className="border-hairline-soft flex flex-col gap-1 rounded-lg border bg-white/[0.03] p-2 transition-colors hover:bg-white/[0.05]"
+            >
+              <div className="flex items-center gap-3 text-[13px]">
+                <div
+                  className={`h-2 w-2 flex-shrink-0 rounded-full shadow-sm ${
+                    item.status === 'pending'
+                      ? 'bg-amber-400'
+                      : item.status === 'uploading'
+                        ? 'bg-primary animate-pulse shadow-[0_0_6px_rgba(124,92,255,0.4)]'
+                        : item.status === 'cancelled'
+                          ? 'bg-stone'
+                          : item.status === 'error'
+                            ? 'bg-rose-500'
+                            : 'bg-emerald-500'
+                  }`}
+                />
+                <div className="text-foreground/90 flex-1 truncate font-medium" title={item.path}>
+                  {item.path.split('/').pop()}
+                </div>
+                {(item.status === 'uploading' || item.status === 'pending') && (
+                  <button
+                    onClick={() => onCancelItem(item.id)}
+                    className="flex-shrink-0 text-gray-400 transition-colors hover:text-red-400"
+                    title={item.status === 'uploading' ? 'Cancel' : 'Remove'}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+                {(item.status === 'error' || item.status === 'cancelled') && (
+                  <button
+                    onClick={() => onRetryItem(item.id)}
+                    className="flex-shrink-0 text-gray-400 transition-colors hover:text-blue-400"
+                    title="Retry"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                  </button>
+                )}
               </div>
               {item.status === 'uploading' && (
-                <button
-                  onClick={() => onCancelItem(item.id)}
-                  className="flex-shrink-0 text-gray-400 transition-colors hover:text-red-400"
-                  title="Cancel"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
+                <>
+                  <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-white/10 p-[0.5px]">
+                    {progress ? (
+                      <div
+                        className="bg-primary h-full rounded-full transition-all duration-300"
+                        style={{ width: `${progress.percent}%` }}
+                      />
+                    ) : (
+                      <div className="bg-primary animate-progress-indeterminate h-full w-full" />
+                    )}
+                  </div>
+                  <div className="text-telegram-subtext mt-0.5 flex justify-between text-[10px]">
+                    <span>
+                      {progress
+                        ? `${formatBytes(progress.uploaded_bytes)} / ${formatBytes(progress.total_bytes)}`
+                        : ''}
+                    </span>
+                    <span>
+                      {progress && progress.speed_bytes_per_sec > 0
+                        ? `${formatBytes(progress.speed_bytes_per_sec)}/s`
+                        : ''}
+                    </span>
+                  </div>
+                </>
               )}
-              {item.status === 'pending' && (
-                <button
-                  onClick={() => onCancelItem(item.id)}
-                  className="flex-shrink-0 text-gray-400 transition-colors hover:text-red-400"
-                  title="Remove"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
+              {item.status === 'error' && item.error && (
+                <div className="mt-1 flex items-center gap-1 text-xs text-red-400">
+                  <AlertCircle className="h-3 w-3 flex-shrink-0" />
+                  <span className="truncate">{item.error}</span>
+                </div>
               )}
-              {(item.status === 'error' || item.status === 'cancelled') && (
-                <button
-                  onClick={() => onRetryItem(item.id)}
-                  className="flex-shrink-0 text-gray-400 transition-colors hover:text-blue-400"
-                  title="Retry"
-                >
-                  <RotateCcw className="h-3.5 w-3.5" />
-                </button>
+              {item.status === 'cancelled' && (
+                <div className="mt-0.5 text-xs text-gray-400">Cancelled</div>
               )}
             </div>
-            {item.status === 'uploading' && (
-              <>
-                <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-white/10 p-[0.5px]">
-                  {item.progress !== undefined ? (
-                    <div
-                      className="bg-primary h-full rounded-full transition-all duration-300"
-                      style={{ width: `${item.progress}%` }}
-                    />
-                  ) : (
-                    <div className="bg-primary animate-progress-indeterminate h-full w-full" />
-                  )}
-                </div>
-                <div className="text-telegram-subtext mt-0.5 flex justify-between text-[10px]">
-                  <span>
-                    {item.uploadedBytes !== undefined && item.totalBytes !== undefined
-                      ? `${formatBytes(item.uploadedBytes)} / ${formatBytes(item.totalBytes)}`
-                      : item.progress !== undefined
-                        ? `${item.progress}%`
-                        : ''}
-                  </span>
-                  <span>
-                    {item.speedBytesPerSec !== undefined && item.speedBytesPerSec > 0
-                      ? `${formatBytes(item.speedBytesPerSec)}/s`
-                      : ''}
-                  </span>
-                </div>
-              </>
-            )}
-            {item.status === 'error' && item.error && (
-              <div className="mt-1 flex items-center gap-1 text-xs text-red-400">
-                <AlertCircle className="h-3 w-3 flex-shrink-0" />
-                <span className="truncate">{item.error}</span>
-              </div>
-            )}
-            {item.status === 'cancelled' && (
-              <div className="mt-0.5 text-xs text-gray-400">Cancelled</div>
-            )}
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

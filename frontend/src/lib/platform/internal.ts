@@ -22,18 +22,9 @@ interface EventBus {
 interface PyWebviewWindow extends Window {
   pywebview?: { api?: PyWebviewApi };
   __telegrabBus?: EventBus;
-  // Components written for the Tauri build sometimes guard their logic
-  // with `'__TAURI_INTERNALS__' in window` to detect a real desktop env.
-  // We expose a stub here so those guards pass under pywebview.
-  __TAURI_INTERNALS__?: Record<string, unknown>;
 }
 
 const w = window as PyWebviewWindow;
-
-// Tell the existing AuthWizard / similar guards we're in a desktop shell.
-if (!w.__TAURI_INTERNALS__) {
-  w.__TAURI_INTERNALS__ = { runtime: 'pywebview' };
-}
 
 // Eagerly create the event bus so Python ↔ JS event dispatch never misses.
 function ensureBus(): EventBus {

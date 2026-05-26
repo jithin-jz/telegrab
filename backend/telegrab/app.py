@@ -47,10 +47,9 @@ if sys.platform == "win32":
 import webview
 
 from . import telegram as tg
-from .api import Bridge, RestApiSupervisor, serve_streaming
+from .api import Bridge, serve_streaming
 from .api import host as host_cmds
 from .infra import bus, get_runtime
-from .services import api_settings as api_cmd_module
 
 log = logging.getLogger(__name__)
 
@@ -112,7 +111,7 @@ def _resolve_frontend_url() -> str:
     """
     dev_url = os.environ.get("TELEGRAB_DEV_URL")
     if dev_url:
-        return dev_url
+        return f"{dev_url}?platform=desktop"
 
     # Production: when PyInstaller bundles the app, frontend/dist is unpacked
     # into sys._MEIPASS at runtime (see installer/telegrab.spec).
@@ -162,15 +161,6 @@ def main() -> None:
     # a request arrives.
     runtime.spawn(serve_streaming())
 
-    # Wire the REST API supervisor into the api_settings command module so
-    # cmd_update_api_settings / cmd_regenerate_api_key can ask it to restart.
-    rest_supervisor = RestApiSupervisor(runtime)
-    api_cmd_module.set_restart_hook(rest_supervisor.start)
-    api_cmd_module.set_running_probe(rest_supervisor.is_running)
-
-    # Start the REST API now if it was enabled in a previous run.
-    rest_supervisor.start()
-
     bridge = Bridge()
     url = _resolve_frontend_url()
     icon = _resolve_icon()
@@ -183,21 +173,27 @@ def main() -> None:
         "width": 1200,
         "height": 800,
         "min_size": (900, 600),
-        "frameless": True,
+        "frameless": False,
         "easy_drag": False,
         "background_color": "#0a0a0c",
     }
-    if icon:
-        window_kwargs["icon"] = icon
 
     window = webview.create_window(**window_kwargs)
 
+    # Dark title bar on Windows
+    if sys.platform == "win32":
+        try:
+            hwnd = getattr(window, 'hwnd', None)
+            if hwnd:
+                value = ctypes.c_int(1)
+                ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                    hwnd, 20, ctypes.byref(value), ctypes.sizeof(value)
+                )
+        except Exception:
+            pass
+
     bus.attach(window)
     host_cmds.attach_window(window)
-
-    # Initialize metadata cache
-    from .services.cache import init_cache
-    init_cache()
 
     # Start system tray
     from .services.tray import start_tray, stop_tray
@@ -210,16 +206,29 @@ def main() -> None:
         if window:
             window.destroy()
 
-    try:
-        start_tray(_tray_show, _tray_quit)
-    except Exception as exc:  # noqa: BLE001
-        log.warning("Tray icon failed to start: %s", exc)
-
     def _on_loaded() -> None:
         try:
             window.evaluate_js(_BOOTSTRAP_JS)
         except Exception as exc:  # noqa: BLE001
             log.warning("Bootstrap inject failed: %s", exc)
+
+        # Initialize metadata cache in background thread to not block UI
+        import threading
+
+        def _init_bg():
+            from .services.cache import init_cache
+            try:
+                init_cache()
+            except Exception as exc:  # noqa: BLE001
+                log.warning("Cache init failed: %s", exc)
+
+        threading.Thread(target=_init_bg, daemon=True).start()
+
+        # Start tray in background
+        try:
+            start_tray(_tray_show, _tray_quit)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("Tray icon failed to start: %s", exc)
 
     window.events.loaded += _on_loaded
 
@@ -233,13 +242,12 @@ def main() -> None:
     window.events.restored += _on_restored
 
     try:
-        webview.start(debug=args.debug)
+        webview.start(debug=args.debug, icon=icon)
     finally:
         log.info("Shutting down...")
         with contextlib.suppress(Exception):
+            from .services.tray import stop_tray
             stop_tray()
-        with contextlib.suppress(Exception):
-            rest_supervisor.stop()
         try:
             state = tg.get_state()
             if state.client is not None:

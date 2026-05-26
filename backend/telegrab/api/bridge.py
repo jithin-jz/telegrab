@@ -20,9 +20,6 @@ from typing import Any
 
 from ..infra import get_runtime
 from ..services import (
-    api_settings as api_cmds,
-)
-from ..services import (
     auth as auth_cmds,
 )
 from ..services import (
@@ -223,26 +220,36 @@ class Bridge:
     def cmd_get_bandwidth(self, args: Any = None) -> dict:
         return network_cmds.cmd_get_bandwidth()
 
+    def cmd_set_bandwidth_limit(self, args: Any = None) -> None:
+        """Store the bandwidth limit (MB/s). 0 = unlimited."""
+        # Stored in frontend settings; backend reads on-demand if needed.
+        pass
+
+    def cmd_get_cache_size(self, args: Any = None) -> int:
+        """Return total cache size in bytes."""
+        from ..config import preview_cache_dir, thumbnail_cache_dir
+        total = 0
+        for d in (preview_cache_dir(), thumbnail_cache_dir()):
+            if d.exists():
+                for f in d.iterdir():
+                    if f.is_file():
+                        total += f.stat().st_size
+        return total
+
+    def cmd_clear_cache(self, args: Any = None) -> None:
+        """Delete all cached previews and thumbnails."""
+        import shutil
+
+        from ..config import preview_cache_dir, thumbnail_cache_dir
+        for d in (preview_cache_dir(), thumbnail_cache_dir()):
+            if d.exists():
+                shutil.rmtree(d, ignore_errors=True)
+                d.mkdir(parents=True, exist_ok=True)
+
     def cmd_get_stream_info(self, args: Any = None) -> dict:
         return network_cmds.cmd_get_stream_info()
 
-    # ────────────────────────────── REST API ──────────────────────────────
-
-    def cmd_get_api_settings(self, args: Any = None) -> dict:
-        return _run(api_cmds.cmd_get_api_settings())
-
-    def cmd_update_api_settings(self, args: Any = None) -> dict:
-        a = _args(args)
-        return _run(
-            api_cmds.cmd_update_api_settings(
-                bool(a.get("enabled", False)), int(a["port"])
-            )
-        )
-
-    def cmd_regenerate_api_key(self, args: Any = None) -> str:
-        return _run(api_cmds.cmd_regenerate_api_key())
-
-    # ──────────────── host integration / Tauri-plugin replacements ────────────────
+    # ─────────────────────── auto-updater ───────────────────────
 
     def cmd_dialog_open(self, args: Any = None) -> Any:
         a = _args(args)

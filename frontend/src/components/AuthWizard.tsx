@@ -39,7 +39,11 @@ import logoUrl from '../assets/logo.svg';
 type Step = 'setup' | 'phone' | 'code' | 'password';
 
 export function AuthWizard({ onLogin }: { onLogin: () => void }) {
-  const isBrowser = typeof window !== 'undefined' && !('__TAURI_INTERNALS__' in window);
+  const isBrowser =
+    typeof window !== 'undefined' &&
+    window.location.protocol !== 'file:' &&
+    !window.location.search.includes('platform=desktop') &&
+    !('pywebview' in window);
 
   if (isBrowser) {
     return (
@@ -50,7 +54,7 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
         <h1 className="text-foreground mb-4 text-2xl font-bold">Desktop App Required</h1>
         <p className="text-muted-foreground mb-6 leading-relaxed">
           You are viewing the internal development server in a browser. This application cannot
-          function here because it requires access to the system backend (Rust).
+          function here because it requires access to the system backend (Python).
         </p>
         <div className="bg-surface-soft border-hairline text-foreground rounded-xl border p-4 text-sm font-medium">
           Please open the <strong className="text-primary">Telegrab</strong> window in your OS
@@ -302,11 +306,11 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
                 transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
               />
             </div>
-            <span className="text-white text-3xl font-bold tracking-tight">Telegrab</span>
+            <span className="text-foreground text-3xl font-bold tracking-tight">Telegrab</span>
           </div>
 
           <div className="space-y-5">
-            <h1 className="text-white text-5xl leading-[1.05] font-bold tracking-tight lg:text-6xl">
+            <h1 className="text-foreground text-5xl leading-[1.05] font-bold tracking-tight lg:text-6xl">
               Your files, <br />
               <span className="text-primary">reimagined.</span>
             </h1>
@@ -316,21 +320,21 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
             {[
               {
                 icon: Cloud,
-                title: 'Infinite Space',
-                desc: "Leverage Telegram's unlimited cloud.",
-                color: 'text-blue-400',
+                title: 'Unlimited Storage',
+                desc: "No caps, no limits powered by Telegram.",
+                color: 'text-primary',
               },
               {
                 icon: Shield,
-                title: 'End-to-End Privacy',
-                desc: 'Encryption by default on your device.',
-                color: 'text-purple-400',
+                title: 'Private & Secure',
+                desc: 'Your files stay between you and Telegram.',
+                color: 'text-emerald-500',
               },
               {
                 icon: Zap,
-                title: 'High Performance',
-                desc: 'Multi-part parallel processing.',
-                color: 'text-orange-400',
+                title: 'Lightning Fast',
+                desc: 'Stream 4K, parallel uploads, instant access.',
+                color: 'text-amber-500',
               },
             ].map((item, i) => (
               <motion.div
@@ -340,8 +344,8 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
                 transition={{ delay: 0.3 + i * 0.1 }}
                 className="flex items-start gap-4"
               >
-                <div className={`mt-1 ${item.color}`}>
-                  <item.icon className="h-5 w-5" />
+                <div className={`mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg bg-current/10 ${item.color}`}>
+                  <item.icon className="h-4.5 w-4.5" strokeWidth={2} />
                 </div>
                 <div>
                   <h3 className="text-foreground font-semibold">{item.title}</h3>

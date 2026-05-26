@@ -12,7 +12,7 @@ function isImageFile(filename: string): boolean {
 
 interface FileListItemProps {
   file: TelegramFile;
-  selectedIds: number[];
+  selectedIds: Set<number>;
   activeFolderId: number | null;
   onFileClick: (e: React.MouseEvent, id: number) => void;
   handleContextMenu: (e: React.MouseEvent, file: TelegramFile) => void;
@@ -74,7 +74,7 @@ export const FileListItem = memo(function FileListItem({
       onDrop={(e) => {
         if (isFolder && onDrop) { e.preventDefault(); e.stopPropagation(); setIsDragOver(false); onDrop(e, file.id); }
       }}
-      className={`group hover:bg-surface-soft grid cursor-pointer grid-cols-[2rem_2fr_6rem_8rem] items-center gap-4 rounded-lg border border-transparent px-4 py-2 transition-all ${selectedIds.includes(file.id) ? 'bg-primary/10 border-primary/20' : ''} ${isDragOver ? 'ring-primary bg-primary/20 ring-2' : ''} `}
+      className={`group hover:bg-surface-soft grid cursor-pointer grid-cols-[2rem_2fr_6rem_8rem] items-center gap-4 rounded-lg border border-transparent px-4 py-2 transition-all ${selectedIds.has(file.id) ? 'bg-primary/10 border-primary/20' : ''} ${isDragOver ? 'ring-primary bg-primary/20 ring-2' : ''} `}
     >
       <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded">
         {thumbnail ? (

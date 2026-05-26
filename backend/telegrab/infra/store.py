@@ -86,8 +86,14 @@ def _decrypt(encoded: str) -> bytes:
     return raw
 
 
+_permissions_set = False
+
+
 def _restrict_permissions(path: Path) -> None:
     """Restrict file to current user only."""
+    global _permissions_set
+    if _permissions_set:
+        return
     if sys.platform == "win32":
         try:
             import subprocess
@@ -106,6 +112,7 @@ def _restrict_permissions(path: Path) -> None:
     else:
         with contextlib.suppress(OSError):
             path.chmod(0o600)
+    _permissions_set = True
 
 
 class JsonStore:
@@ -113,6 +120,7 @@ class JsonStore:
         self._path = store_path()
         self._lock = threading.Lock()
         self._data: dict[str, Any] = {}
+        self._save_timer: threading.Timer | None = None
         self._load()
         _restrict_permissions(self._path)
 
@@ -164,16 +172,28 @@ class JsonStore:
         with self._lock:
             return self._data.get(key, default)
 
+    def _schedule_save(self) -> None:
+        """Debounce: schedule a save 0.5s from now, cancelling any pending timer."""
+        if self._save_timer is not None:
+            self._save_timer.cancel()
+        self._save_timer = threading.Timer(0.5, self._debounced_save)
+        self._save_timer.daemon = True
+        self._save_timer.start()
+
+    def _debounced_save(self) -> None:
+        with self._lock:
+            self._save_locked()
+
     def set(self, key: str, value: Any) -> None:
         with self._lock:
             self._data[key] = value
-            self._save_locked()
+            self._schedule_save()
 
     def delete(self, key: str) -> None:
         with self._lock:
             if key in self._data:
                 del self._data[key]
-                self._save_locked()
+                self._schedule_save()
 
     def entries(self) -> dict[str, Any]:
         with self._lock:

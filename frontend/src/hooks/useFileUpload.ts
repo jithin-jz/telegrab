@@ -5,7 +5,6 @@ import { listen, type UnlistenFn } from '../lib/platform/event';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { QueueItem } from '../types';
-import { useFileDrop } from './useFileDrop';
 import { useSettings } from '../contexts/SettingsContext';
 import type { Store } from '../lib/platform/store';
 
@@ -17,6 +16,28 @@ interface ProgressPayload {
   speed_bytes_per_sec: number;
 }
 
+// External progress store — avoids re-rendering the entire tree on every tick
+const uploadProgressMap = new Map<string, ProgressPayload>();
+const uploadProgressListeners = new Set<() => void>();
+
+export function getUploadProgress(id: string): ProgressPayload | undefined {
+  return uploadProgressMap.get(id);
+}
+
+export function useUploadProgressTick(): number {
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const cb = () => setTick((t) => t + 1);
+    uploadProgressListeners.add(cb);
+    return () => { uploadProgressListeners.delete(cb); };
+  }, []);
+  return tick;
+}
+
+function notifyProgressListeners() {
+  for (const cb of uploadProgressListeners) cb();
+}
+
 export function useFileUpload(activeFolderId: number | null, store: Store | null) {
   const queryClient = useQueryClient();
   const { settings } = useSettings();
@@ -25,29 +46,14 @@ export function useFileUpload(activeFolderId: number | null, store: Store | null
   const cancelledRef = useRef<Set<string>>(new Set());
   const activeCountRef = useRef(0);
 
-  // Listen for progress events
+  // Listen for progress events — update external map, NOT queue state
   useEffect(() => {
     let unlisten: UnlistenFn | undefined;
     listen<ProgressPayload>('upload-progress', (event) => {
-      setUploadQueue((q) =>
-        q.map((i) =>
-          i.id === event.payload.id
-            ? {
-                ...i,
-                progress: event.payload.percent,
-                uploadedBytes: event.payload.uploaded_bytes,
-                totalBytes: event.payload.total_bytes,
-                speedBytesPerSec: event.payload.speed_bytes_per_sec,
-              }
-            : i
-        )
-      );
-    }).then((fn) => {
-      unlisten = fn;
-    });
-    return () => {
-      unlisten?.();
-    };
+      uploadProgressMap.set(event.payload.id, event.payload);
+      notifyProgressListeners();
+    }).then((fn) => { unlisten = fn; });
+    return () => { unlisten?.(); };
   }, []);
 
   useEffect(() => {
@@ -77,7 +83,6 @@ export function useFileUpload(activeFolderId: number | null, store: Store | null
         q.map((i) => (i.id === item.id ? { ...i, status: 'uploading', progress: 0 } : i))
       );
       try {
-        // Duplicate detection: check before uploading
         if (!item.skipDuplicateCheck) {
           try {
             const dupResult = await invoke<{ duplicate: boolean; existing: any }>('cmd_check_duplicate', {
@@ -85,7 +90,6 @@ export function useFileUpload(activeFolderId: number | null, store: Store | null
               folderId: item.folderId,
             });
             if (dupResult.duplicate && dupResult.existing) {
-              // Mark as duplicate — the UI can show a prompt
               setUploadQueue((q) =>
                 q.map((i) =>
                   i.id === item.id
@@ -96,9 +100,7 @@ export function useFileUpload(activeFolderId: number | null, store: Store | null
               activeCountRef.current--;
               return;
             }
-          } catch {
-            // Non-critical: proceed with upload if check fails
-          }
+          } catch { /* proceed */ }
         }
 
         await invoke('cmd_upload_file', {
@@ -125,33 +127,31 @@ export function useFileUpload(activeFolderId: number | null, store: Store | null
             setUploadQueue((q) =>
               q.map((i) => (i.id === item.id ? { ...i, status: 'error', error: errMsg } : i))
             );
-            toast.error(`Upload failed for ${item.path.split('/').pop()}: ${e}`);
+            toast.error(`Upload failed: ${e}`);
           }
         } else {
           cancelledRef.current.delete(item.id);
         }
       } finally {
         activeCountRef.current--;
+        uploadProgressMap.delete(item.id);
       }
     },
     [queryClient]
   );
 
-  // Queue processor: launch up to maxConcurrentUploads workers
   useEffect(() => {
     const max = settings.maxConcurrentUploads;
     const pending = uploadQueue.filter((i) => i.status === 'pending');
     const slotsAvailable = max - activeCountRef.current;
     const toStart = pending.slice(0, slotsAvailable);
     for (const item of toStart) {
-      // Mark as uploading immediately to prevent re-picking
       setUploadQueue((q) =>
         q.map((i) => (i.id === item.id ? { ...i, status: 'uploading' } : i))
       );
       processItem(item);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [uploadQueue, settings.maxConcurrentUploads]);
+  }, [uploadQueue, settings.maxConcurrentUploads, processItem]);
 
   const handleManualUpload = async () => {
     try {
@@ -205,15 +205,7 @@ export function useFileUpload(activeFolderId: number | null, store: Store | null
     setUploadQueue((q) =>
       q.map((i) =>
         i.id === id && (i.status === 'error' || i.status === 'cancelled')
-          ? {
-              ...i,
-              status: 'pending' as const,
-              error: undefined,
-              progress: undefined,
-              uploadedBytes: undefined,
-              totalBytes: undefined,
-              speedBytesPerSec: undefined,
-            }
+          ? { ...i, status: 'pending' as const, error: undefined, progress: undefined }
           : i
       )
     );
@@ -226,9 +218,7 @@ export function useFileUpload(activeFolderId: number | null, store: Store | null
         cancelledRef.current.add(id);
         invoke('cmd_cancel_transfer', { transferId: id }).catch(() => {});
         return q.map((i) =>
-          i.id === id
-            ? { ...i, status: 'paused' as const, resumeOffset: i.uploadedBytes || 0 }
-            : i
+          i.id === id ? { ...i, status: 'paused' as const } : i
         );
       }
       if (item?.status === 'pending') {
@@ -248,22 +238,6 @@ export function useFileUpload(activeFolderId: number | null, store: Store | null
     );
   };
 
-  const { isDragging, droppedPaths, clearDropped } = useFileDrop();
-
-  // Auto-queue files dropped via drag-and-drop
-  useEffect(() => {
-    if (droppedPaths.length === 0) return;
-    const newItems: QueueItem[] = droppedPaths.map((path) => ({
-      id: crypto.randomUUID(),
-      path,
-      folderId: activeFolderId,
-      status: 'pending',
-    }));
-    setUploadQueue((prev) => [...prev, ...newItems]);
-    toast.info(`Queued ${droppedPaths.length} files for upload`);
-    clearDropped();
-  }, [droppedPaths, activeFolderId, clearDropped]);
-
   return {
     uploadQueue,
     setUploadQueue,
@@ -273,6 +247,5 @@ export function useFileUpload(activeFolderId: number | null, store: Store | null
     retryItem,
     pauseItem,
     resumeItem,
-    isDragging,
   };
 }

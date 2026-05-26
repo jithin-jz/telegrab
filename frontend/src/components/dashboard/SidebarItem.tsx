@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Pencil, X } from 'lucide-react';
-import { cn } from '../../lib/cn';
+import { Pencil, Trash2 } from 'lucide-react';
+import { cn } from '../../lib/utils';
 import { useQueryClient } from '@tanstack/react-query';
 import { fetchFiles } from '../../lib/api';
 
@@ -129,13 +129,6 @@ export function SidebarItem({
   return (
     <button
       onClick={onClick}
-      onDoubleClick={(e) => {
-        if (onRename) {
-          e.preventDefault();
-          e.stopPropagation();
-          startRename();
-        }
-      }}
       onDragEnter={(e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -219,7 +212,7 @@ export function SidebarItem({
           className="text-stone grid h-5 w-5 place-items-center rounded opacity-0 transition-colors group-hover:opacity-100 hover:bg-white/5 hover:text-rose-400"
           title="Delete folder"
         >
-          <X className="h-3 w-3" />
+          <Trash2 className="h-3 w-3" />
         </span>
       )}
     </button>

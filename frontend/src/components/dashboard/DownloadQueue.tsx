@@ -1,5 +1,6 @@
 import { DownloadItem } from '../../types';
 import { Download, Check, X, AlertCircle, RotateCcw } from 'lucide-react';
+import { getDownloadProgress, useDownloadProgressTick } from '../../hooks/useFileDownload';
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B';
@@ -24,6 +25,8 @@ export function DownloadQueue({
   onCancelItem,
   onRetryItem,
 }: DownloadQueueProps) {
+  useDownloadProgressTick(); // subscribe to progress updates
+
   if (items.length === 0) return null;
 
   const activeCount = items.filter(
@@ -63,7 +66,9 @@ export function DownloadQueue({
         </div>
       </div>
       <div className="custom-scrollbar max-h-60 space-y-1.5 overflow-y-auto p-2">
-        {items.map((item) => (
+        {items.map((item) => {
+          const progress = item.status === 'downloading' ? getDownloadProgress(item.id) : undefined;
+          return (
           <div
             key={item.id}
             className="border-hairline-soft flex flex-col gap-1 rounded-lg border bg-white/[0.03] p-2 transition-colors hover:bg-white/[0.05]"
@@ -128,10 +133,10 @@ export function DownloadQueue({
             {item.status === 'downloading' && (
               <>
                 <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-white/10 p-[0.5px]">
-                  {item.progress !== undefined ? (
+                  {progress ? (
                     <div
                       className="bg-link-blue h-full rounded-full transition-all duration-300"
-                      style={{ width: `${item.progress}%` }}
+                      style={{ width: `${progress.percent}%` }}
                     />
                   ) : (
                     <div className="bg-link-blue animate-progress-indeterminate h-full w-full" />
@@ -139,15 +144,13 @@ export function DownloadQueue({
                 </div>
                 <div className="text-telegram-subtext mt-0.5 flex justify-between text-[10px]">
                   <span>
-                    {item.uploadedBytes !== undefined && item.totalBytes !== undefined
-                      ? `${formatBytes(item.uploadedBytes)} / ${formatBytes(item.totalBytes)}`
-                      : item.progress !== undefined
-                        ? `${item.progress}%`
-                        : ''}
+                    {progress
+                      ? `${formatBytes(progress.uploaded_bytes)} / ${formatBytes(progress.total_bytes)}`
+                      : ''}
                   </span>
                   <span>
-                    {item.speedBytesPerSec !== undefined && item.speedBytesPerSec > 0
-                      ? `${formatBytes(item.speedBytesPerSec)}/s`
+                    {progress && progress.speed_bytes_per_sec > 0
+                      ? `${formatBytes(progress.speed_bytes_per_sec)}/s`
                       : ''}
                   </span>
                 </div>
@@ -163,7 +166,8 @@ export function DownloadQueue({
               <div className="mt-0.5 text-xs text-gray-400">Cancelled</div>
             )}
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

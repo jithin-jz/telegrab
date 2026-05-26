@@ -33,7 +33,7 @@ _PROGRESS_INTERVAL_SECS = 0.25
 
 async def cmd_get_files(
     folder_id: int | None,
-    limit: int = 0,
+    limit: int = 200,
     offset_id: int = 0,
 ) -> list[dict[str, Any]]:
     state = tg.get_state()
@@ -42,11 +42,13 @@ async def cmd_get_files(
         log.info("[MOCK] cmd_get_files folder=%s", folder_id)
         return []
 
+    # Cap limit to 500
+    if limit <= 0 or limit > 500:
+        limit = 500
+
     peer = await tg.resolve_peer(client, folder_id)
     out: list[dict[str, Any]] = []
-    kwargs: dict[str, Any] = {}
-    if limit > 0:
-        kwargs["limit"] = limit
+    kwargs: dict[str, Any] = {"limit": limit}
     if offset_id > 0:
         kwargs["offset_id"] = offset_id
     async for msg in client.iter_messages(peer, **kwargs):
@@ -205,6 +207,7 @@ async def cmd_upload_file(
             file_name=file_name,
             force_document=True,
             progress_callback=progress_cb,
+            part_size_kb=512,  # 512KB chunks for faster uploads
         )
     except asyncio.CancelledError:
         tg.clear_cancellation(tid)

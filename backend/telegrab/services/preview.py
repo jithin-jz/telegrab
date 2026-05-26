@@ -5,6 +5,7 @@ Mirrors `src-tauri/src/commands/preview.rs`.
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import logging
 import shutil
@@ -21,6 +22,10 @@ log = logging.getLogger(__name__)
 
 PREVIEW_CACHE_MAX_FILES = 30
 PREVIEW_CACHE_MAX_TOTAL_BYTES = 80 * 1024 * 1024
+_MAX_BASE64_SIZE = 2 * 1024 * 1024  # 2MB
+
+# Inflight dedup: (folder_id, message_id) -> Future
+_inflight: dict[tuple[int | None, int], asyncio.Future[str]] = {}
 
 _IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "gif", "webp", "bmp", "svg"}
 _MIME_TO_EXT = {
@@ -89,6 +94,32 @@ def _ext_from_media(media) -> str:
 
 
 async def cmd_get_preview(message_id: int, folder_id: int | None) -> str:
+    key = (folder_id, message_id)
+
+    # Inflight dedup: await existing fetch if in progress
+    if key in _inflight:
+        try:
+            return await _inflight[key]
+        except Exception:
+            # Previous attempt failed — remove and retry below
+            _inflight.pop(key, None)
+
+    loop = asyncio.get_event_loop()
+    fut: asyncio.Future[str] = loop.create_future()
+    _inflight[key] = fut
+    try:
+        result = await _do_get_preview(message_id, folder_id)
+        fut.set_result(result)
+        return result
+    except Exception as exc:
+        if not fut.done():
+            fut.set_exception(exc)
+        raise
+    finally:
+        _inflight.pop(key, None)
+
+
+async def _do_get_preview(message_id: int, folder_id: int | None) -> str:
     cache_dir = preview_cache_dir()
     _prune_preview_cache(cache_dir)
     log.info("Preview request: msg_id=%s", message_id)
@@ -115,12 +146,20 @@ async def cmd_get_preview(message_id: int, folder_id: int | None) -> str:
         ok, err = get_manager().can_transfer(size or 0)
         if not ok:
             log.warning("Bandwidth limit hit for preview: %s", err)
-            raise RuntimeError("File not found or failed to download")
+            raise RuntimeError("Bandwidth limit reached")
         try:
-            await client.download_media(msg, file=str(save_path))
+            result = await client.download_media(msg, file=str(save_path))
+            if result is None:
+                raise RuntimeError("Download returned None")
         except Exception as exc:  # noqa: BLE001
+            # Clean up partial file
+            if save_path.exists():
+                save_path.unlink(missing_ok=True)
             log.error("Preview download error: %s", exc)
-            raise RuntimeError("File not found or failed to download") from exc
+            raise RuntimeError(f"Download failed: {exc}") from exc
+        if not save_path.exists() or save_path.stat().st_size == 0:
+            save_path.unlink(missing_ok=True)
+            raise RuntimeError("Download produced empty file")
         get_manager().add_down(size or 0)
         _prune_preview_cache(cache_dir)
 
@@ -129,7 +168,7 @@ async def cmd_get_preview(message_id: int, folder_id: int | None) -> str:
             data = save_path.read_bytes()
         except OSError as exc:
             log.error("Failed to read preview: %s", exc)
-            return str(save_path)
+            raise RuntimeError("File not found or failed to download") from exc
         mime = _EXT_TO_MIME.get(ext, "image/jpeg")
         b64 = base64.b64encode(data).decode("ascii")
         return f"data:{mime};base64,{b64}"
@@ -181,10 +220,11 @@ async def cmd_get_thumbnail(message_id: int, folder_id: int | None) -> str:
         doc = getattr(media, "document", None)
         if not isinstance(doc, Document):
             return ""
-        mime = getattr(doc, "mime_type", "") or ""
-        if not mime.startswith("image/"):
+        # Check if the document has any thumbnails (photos, videos, etc.)
+        thumbs = getattr(doc, "thumbs", None)
+        if not thumbs:
             return ""
-        ext = _MIME_TO_EXT.get(mime, "jpg")
+        ext = "jpg"
     else:
         return ""
 

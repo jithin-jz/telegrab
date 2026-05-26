@@ -17,8 +17,8 @@ import { MoveToFolderModal } from './dashboard/MoveToFolderModal';
 import { PreviewModal } from './dashboard/PreviewModal';
 import { MediaPlayer } from './dashboard/MediaPlayer';
 import { MiniPlayer } from './dashboard/MiniPlayer';
-import { DragDropOverlay } from './dashboard/DragDropOverlay';
-import { ExternalDropBlocker } from './dashboard/ExternalDropBlocker';
+
+
 import { PdfViewer } from './dashboard/PdfViewer';
 import { SettingsModal } from './dashboard/SettingsModal';
 import { CommandPalette } from './dashboard/CommandPalette';
@@ -47,7 +47,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
 
   const { settings, updateSetting, isLoaded: settingsLoaded } = useSettings();
   const viewMode = settings.viewMode;
-  const setViewMode = (mode: 'grid' | 'list') => updateSetting('viewMode', mode);
+  const setViewMode = (mode: typeof settings.viewMode) => updateSetting('viewMode', mode);
 
   // Auto-update
   const {
@@ -62,15 +62,21 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
     checkForUpdates();
   }, [settingsLoaded, settings.autoUpdate, checkForUpdates]);
 
+  // Auto-sync folders on interval
+  useEffect(() => {
+    if (!settings.autoSyncInterval || settings.autoSyncInterval <= 0) return;
+    const ms = settings.autoSyncInterval * 60 * 1000;
+    const id = setInterval(() => { handleSyncFolders(); }, ms);
+    return () => clearInterval(id);
+  }, [settings.autoSyncInterval, handleSyncFolders]);
+
   // UI state
   const [showMoveModal, setShowMoveModal] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
-  const [internalDragFileId, _setInternalDragFileId] = useState<number | null>(null);
   const internalDragRef = useRef<number | null>(null);
   const setInternalDragFileId = (id: number | null) => {
     internalDragRef.current = id;
-    _setInternalDragFileId(id);
   };
 
   // Data fetching
@@ -107,7 +113,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
   const {
     uploadQueue, setUploadQueue, handleManualUpload,
     cancelAll: cancelUploads, cancelItem: cancelUploadItem,
-    retryItem: retryUploadItem, isDragging,
+    retryItem: retryUploadItem,
   } = useFileUpload(activeFolderId, store);
   const {
     downloadQueue, queueDownload, queueBulkDownload,
@@ -226,16 +232,15 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
     <div className="flex w-full flex-1 flex-col overflow-hidden">
       <UpdateBanner available={updateAvailable} version={updateVersion} downloading={updateDownloading} progress={updateProgress} onUpdate={downloadAndInstall} onDismiss={dismissUpdate} />
       <div className="bg-canvas relative flex w-full min-h-0 flex-1 overflow-hidden" onClick={() => setSelectedIds([])} onDragOver={handleRootDrag} onDragEnter={handleRootDrag}>
-        <ExternalDropBlocker onUploadClick={handleManualUpload} />
 
         <AnimatePresence>
           {showMoveModal && <MoveToFolderModal folders={folders} onClose={() => setShowMoveModal(false)} onSelect={handleBulkMove} activeFolderId={activeFolderId} key="move-modal" />}
           {playingFile && playerExpanded && <MediaPlayer file={playingFile} onClose={() => setPlayerExpanded(false)} onNext={handleNext} onPrev={handlePrev} currentIndex={contextIndex} totalItems={contextFiles.length} activeFolderId={activeFolderId} key="media-player" />}
           {pdfFile && <PdfViewer file={pdfFile} onClose={() => setPdfFile(null)} onNext={handleNext} onPrev={handlePrev} currentIndex={contextIndex} totalItems={contextFiles.length} activeFolderId={activeFolderId} key="pdf-viewer" />}
-          {isDragging && internalDragFileId === null && <DragDropOverlay key="drag-drop-overlay" />}
+
         </AnimatePresence>
 
-        <Sidebar folders={folders} activeFolderId={activeFolderId} setActiveFolderId={setActiveFolderId} onDrop={handleDropOnFolder} onDelete={handleFolderDelete} onCreate={handleCreateFolder} onRename={handleRenameFolder} isSyncing={isSyncing} isConnected={isConnected} onSync={handleSyncFolders} onLogout={handleLogout} bandwidth={bandwidth || null} />
+        <Sidebar folders={folders} activeFolderId={activeFolderId} setActiveFolderId={setActiveFolderId} onDrop={handleDropOnFolder} onDelete={handleFolderDelete} onCreate={handleCreateFolder} onRename={handleRenameFolder} isConnected={isConnected} bandwidth={bandwidth || null} />
 
         <main className="flex flex-1 flex-col" onClick={(e) => { if (e.target === e.currentTarget) setSelectedIds([]); }}>
           <TopBar currentFolderName={currentFolderName} selectedIds={selectedIds} onShowMoveModal={() => setShowMoveModal(true)} onBulkDownload={handleBulkDownload} onBulkDelete={handleBulkDelete} onDownloadFolder={handleDownloadFolder} viewMode={viewMode} setViewMode={setViewMode} searchTerm={searchTerm} onSearchChange={setSearchTerm} onSettingsClick={() => setShowSettings(true)} onNavigateHome={() => setActiveFolderId(null)} />
@@ -262,7 +267,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
           {playingFile && !playerExpanded && <MiniPlayer key={`mini-${playingFile.id}`} file={playingFile} onClose={() => { setPlayingFile(null); setPlayerExpanded(false); }} onExpand={() => setPlayerExpanded(true)} onNext={handleNext} onPrev={handlePrev} currentIndex={contextIndex} totalItems={contextFiles.length} activeFolderId={activeFolderId} />}
         </AnimatePresence>
 
-        <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
+        <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} onSync={handleSyncFolders} onLogout={handleLogout} isSyncing={isSyncing} />
         <CommandPalette open={showCommandPalette} onClose={() => setShowCommandPalette(false)} folders={folders} onNavigateFolder={setActiveFolderId} onUpload={handleManualUpload} onSettings={() => setShowSettings(true)} onSync={handleSyncFolders} onLogout={handleLogout} />
       </div>
     </div>

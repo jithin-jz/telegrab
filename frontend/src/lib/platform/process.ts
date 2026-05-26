@@ -1,5 +1,5 @@
 /**
- * Shim for `@tauri-apps/plugin-process`.
+ * Desktop platform process control — relaunch and exit.
  */
 
 import { callPy } from './internal';

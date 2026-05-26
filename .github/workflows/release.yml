@@ -2,21 +2,19 @@ name: Release installers
 
 on:
   push:
-    branches:
-      - main
     tags:
       - 'v*'
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version tag (e.g. v1.4.0)'
+        description: 'Version tag (e.g. v1.5.0)'
         required: true
-        default: 'v1.4.0'
+        default: 'v1.5.0'
 
 jobs:
   # ─────────────────────────── Windows build ───────────────────────────
   windows:
-    name: Windows installer
+    name: Build Windows
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,10 +24,6 @@ jobs:
           python-version: '3.12'
           cache: 'pip'
           cache-dependency-path: backend/pyproject.toml
-
-      - name: Install uv
-        run: powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-        shell: bash
 
       - uses: actions/setup-node@v4
         with:
@@ -61,18 +55,29 @@ jobs:
       - name: Build installer
         run: python installer/build.py --clean --installer
 
+      - name: Rename artifacts
+        shell: pwsh
+        run: |
+          $ver = (Select-String -Path backend/pyproject.toml -Pattern '^version = "(.+)"').Matches[0].Groups[1].Value
+          if (Test-Path "dist-installer/Telegrab-$ver-Setup.exe") {
+            Rename-Item "dist-installer/Telegrab-$ver-Setup.exe" "telegrab-windows-setup.exe"
+          }
+          if (Test-Path "dist-installer/telegrab.exe") {
+            Rename-Item "dist-installer/telegrab.exe" "telegrab-windows-portable.exe"
+          }
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: telegrab-windows-x64
+          name: telegrab-windows
           path: |
-            dist-installer/Telegrab-*-Setup.exe
-            dist-installer/telegrab.exe
+            dist-installer/telegrab-windows-setup.exe
+            dist-installer/telegrab-windows-portable.exe
           retention-days: 30
 
   # ──────────────────────────── macOS build ────────────────────────────
   macos:
-    name: macOS installer
+    name: Build macOS
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -82,10 +87,6 @@ jobs:
           python-version: '3.12'
           cache: 'pip'
           cache-dependency-path: backend/pyproject.toml
-
-      - name: Install uv
-        run: curl -LsSf https://astral.sh/uv/install.sh | sh
-        shell: bash
 
       - uses: actions/setup-node@v4
         with:
@@ -115,58 +116,108 @@ jobs:
       - name: Build installer
         run: python installer/build.py --clean
 
-      - name: Build .dmg
+      - name: Package .zip
         run: |
-          # Use create-dmg if available, otherwise fall back to a plain zip
-          # of the .app bundle.
-          if command -v create-dmg >/dev/null 2>&1; then
-            create-dmg \
-              --volname "telegrab" \
-              --window-pos 200 120 \
-              --window-size 600 400 \
-              --icon-size 100 \
-              --icon "telegrab.app" 175 190 \
-              --hide-extension "telegrab.app" \
-              --app-drop-link 425 190 \
-              "dist-installer/telegrab.dmg" \
-              "dist-installer/telegrab.app"
-          else
-            cd dist-installer && zip -r telegrab-macos.zip telegrab.app
+          cd dist-installer
+          if [ -d "telegrab.app" ]; then
+            zip -r telegrab-macos.zip telegrab.app
           fi
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: telegrab-macos
-          path: |
-            dist-installer/telegrab.dmg
-            dist-installer/telegrab-macos.zip
+          path: dist-installer/telegrab-macos.zip
           retention-days: 30
           if-no-files-found: warn
 
-  # ─────────────────────── Aggregate into a release ───────────────────────
+  # ──────────────────────────── Linux build ────────────────────────────
+  linux:
+    name: Build Linux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: backend/pyproject.toml
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgirepository1.0-dev libcairo2-dev libwebkit2gtk-4.1-dev
+
+      - name: Install Python deps
+        run: |
+          python -m venv backend/.venv
+          backend/.venv/bin/python -m pip install --upgrade pip wheel
+          backend/.venv/bin/python -m pip install ./backend
+          backend/.venv/bin/python -m pip install pyinstaller==6.11.1 pillow
+
+      - name: Sync version from tag
+        run: |
+          TAG="${{ github.ref_type == 'tag' && github.ref_name || github.event.inputs.version || '' }}"
+          if [ -n "$TAG" ]; then
+            VER="${TAG#v}"
+            backend/.venv/bin/python scripts/bump_version.py "$VER"
+          fi
+
+      - name: Install Node deps
+        run: npm ci
+        working-directory: frontend
+
+      - name: Build frontend
+        run: npm run build
+        working-directory: frontend
+
+      - name: Build with PyInstaller
+        run: |
+          backend/.venv/bin/python -m PyInstaller \
+            --name telegrab \
+            --onefile \
+            --add-data "frontend/dist:frontend/dist" \
+            --add-data "assets/icons/app.svg:assets/icons" \
+            --hidden-import telegrab \
+            --hidden-import telegrab.app \
+            backend/telegrab/__main__.py
+
+      - name: Rename and package
+        run: |
+          mv dist/telegrab dist/telegrab-linux
+          chmod +x dist/telegrab-linux
+          tar -czf dist/telegrab-linux.tar.gz -C dist telegrab-linux
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: telegrab-linux
+          path: dist/telegrab-linux.tar.gz
+          retention-days: 30
+
+  # ─────────────────────── Publish GitHub Release ───────────────────────
   release:
-    name: Publish GitHub Release
-    needs: [windows, macos]
+    name: Publish Release
+    needs: [windows, macos, linux]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download Windows artifact
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          name: telegrab-windows-x64
-          path: artifacts/windows
+          path: artifacts
 
-      - name: Download macOS artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: telegrab-macos
-          path: artifacts/macos
-
-      - name: Get version from pyproject.toml
+      - name: Get version
         id: version
         run: |
           VERSION=$(grep -m1 -oP '(?<=^version = ")[^"]+' backend/pyproject.toml)
@@ -181,7 +232,7 @@ jobs:
           draft: false
           generate_release_notes: true
           files: |
-            artifacts/windows/Telegrab-*-Setup.exe
-            artifacts/windows/telegrab.exe
-            artifacts/macos/telegrab.dmg
-            artifacts/macos/telegrab-macos.zip
+            artifacts/telegrab-windows/telegrab-windows-setup.exe
+            artifacts/telegrab-windows/telegrab-windows-portable.exe
+            artifacts/telegrab-macos/telegrab-macos.zip
+            artifacts/telegrab-linux/telegrab-linux.tar.gz

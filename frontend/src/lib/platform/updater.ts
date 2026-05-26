@@ -1,12 +1,11 @@
 /**
- * Shim for `@tauri-apps/plugin-updater`.
+ * Desktop platform auto-updater.
  *
- * Auto-update is not part of the pywebview build. `check()` resolves to
- * `null` so the existing `useUpdateCheck` hook gracefully treats the
- * app as up to date.
+ * `check()` calls the Python updater service and returns an `Update` object
+ * if a newer version is available, or `null` if the app is up to date.
  *
- * The exported types mirror the real plugin's shape so callers that pass
- * a progress callback to `downloadAndInstall(...)` still type-check.
+ * The exported types mirror the expected shape so callers that pass
+ * a progress callback to `downloadAndInstall(...)` type-check correctly.
  */
 
 import { invoke } from './core';

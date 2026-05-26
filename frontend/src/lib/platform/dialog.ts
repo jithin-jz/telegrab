@@ -1,5 +1,5 @@
 /**
- * Shim for `@tauri-apps/plugin-dialog`.
+ * Desktop platform file dialogs — open, save, confirm, message.
  */
 
 import { callPy } from './internal';

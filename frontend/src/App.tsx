@@ -1,31 +1,33 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { invoke } from './lib/platform/core';
 import { load } from './lib/platform/store';
-import { listen } from './lib/platform/event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { AuthWizard } from './components/AuthWizard';
 import { Dashboard } from './components/Dashboard';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { motion, AnimatePresence } from 'framer-motion';
-
-import { TitleBar } from './components/TitleBar';
 import './styles/globals.css';
 
 import { Toaster } from 'sonner';
 import { ConfirmProvider } from './contexts/ConfirmContext';
 import { SettingsProvider, useSettings } from './contexts/SettingsContext';
-import { DropZoneProvider } from './contexts/DropZoneContext';
+
+const AuthWizard = lazy(() => import('./components/AuthWizard').then(m => ({ default: m.AuthWizard })));
 
 const queryClient = new QueryClient();
+
+const TOAST_STYLE = {
+  background: 'var(--color-surface)',
+  backdropFilter: 'blur(12px)',
+  border: '1px solid var(--color-hairline)',
+  color: 'var(--color-ink)',
+} as const;
 
 type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated';
 
 const TelegramLogo = ({ className }: { className?: string }) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" className={className}>
-    <rect width="512" height="512" rx="96" fill="url(#tg-grad)"/>
-    <defs><linearGradient id="tg-grad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#6366f1"/><stop offset="100%" stopColor="#8b5cf6"/></linearGradient></defs>
-    <path d="M160 200h192M256 200v160" stroke="#fff" strokeWidth="48" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-    <path d="M200 260l56-56 56 56" stroke="#fff" strokeWidth="36" strokeLinecap="round" strokeLinejoin="round" fill="none" opacity="0.7"/>
+    <rect width="512" height="512" rx="96" fill="#f43f5e"/>
+    <text x="256" y="370" fontFamily="Arial, sans-serif" fontWeight="bold" fontSize="240" fill="#ffffff" textAnchor="middle">tb</text>
   </svg>
 );
 
@@ -81,41 +83,15 @@ function AppContent() {
     checkSession();
   }, []);
 
-  const [isMaximized, setIsMaximized] = useState(false);
-  const [isTransitioning, setIsTransitioning] = useState(false);
-
-  useEffect(() => {
-    let unlisten: (() => void) | undefined;
-    const setup = async () => {
-      unlisten = await listen<boolean>('window-maximized', (event) => {
-        setIsTransitioning(true);
-        setIsMaximized(event.payload);
-        setTimeout(() => setIsTransitioning(false), 320);
-      });
-    };
-    setup();
-    return () => unlisten?.();
-  }, []);
-
   return (
     <main 
-      className={`text-foreground selection:bg-primary/30 relative flex h-screen w-screen flex-col overflow-hidden bg-canvas ${
-        isMaximized ? 'rounded-none' : 'rounded-xl'
-      } transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]`}
+      className="text-foreground selection:bg-primary/30 relative flex h-screen w-screen flex-col overflow-hidden bg-canvas"
     >
-      <TitleBar />
-      <div className={`flex-1 flex flex-col min-h-0 ${isTransitioning ? 'window-content-scale opacity-90' : 'window-content-scale'}`}>
+      <div className="flex-1 flex flex-col min-h-0">
         <Toaster
           theme="dark"
           position="bottom-center"
-          toastOptions={{
-            style: {
-              background: 'var(--color-surface)',
-              backdropFilter: 'blur(12px)',
-              border: '1px solid var(--color-hairline)',
-              color: 'var(--color-ink)',
-            },
-          }}
+          toastOptions={{ style: TOAST_STYLE }}
         />
         
         <AnimatePresence mode="wait">
@@ -165,7 +141,9 @@ function AppContent() {
               {authStatus === 'authenticated' ? (
                 <Dashboard onLogout={() => setAuthStatus('unauthenticated')} />
               ) : (
-                <AuthWizard onLogin={() => setAuthStatus('authenticated')} />
+                <Suspense fallback={null}>
+                  <AuthWizard onLogin={() => setAuthStatus('authenticated')} />
+                </Suspense>
               )}
             </motion.div>
           )}
@@ -181,9 +159,7 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <ConfirmProvider>
           <SettingsProvider>
-            <DropZoneProvider>
               <AppContent />
-            </DropZoneProvider>
           </SettingsProvider>
         </ConfirmProvider>
       </QueryClientProvider>

@@ -1,5 +1,5 @@
 /**
- * Shim for `@tauri-apps/plugin-store`.
+ * Desktop platform key-value store.
  *
  * Implements a `Store` class that forwards calls to the pywebview bridge.
  */

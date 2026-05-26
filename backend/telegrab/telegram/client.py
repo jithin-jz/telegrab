@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -21,6 +22,17 @@ from telethon.tl.custom import QRLogin
 from ..config import session_path
 
 log = logging.getLogger(__name__)
+
+_PEER_CACHE_MAX = 500
+
+
+class _BoundedOrderedDict(OrderedDict):
+    """OrderedDict that evicts the oldest entry when exceeding max size."""
+
+    def __setitem__(self, key: Any, value: Any) -> None:
+        super().__setitem__(key, value)
+        if len(self) > _PEER_CACHE_MAX:
+            self.popitem(last=False)
 
 
 # ──────────────────────────── shared state ────────────────────────────
@@ -44,13 +56,21 @@ class TelegramState:
     pending_qr_task: asyncio.Task | None = None
 
     # peer_cache: folder_id (int) → Telethon entity (User/Channel/Chat)
-    peer_cache: dict[int, Any] = field(default_factory=dict)
+    peer_cache: _BoundedOrderedDict = field(default_factory=_BoundedOrderedDict)
 
     # Transfer IDs that have been requested to cancel.
     cancelled_transfers: set[str] = field(default_factory=set)
 
 
 _state = TelegramState()
+_connect_lock: asyncio.Lock | None = None
+
+
+def _get_lock() -> asyncio.Lock:
+    global _connect_lock
+    if _connect_lock is None:
+        _connect_lock = asyncio.Lock()
+    return _connect_lock
 
 
 def get_state() -> TelegramState:
@@ -64,10 +84,14 @@ async def ensure_client(api_id: int, api_hash: str | None = None) -> TelegramCli
     """Create or return the shared TelegramClient.
 
     A new client is created the first time, or whenever the api_id changes.
-    The Telethon session is persisted to `config.paths.session_path()`
-    (SQLite). On corrupted session, the file is wiped and the client is
-    recreated once.
+    Uses an asyncio lock to prevent concurrent session access (which causes
+    SQLite "database is locked" errors from Telethon).
     """
+    async with _get_lock():
+        return await _ensure_client_inner(api_id, api_hash)
+
+
+async def _ensure_client_inner(api_id: int, api_hash: str | None = None) -> TelegramClient:
     state = _state
 
     if state.client is not None and state.api_id == api_id:

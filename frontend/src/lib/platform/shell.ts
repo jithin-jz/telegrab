@@ -1,5 +1,5 @@
 /**
- * Shim for `@tauri-apps/plugin-shell`.
+ * Desktop platform shell — open URLs and files with the OS default handler.
  */
 
 import { invoke } from './core';

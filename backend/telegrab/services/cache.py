@@ -25,6 +25,8 @@ def _get_conn() -> sqlite3.Connection:
 
 def init_cache() -> None:
     conn = _get_conn()
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA synchronous=NORMAL")
     conn.executescript("""
         CREATE TABLE IF NOT EXISTS file_cache (
             message_id INTEGER NOT NULL,
@@ -35,6 +37,7 @@ def init_cache() -> None:
             icon_type TEXT,
             PRIMARY KEY (message_id, folder_id)
         );
+        CREATE INDEX IF NOT EXISTS idx_file_cache_folder ON file_cache(folder_id);
         CREATE TABLE IF NOT EXISTS cache_meta (
             folder_id INTEGER PRIMARY KEY,
             updated_at REAL
@@ -49,9 +52,16 @@ def _folder_key(folder_id: int | None) -> int:
 
 def get_cached_files(folder_id: int | None) -> list[dict[str, Any]]:
     conn = _get_conn()
+    fk = _folder_key(folder_id)
+    # TTL check: return empty if cache is older than 300 seconds
+    row = conn.execute(
+        "SELECT updated_at FROM cache_meta WHERE folder_id = ?", (fk,)
+    ).fetchone()
+    if not row or (time.time() - row["updated_at"]) > 300:
+        return []
     rows = conn.execute(
         "SELECT message_id, folder_id, name, size, created_at, icon_type FROM file_cache WHERE folder_id = ?",
-        (_folder_key(folder_id),),
+        (fk,),
     ).fetchall()
     return [dict(r) for r in rows]
 

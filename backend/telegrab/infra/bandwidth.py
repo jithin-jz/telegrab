@@ -1,7 +1,7 @@
 """Daily bandwidth tracker.
 
 Persisted to `config.paths.bandwidth_path()`; resets at local midnight and
-enforces a fixed 250 GB/day soft cap on transfers (mirrors the Rust version).
+enforces a fixed 200 GB/day soft cap on transfers.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from ..config import bandwidth_path
 
 log = logging.getLogger(__name__)
 
-DAILY_LIMIT_BYTES = 250 * 1024 * 1024 * 1024  # 250 GB
+DAILY_LIMIT_BYTES = 200 * 1024 * 1024 * 1024  # 200 GB
 _UNITS = ("B", "KB", "MB", "GB", "TB")
 
 

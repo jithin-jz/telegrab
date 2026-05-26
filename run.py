@@ -12,9 +12,8 @@ Usage (from the repo root):
     # Skip the Vite spawn (e.g. you already have it running):
     python run.py --dev --no-vite
 
-The launcher creates a virtualenv at `backend/.venv/` on first run and
-installs `requirements.txt` into it, so the user only needs Python and
-Node.js installed.
+The launcher uses `uv` to manage the virtualenv at `backend/.venv/` and
+installs dependencies from `pyproject.toml`.
 """
 
 from __future__ import annotations
@@ -25,7 +24,6 @@ import shutil
 import subprocess
 import sys
 import time
-import venv
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent
@@ -33,7 +31,6 @@ FRONTEND_DIR = REPO_ROOT / "frontend"
 BACKEND_DIR = REPO_ROOT / "backend"
 VENV_DIR = BACKEND_DIR / ".venv"
 DIST_INDEX = FRONTEND_DIR / "dist" / "index.html"
-REQUIREMENTS = BACKEND_DIR / "requirements.txt"
 
 VITE_DEV_URL = "http://localhost:5173"
 VITE_READY_TIMEOUT_S = 30
@@ -50,14 +47,15 @@ def _ensure_venv() -> Path:
     if py.exists():
         return py
     print(f"[run.py] Creating virtualenv at {VENV_DIR} ...")
-    venv.EnvBuilder(with_pip=True, upgrade_deps=True).create(str(VENV_DIR))
-    print("[run.py] Installing Python dependencies (this is a one-time step) ...")
-    subprocess.check_call(
-        [str(py), "-m", "pip", "install", "--upgrade", "pip", "wheel"]
-    )
-    subprocess.check_call(
-        [str(py), "-m", "pip", "install", "-r", str(REQUIREMENTS)]
-    )
+    uv = shutil.which("uv")
+    if uv:
+        subprocess.check_call([uv, "sync"], cwd=str(BACKEND_DIR))
+    else:
+        import venv
+        venv.EnvBuilder(with_pip=True, upgrade_deps=True).create(str(VENV_DIR))
+        subprocess.check_call(
+            [str(py), "-m", "pip", "install", "-e", "."], cwd=str(BACKEND_DIR)
+        )
     return py
 
 

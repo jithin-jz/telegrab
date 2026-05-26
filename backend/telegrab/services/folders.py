@@ -194,6 +194,10 @@ async def cmd_scan_folders() -> list[dict[str, Any]]:
                 folders.append({"id": cid, "name": display or title, "parent_id": None})
                 continue
 
+            # Only check about field for owned/admin channels
+            if not getattr(entity, 'creator', False):
+                continue
+
             try:
                 full = await client(
                     functions.channels.GetFullChannelRequest(

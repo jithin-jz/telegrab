@@ -15,6 +15,28 @@ interface ProgressPayload {
   speed_bytes_per_sec: number;
 }
 
+// External progress store — avoids re-rendering the entire tree on every tick
+const downloadProgressMap = new Map<string, ProgressPayload>();
+const downloadProgressListeners = new Set<() => void>();
+
+export function getDownloadProgress(id: string): ProgressPayload | undefined {
+  return downloadProgressMap.get(id);
+}
+
+export function useDownloadProgressTick(): number {
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const cb = () => setTick((t) => t + 1);
+    downloadProgressListeners.add(cb);
+    return () => { downloadProgressListeners.delete(cb); };
+  }, []);
+  return tick;
+}
+
+function notifyProgressListeners() {
+  for (const cb of downloadProgressListeners) cb();
+}
+
 export function useFileDownload(store: Store | null) {
   const { settings } = useSettings();
   const [downloadQueue, setDownloadQueue] = useState<DownloadItem[]>([]);
@@ -22,32 +44,16 @@ export function useFileDownload(store: Store | null) {
   const cancelledRef = useRef<Set<string>>(new Set());
   const activeCountRef = useRef(0);
 
-  // Listen for progress events
+  // Listen for progress events — update external map, NOT queue state
   useEffect(() => {
     let unlisten: UnlistenFn | undefined;
     listen<ProgressPayload>('download-progress', (event) => {
-      setDownloadQueue((q) =>
-        q.map((i) =>
-          i.id === event.payload.id
-            ? {
-                ...i,
-                progress: event.payload.percent,
-                uploadedBytes: event.payload.uploaded_bytes,
-                totalBytes: event.payload.total_bytes,
-                speedBytesPerSec: event.payload.speed_bytes_per_sec,
-              }
-            : i
-        )
-      );
-    }).then((fn) => {
-      unlisten = fn;
-    });
-    return () => {
-      unlisten?.();
-    };
+      downloadProgressMap.set(event.payload.id, event.payload);
+      notifyProgressListeners();
+    }).then((fn) => { unlisten = fn; });
+    return () => { unlisten?.(); };
   }, []);
 
-  // Load saved queue on mount
   useEffect(() => {
     if (!store || initialized) return;
     store.get<DownloadItem[]>('downloadQueue').then((saved) => {
@@ -62,7 +68,6 @@ export function useFileDownload(store: Store | null) {
     });
   }, [store, initialized]);
 
-  // Save queue when it changes (pending + paused items)
   useEffect(() => {
     if (!store || !initialized) return;
     const persistable = downloadQueue.filter((i) => i.status === 'pending' || i.status === 'paused');
@@ -76,12 +81,13 @@ export function useFileDownload(store: Store | null) {
     );
 
     try {
-      // If item has a dirPath (bulk download), use it directly; otherwise prompt save dialog
       let savePath: string | null;
       if (item.dirPath) {
-        // Sanitize filename to prevent path traversal
         const safeName = item.filename.replace(/[/\\]/g, '_').replace(/\.\./g, '_');
         savePath = `${item.dirPath}/${safeName}`;
+      } else if (settings.defaultDownloadFolder) {
+        const safeName = item.filename.replace(/[/\\]/g, '_').replace(/\.\./g, '_');
+        savePath = `${settings.defaultDownloadFolder}/${safeName}`;
       } else {
         savePath = await save({ defaultPath: item.filename });
       }
@@ -125,10 +131,10 @@ export function useFileDownload(store: Store | null) {
       }
     } finally {
       activeCountRef.current--;
+      downloadProgressMap.delete(item.id);
     }
   }, []);
 
-  // Queue processor: launch up to maxConcurrentDownloads workers
   useEffect(() => {
     const max = settings.maxConcurrentDownloads;
     const pending = downloadQueue.filter((i) => i.status === 'pending');
@@ -140,8 +146,7 @@ export function useFileDownload(store: Store | null) {
       );
       processItem(item);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [downloadQueue, settings.maxConcurrentDownloads]);
+  }, [downloadQueue, settings.maxConcurrentDownloads, processItem]);
 
   const queueDownload = (messageId: number, filename: string, folderId: number | null) => {
     const newItem: DownloadItem = {
@@ -211,15 +216,7 @@ export function useFileDownload(store: Store | null) {
     setDownloadQueue((q) =>
       q.map((i) =>
         i.id === id && (i.status === 'error' || i.status === 'cancelled')
-          ? {
-              ...i,
-              status: 'pending' as const,
-              error: undefined,
-              progress: undefined,
-              uploadedBytes: undefined,
-              totalBytes: undefined,
-              speedBytesPerSec: undefined,
-            }
+          ? { ...i, status: 'pending' as const, error: undefined, progress: undefined }
           : i
       )
     );
@@ -232,9 +229,7 @@ export function useFileDownload(store: Store | null) {
         cancelledRef.current.add(id);
         invoke('cmd_cancel_transfer', { transferId: id }).catch(() => {});
         return q.map((i) =>
-          i.id === id
-            ? { ...i, status: 'paused' as const, resumeOffset: i.uploadedBytes || 0 }
-            : i
+          i.id === id ? { ...i, status: 'paused' as const } : i
         );
       }
       if (item?.status === 'pending') {

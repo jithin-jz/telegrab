@@ -16,7 +16,7 @@ import {
 import { invoke } from '../../lib/platform/core';
 import { TelegramFile } from '../../types';
 import { isVideoFile, isAudioFile } from '../../lib/utils';
-import { cn } from '../../lib/cn';
+import { cn } from '../../lib/utils';
 
 interface StreamInfo {
   token: string;

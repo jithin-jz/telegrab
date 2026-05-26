@@ -132,6 +132,153 @@
   scroll-behavior: smooth;
 }
 
+/* ─── Light theme overrides ─── */
+[data-theme="light"] {
+  color-scheme: light;
+  --color-canvas: #f8f9fa;
+  --color-surface: #ffffff;
+  --color-surface-soft: #f1f3f5;
+  --color-hairline: rgba(0, 0, 0, 0.08);
+  --color-hairline-soft: rgba(0, 0, 0, 0.05);
+  --color-hairline-strong: rgba(0, 0, 0, 0.14);
+  --color-ink-deep: #0f0f0f;
+  --color-ink: #1a1a1a;
+  --color-charcoal: #2d2d2d;
+  --color-slate: #5c5c6d;
+  --color-steel: #8e8e9a;
+  --color-stone: #c0c0c8;
+  --color-muted: #e2e2e6;
+  --color-on-dark: #0f0f0f;
+  --color-on-dark-muted: #5c5c6d;
+  --color-background: #f8f9fa;
+  --color-foreground: #1a1a1a;
+  --color-card: #ffffff;
+  --color-card-foreground: #1a1a1a;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #1a1a1a;
+  --color-secondary: #f1f3f5;
+  --color-secondary-foreground: #1a1a1a;
+  --color-accent-foreground: #5a3fd6;
+  --color-border: rgba(0, 0, 0, 0.1);
+  --color-input: rgba(0, 0, 0, 0.06);
+  --color-brand-navy: #f8f9fa;
+  --color-brand-navy-deep: #f1f3f5;
+  --color-brand-navy-mid: #eaebed;
+  --color-telegram-bg: #f8f9fa;
+  --color-telegram-surface: #ffffff;
+  --color-telegram-text: #1a1a1a;
+  --color-telegram-subtext: #5c5c6d;
+  --color-telegram-border: rgba(0, 0, 0, 0.1);
+  --color-telegram-hover: rgba(0, 0, 0, 0.03);
+}
+
+/* Light mode specific fixes for elements using opacity-based colors */
+[data-theme="light"] .auth-glass {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .auth-gradient {
+  background:
+    radial-gradient(circle at 18% 22%, rgba(244, 63, 94, 0.06) 0%, transparent 42%),
+    radial-gradient(circle at 82% 28%, rgba(91, 141, 239, 0.05) 0%, transparent 38%),
+    linear-gradient(180deg, #f8f9fa 0%, #f1f3f5 100%);
+}
+
+[data-theme="light"] .auth-glass input,
+[data-theme="light"] .auth-glass .bg-canvas\/50 {
+  background: rgba(0, 0, 0, 0.03) !important;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .bg-white\/\[0\.02\],
+[data-theme="light"] .bg-white\/\[0\.03\],
+[data-theme="light"] .bg-white\/\[0\.04\],
+[data-theme="light"] .bg-white\/\[0\.05\] {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="light"] .hover\:bg-white\/\[0\.04\]:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+/* Card action buttons in light mode - use light translucent style */
+[data-theme="light"] .bg-black\/60 {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(8px);
+  color: #333;
+}
+
+[data-theme="light"] .bg-black\/40 {
+  background: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="light"] .text-white\/80 {
+  color: #444;
+}
+
+[data-theme="light"] .hover\:text-white:hover {
+  color: #ffffff;
+}
+
+[data-theme="light"] .bg-black\/20 {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .border-white\/10,
+[data-theme="light"] .border-white\/30 {
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .text-white\/70 {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+/* Video/media player - keep dark in light mode for visibility */
+[data-theme="light"] [class*="MiniPlayer"],
+[data-theme="light"] [class*="MediaPlayer"] {
+  color-scheme: dark;
+}
+
+/* File cards in light mode */
+[data-theme="light"] .bg-card {
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .bg-card\/60 {
+  background: rgba(255, 255, 255, 0.85);
+}
+
+/* Hover overlays on cards */
+[data-theme="light"] .hover\:bg-white\/5:hover,
+[data-theme="light"] .hover\:bg-white\/\[0\.05\]:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+/* Upload button dashed border */
+[data-theme="light"] .border-dashed {
+  border-color: rgba(0, 0, 0, 0.2);
+}
+
+/* Sort buttons */
+[data-theme="light"] .hover\:bg-white\/5:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+/* Scrollbar for light mode */
+[data-theme="light"] .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+}
+[data-theme="light"] .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+/* Command palette and modals overlay */
+[data-theme="light"] .backdrop-blur-sm {
+  backdrop-filter: blur(4px);
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
    Base
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -673,9 +820,12 @@ textarea:focus {
 
 /* GPU Acceleration Hints */
 .gpu-accel {
-  will-change: transform, opacity;
   backface-visibility: hidden;
-  perspective: 1000px;
+}
+
+.gpu-accel:hover,
+.gpu-accel:active {
+  will-change: transform, opacity;
 }
 
 .gpu-accel-hover:hover {

@@ -6,7 +6,7 @@ import { EmptyState } from './EmptyState';
 import { TelegramFile } from '../../types';
 import { ContextMenu } from './ContextMenu';
 import { FileListItem } from './FileListItem';
-import { cn } from '../../lib/cn';
+import { cn } from '../../lib/utils';
 
 type SortField = 'name' | 'size' | 'date';
 type SortDirection = 'asc' | 'desc';
@@ -16,7 +16,7 @@ interface FileExplorerProps {
   files: TelegramFile[];
   loading: boolean;
   error: Error | null;
-  viewMode: 'grid' | 'list';
+  viewMode: 'large-grid' | 'medium-grid' | 'list';
   selectedIds: number[];
   activeFolderId: number | null;
   onFileClick: (e: React.MouseEvent, id: number) => void;
@@ -31,7 +31,7 @@ interface FileExplorerProps {
   onDragEnd?: () => void;
 }
 
-function useGridColumns(containerRef: React.RefObject<HTMLDivElement | null>) {
+function useGridColumns(containerRef: React.RefObject<HTMLDivElement | null>, viewMode: string) {
   const [columns, setColumns] = useState(4);
   const [containerWidth, setContainerWidth] = useState(800);
 
@@ -41,18 +41,26 @@ function useGridColumns(containerRef: React.RefObject<HTMLDivElement | null>) {
     const updateColumns = () => {
       const width = containerRef.current?.clientWidth || 800;
       setContainerWidth(width);
-      if (width < 640) setColumns(2);
-      else if (width < 768) setColumns(3);
-      else if (width < 1024) setColumns(4);
-      else if (width < 1280) setColumns(5);
-      else setColumns(6);
+
+      if (viewMode === 'large-grid') {
+        if (width < 640) setColumns(2);
+        else if (width < 1024) setColumns(3);
+        else setColumns(4);
+      } else {
+        // medium-grid (default)
+        if (width < 640) setColumns(2);
+        else if (width < 768) setColumns(3);
+        else if (width < 1024) setColumns(4);
+        else if (width < 1280) setColumns(5);
+        else setColumns(6);
+      }
     };
 
     updateColumns();
     const observer = new ResizeObserver(updateColumns);
     observer.observe(containerRef.current);
     return () => observer.disconnect();
-  }, [containerRef]);
+  }, [containerRef, viewMode]);
 
   return { columns, containerWidth };
 }
@@ -84,7 +92,9 @@ export function FileExplorer({
   } | null>(null);
 
   const parentRef = useRef<HTMLDivElement>(null);
-  const { columns, containerWidth } = useGridColumns(parentRef);
+  const { columns, containerWidth } = useGridColumns(parentRef, viewMode);
+
+  const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
 
   const GAP = 6;
   const cardWidth = (containerWidth - GAP * (columns - 1)) / columns;
@@ -182,8 +192,10 @@ export function FileExplorer({
         </div>
         <div className={cn(
           "grid gap-6",
-          viewMode === 'grid' 
-            ? `grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6` 
+          viewMode.includes('grid') 
+            ? viewMode === 'large-grid'
+              ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4'
+              : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6'
             : "grid-cols-1"
         )}>
           {Array.from({ length: 12 }).map((_, i) => (
@@ -191,7 +203,7 @@ export function FileExplorer({
               key={i} 
               className={cn(
                 "bg-white/[0.03] border border-hairline rounded-xl animate-pulse",
-                viewMode === 'grid' ? "aspect-[4/3]" : "h-14"
+                viewMode.includes('grid') ? "aspect-[4/3]" : "h-14"
               )} 
             />
           ))}
@@ -224,7 +236,7 @@ export function FileExplorer({
         if (e.target === e.currentTarget) onSelectionClear();
       }}
     >
-      {viewMode === 'grid' ? (
+      {viewMode.includes('grid') ? (
         <>
           <div className="text-slate mb-4 flex items-center justify-between gap-3 text-xs">
             <div className="flex min-w-0 items-center gap-2">
@@ -295,7 +307,7 @@ export function FileExplorer({
                       <FileCard
                         key={file.id}
                         file={file}
-                        isSelected={selectedIds.includes(file.id)}
+                        isSelected={selectedSet.has(file.id)}
                         onClick={(e) => onFileClick(e, file.id)}
                         onContextMenu={(e) => handleContextMenu(e, file)}
                         onDelete={() => onDelete(file.id)}
@@ -318,7 +330,7 @@ export function FileExplorer({
       ) : (
         <div className="flex w-full flex-col">
           {/* List Header */}
-          <div className="text-slate border-hairline bg-canvas/95 sticky top-0 z-[1] mb-2 grid grid-cols-[2rem_2fr_6rem_8rem] items-center gap-4 border-b px-4 py-2 text-xs font-semibold backdrop-blur select-none">
+          <div className="text-slate border-hairline bg-canvas mb-2 grid grid-cols-[2rem_2fr_6rem_8rem] items-center gap-4 border-b px-4 py-2 text-xs font-semibold select-none">
             <div className="text-center">#</div>
             <button
               onClick={() => handleSort('name')}
@@ -384,7 +396,7 @@ export function FileExplorer({
                 >
                   <FileListItem
                     file={file}
-                    selectedIds={selectedIds}
+                    selectedIds={selectedSet}
                     activeFolderId={activeFolderId}
                     onFileClick={onFileClick}
                     handleContextMenu={handleContextMenu}

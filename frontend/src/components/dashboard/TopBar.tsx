@@ -12,7 +12,8 @@ import {
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import { cn } from '../../lib/cn';
+import { cn } from '../../lib/utils';
+import type { ViewMode } from '../../contexts/SettingsContext';
 
 interface TopBarProps {
   currentFolderName: string;
@@ -21,8 +22,8 @@ interface TopBarProps {
   onBulkDownload: () => void;
   onBulkDelete: () => void;
   onDownloadFolder: () => void;
-  viewMode: 'grid' | 'list';
-  setViewMode: (mode: 'grid' | 'list') => void;
+  viewMode: ViewMode;
+  setViewMode: (mode: ViewMode) => void;
   searchTerm: string;
   onSearchChange: (term: string) => void;
   onSettingsClick: () => void;
@@ -153,12 +154,7 @@ export function TopBar({
           <HardDrive className="h-4 w-4" />
         </IconButton>
 
-        <IconButton
-          title={viewMode === 'grid' ? 'Switch to list' : 'Switch to grid'}
-          onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
-        >
-          {viewMode === 'grid' ? <List className="h-4 w-4" /> : <LayoutGrid className="h-4 w-4" />}
-        </IconButton>
+        <ViewModeDropdown viewMode={viewMode} setViewMode={setViewMode} />
 
         <span className="bg-hairline mx-1 h-5 w-px" aria-hidden />
 
@@ -183,13 +179,49 @@ function IconButton({
     <button
       onClick={onClick}
       aria-label={title}
-      className="text-slate hover:text-foreground group relative grid h-8 w-8 place-items-center rounded-md transition-colors hover:bg-white/[0.04]"
-      title={title}
+      className="text-slate hover:text-foreground group relative grid h-8 w-8 place-items-center rounded-md transition-colors hover:bg-surface-soft"
+      title=""
     >
       {children}
-      <span className="bg-card border-hairline text-stone pointer-events-none absolute top-full left-1/2 z-50 mt-1 -translate-x-1/2 rounded border px-1.5 py-0.5 text-[10px] whitespace-nowrap opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+      <span className="bg-surface border-hairline text-foreground pointer-events-none absolute top-full left-1/2 z-50 mt-2 -translate-x-1/2 rounded-full border px-3 py-1 text-[11px] font-medium whitespace-nowrap opacity-0 shadow-xl transition-opacity group-hover:opacity-100">
         {title}
       </span>
     </button>
   );
 }
+
+
+const VIEW_CYCLE: ViewMode[] = ['large-grid', 'medium-grid', 'list'];
+
+const VIEW_ICONS: Record<ViewMode, React.ReactNode> = {
+  'large-grid': <LayoutGrid className="h-4 w-4" />,
+  'medium-grid': <LayoutGrid className="h-4 w-4" />,
+  'list': <List className="h-4 w-4" />,
+};
+
+const VIEW_LABELS: Record<ViewMode, string> = {
+  'large-grid': 'Large icons',
+  'medium-grid': 'Medium icons',
+  'list': 'List',
+};
+
+function ViewModeDropdown({ viewMode, setViewMode }: { viewMode: ViewMode; setViewMode: (m: ViewMode) => void }) {
+  const handleClick = () => {
+    const idx = VIEW_CYCLE.indexOf(viewMode);
+    const next = VIEW_CYCLE[(idx + 1) % VIEW_CYCLE.length];
+    setViewMode(next);
+  };
+
+  return (
+    <button
+      onClick={handleClick}
+      className="text-slate hover:text-foreground group relative grid h-8 w-8 place-items-center rounded-md transition-colors hover:bg-surface-soft"
+    >
+      {VIEW_ICONS[viewMode]}
+      <span className="bg-surface border-hairline text-foreground pointer-events-none absolute top-full left-1/2 z-50 mt-2 -translate-x-1/2 rounded-full border px-3 py-1 text-[11px] font-medium whitespace-nowrap opacity-0 shadow-xl transition-opacity group-hover:opacity-100">
+        {VIEW_LABELS[viewMode]}
+      </span>
+    </button>
+  );
+}
+

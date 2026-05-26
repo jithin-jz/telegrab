@@ -1,38 +1,33 @@
-"""Generate app.ico for Telegrab — purple gradient rounded square with T + upload arrow."""
+"""Generate app.ico for Telegrab — sky blue rounded square with white lowercase t."""
 from pathlib import Path
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parent.parent
 ICO = ROOT / "assets" / "icons" / "app.ico"
+
+SKY_BLUE = (244, 63, 94, 255)  # #f43f5e rose
 
 
 def _render(size: int) -> Image.Image:
     img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
-    s = size
-    r = int(s * 0.1875)  # corner radius
+    r = int(size * 0.1875)
+    draw.rounded_rectangle([0, 0, size - 1, size - 1], radius=r, fill=SKY_BLUE)
 
-    # Purple gradient approximation (top-left #6366f1, bottom-right #8b5cf6)
-    draw.rounded_rectangle([0, 0, s - 1, s - 1], radius=r, fill=(99, 102, 241, 255))
+    font_size = int(size * 0.45)
+    try:
+        font = ImageFont.truetype("arialbd.ttf", font_size)
+    except (OSError, IOError):
+        try:
+            font = ImageFont.truetype("arial.ttf", font_size)
+        except (OSError, IOError):
+            font = ImageFont.load_default()
 
-    # "T" shape
-    lw = max(2, int(s * 0.09))  # line width
-    # Horizontal bar of T
-    x1 = int(s * 0.3)
-    x2 = int(s * 0.7)
-    y_bar = int(s * 0.38)
-    draw.line([(x1, y_bar), (x2, y_bar)], fill=(255, 255, 255, 255), width=lw)
-    # Vertical bar of T
-    cx = s // 2
-    y_bot = int(s * 0.72)
-    draw.line([(cx, y_bar), (cx, y_bot)], fill=(255, 255, 255, 255), width=lw)
-
-    # Upload arrow (chevron above center)
-    arr_w = int(s * 0.11)
-    arr_top = int(s * 0.48)
-    arr_bot = int(s * 0.58)
-    draw.line([(cx - arr_w, arr_bot), (cx, arr_top), (cx + arr_w, arr_bot)],
-              fill=(255, 255, 255, 180), width=max(1, lw - 1))
+    bbox = draw.textbbox((0, 0), "tb", font=font)
+    tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
+    x = (size - tw) // 2 - bbox[0]
+    y = (size - th) // 2 - bbox[1]
+    draw.text((x, y), "tb", fill=(255, 255, 255, 255), font=font)
 
     return img
 

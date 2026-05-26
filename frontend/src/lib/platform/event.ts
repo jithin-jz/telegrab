@@ -1,9 +1,9 @@
 /**
- * Shim for `@tauri-apps/api/event`.
+ * Desktop platform event bus.
  *
  * The Python EventBus (see `telegrab/events.py`) dispatches events through
- * the bootstrap-injected `window.__telegrabBus`. We expose the same
- * `listen` API the Tauri code is written against.
+ * the bootstrap-injected `window.__telegrabBus`. We expose `listen`, `once`,
+ * and `emit` APIs for cross-layer event handling.
  */
 
 import { getBus } from './internal';

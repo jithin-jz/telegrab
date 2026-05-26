@@ -5,6 +5,7 @@ dist/
 .DS_Store
 .env
 .vite/
+.vite-temp/
 
 # Python
 __pycache__/
@@ -13,6 +14,7 @@ __pycache__/
 *.pyd
 .venv/
 venv/
+*.egg-info/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
@@ -39,3 +41,7 @@ Error.html
 build-installer/
 dist-installer/
 *.spec.bak
+
+# OS
+Thumbs.db
+Desktop.ini
