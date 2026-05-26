@@ -134,7 +134,13 @@ def _run_inno_setup() -> None:
 
     print(f"[build] Running Inno Setup: {iscc}")
     subprocess.check_call([str(iscc), str(iss)])
-    setup_exe = DIST_OUT / "Telegrab-1.4.0-Setup.exe"
+    
+    import re
+    pyproject = ROOT / "backend" / "pyproject.toml"
+    m = re.search(r'^version\s*=\s*"([^"]+)"', pyproject.read_text(encoding="utf-8"), re.MULTILINE)
+    version = m.group(1) if m else "1.4.0"
+    
+    setup_exe = DIST_OUT / f"Telegrab-{version}-Setup.exe"
     if setup_exe.exists():
         size_mb = setup_exe.stat().st_size / (1024 * 1024)
         print(f"[build] Installer created: {setup_exe} ({size_mb:.1f} MB)")

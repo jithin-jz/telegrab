@@ -22,6 +22,8 @@ FILES = {
     "pyproject": ROOT / "backend" / "pyproject.toml",
     "init": ROOT / "backend" / "telegrab" / "__init__.py",
     "frontend_pkg": ROOT / "frontend" / "package.json",
+    "setup_iss": ROOT / "installer" / "telegrab_setup.iss",
+    "spec": ROOT / "installer" / "telegrab.spec",
 }
 
 
@@ -43,6 +45,19 @@ def update_package_json(path: Path, version: str) -> None:
     path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
 
+def update_setup_iss(path: Path, version: str) -> None:
+    text = path.read_text(encoding="utf-8")
+    text = re.sub(r'^#define\s+MyAppVersion\s+"[^"]+"', f'#define MyAppVersion "{version}"', text, flags=re.MULTILINE)
+    path.write_text(text, encoding="utf-8")
+
+
+def update_spec(path: Path, version: str) -> None:
+    text = path.read_text(encoding="utf-8")
+    text = re.sub(r'"CFBundleShortVersionString":\s*"[^"]+"', f'"CFBundleShortVersionString": "{version}"', text)
+    text = re.sub(r'"CFBundleVersion":\s*"[^"]+"', f'"CFBundleVersion": "{version}"', text)
+    path.write_text(text, encoding="utf-8")
+
+
 def main() -> None:
     if len(sys.argv) < 2:
         # Read current version from pyproject.toml
@@ -61,6 +76,8 @@ def main() -> None:
     update_pyproject(FILES["pyproject"], version)
     update_init(FILES["init"], version)
     update_package_json(FILES["frontend_pkg"], version)
+    update_setup_iss(FILES["setup_iss"], version)
+    update_spec(FILES["spec"], version)
 
     print(f"OK Version synced to {version} across:")
     for name, path in FILES.items():
