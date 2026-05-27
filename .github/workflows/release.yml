@@ -41,15 +41,17 @@ jobs:
 
       - name: Run backend tests
         shell: pwsh
+        working-directory: backend
         run: |
-          backend\.venv\Scripts\python.exe -m pip install pytest
-          backend\.venv\Scripts\python.exe -m pytest backend/tests/ -v --tb=short
+          .venv\Scripts\python.exe -m pip install pytest pytest-asyncio
+          .venv\Scripts\python.exe -m pytest tests/ -v --tb=short
 
       - name: Lint backend
         shell: pwsh
+        working-directory: backend
         run: |
-          backend\.venv\Scripts\python.exe -m pip install ruff
-          backend\.venv\Scripts\python.exe -m ruff check backend/telegrab/
+          .venv\Scripts\python.exe -m pip install ruff
+          .venv\Scripts\python.exe -m ruff check telegrab/
 
       - name: Sync version from tag
         shell: pwsh
@@ -118,14 +120,16 @@ jobs:
           backend/.venv/bin/python -m pip install pyinstaller==6.11.1 pillow
 
       - name: Run backend tests
+        working-directory: backend
         run: |
-          backend/.venv/bin/python -m pip install pytest
-          backend/.venv/bin/python -m pytest backend/tests/ -v --tb=short
+          .venv/bin/python -m pip install pytest pytest-asyncio
+          .venv/bin/python -m pytest tests/ -v --tb=short
 
       - name: Lint backend
+        working-directory: backend
         run: |
-          backend/.venv/bin/python -m pip install ruff
-          backend/.venv/bin/python -m ruff check backend/telegrab/
+          .venv/bin/python -m pip install ruff
+          .venv/bin/python -m ruff check telegrab/
 
       - name: Sync version from tag
         run: |
@@ -193,14 +197,16 @@ jobs:
           backend/.venv/bin/python -m pip install pyinstaller==6.11.1 pillow
 
       - name: Run backend tests
+        working-directory: backend
         run: |
-          backend/.venv/bin/python -m pip install pytest
-          backend/.venv/bin/python -m pytest backend/tests/ -v --tb=short
+          .venv/bin/python -m pip install pytest pytest-asyncio
+          .venv/bin/python -m pytest tests/ -v --tb=short
 
       - name: Lint backend
+        working-directory: backend
         run: |
-          backend/.venv/bin/python -m pip install ruff
-          backend/.venv/bin/python -m ruff check backend/telegrab/
+          .venv/bin/python -m pip install ruff
+          .venv/bin/python -m ruff check telegrab/
 
       - name: Sync version from tag
         run: |

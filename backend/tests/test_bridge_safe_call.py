@@ -56,6 +56,10 @@ _runtime_spec.loader.exec_module(_runtime_mod)
 
 DEFAULT_BRIDGE_TIMEOUT = _runtime_mod.DEFAULT_BRIDGE_TIMEOUT
 
+# Clean up sys.modules to prevent test pollution
+for k in ["telegrab.api.errors", "telegrab.infra.logger", "telegrab.infra.runtime", "telegrab"]:
+    sys.modules.pop(k, None)
+
 
 # ── Build a minimal Bridge-like class with _safe_call for testing ──────────
 # We can't easily import the full Bridge class due to heavy dependencies,

@@ -26,6 +26,9 @@ ERROR_CODE_PATTERN = _mod.ERROR_CODE_PATTERN
 MAX_MESSAGE_LENGTH = _mod.MAX_MESSAGE_LENGTH
 MAX_DETAIL_LENGTH = _mod.MAX_DETAIL_LENGTH
 
+# Clean up sys.modules to prevent test pollution
+sys.modules.pop("telegrab.api.errors", None)
+
 
 class TestBridgeError:
     """Tests for BridgeError dataclass."""

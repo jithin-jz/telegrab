@@ -23,16 +23,38 @@ class _MockFloodWaitError(Exception):
 _mock_telethon.errors.FloodWaitError = _MockFloodWaitError
 _mock_telethon.FloodWaitError = _MockFloodWaitError
 
-if "telethon" not in sys.modules:
-    sys.modules["telethon"] = _mock_telethon
-    sys.modules["telethon.errors"] = _mock_telethon.errors
+# Temporarily mock telethon to import network module without polluting other tests during collection
+_orig_telethon = sys.modules.get("telethon")
+_orig_telethon_errors = sys.modules.get("telethon.errors")
 
-# Patch FloodWaitError in the errors module
+sys.modules["telethon"] = _mock_telethon
+sys.modules["telethon.errors"] = _mock_telethon.errors
 sys.modules["telethon.errors"].FloodWaitError = _MockFloodWaitError
 
 import pytest
 
 from telegrab.services.network import ExponentialBackoff, retry_with_backoff
+
+# Restore original sys.modules immediately after import
+if _orig_telethon is not None:
+    sys.modules["telethon"] = _orig_telethon
+else:
+    sys.modules.pop("telethon", None)
+
+if _orig_telethon_errors is not None:
+    sys.modules["telethon.errors"] = _orig_telethon_errors
+else:
+    sys.modules.pop("telethon.errors", None)
+
+
+@pytest.fixture(autouse=True)
+def mock_telethon_during_test():
+    """Autouse fixture to temporarily mock telethon in sys.modules during each test."""
+    with patch.dict(sys.modules, {
+        "telethon": _mock_telethon,
+        "telethon.errors": _mock_telethon.errors
+    }):
+        yield
 
 
 @pytest.fixture
@@ -267,3 +289,5 @@ class TestRetryWithBackoffOSError:
         result = await retry_with_backoff(operation, backoff=fast_backoff)
         assert result == "ok"
         assert call_count == 3
+
+
