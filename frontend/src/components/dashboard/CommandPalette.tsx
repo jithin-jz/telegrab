@@ -123,7 +123,7 @@ export function CommandPalette({
             />
             <kbd className="text-slate bg-surface-soft rounded px-1.5 py-0.5 text-[10px] font-medium">ESC</kbd>
           </div>
-          <div className="max-h-72 overflow-y-auto p-1">
+          <div className="custom-scrollbar smooth-scroll max-h-72 overflow-y-auto p-1">
             {filtered.length === 0 && (
               <div className="text-slate px-4 py-6 text-center text-sm">No results found</div>
             )}

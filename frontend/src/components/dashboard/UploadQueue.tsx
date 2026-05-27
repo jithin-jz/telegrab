@@ -52,7 +52,7 @@ export function UploadQueue({
           </button>
         </div>
       </div>
-      <div className="custom-scrollbar max-h-60 space-y-1.5 overflow-y-auto p-2">
+      <div className="custom-scrollbar smooth-scroll max-h-60 space-y-1.5 overflow-y-auto p-2">
         {items.map((item) => {
           const progress = item.status === 'uploading' ? getUploadProgress(item.id) : undefined;
           return (

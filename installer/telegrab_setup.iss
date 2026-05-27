@@ -7,7 +7,7 @@
 ;   iscc installer/telegrab_setup.iss
 
 #define MyAppName "Telegrab"
-#define MyAppVersion "1.0.6"
+#define MyAppVersion "1.0.7"
 #define MyAppPublisher "Telegrab"
 #define MyAppURL "https://github.com/jithin-jz/telegrab"
 #define MyAppExeName "telegrab.exe"
@@ -36,6 +36,8 @@ UninstallDisplayIcon={app}\{#MyAppExeName}
 VersionInfoVersion={#MyAppVersion}.0
 VersionInfoCompany={#MyAppPublisher}
 VersionInfoProductName={#MyAppName}
+CloseApplications=force
+RestartApplications=no
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"

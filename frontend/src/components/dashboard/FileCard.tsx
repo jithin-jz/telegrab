@@ -14,6 +14,7 @@ interface FileCardProps {
   onDownload: () => void;
   onPreview?: () => void;
   isSelected: boolean;
+  disabled?: boolean;
   onClick?: (e: React.MouseEvent) => void;
   onContextMenu?: (e: React.MouseEvent) => void;
   onDrop?: (e: React.DragEvent, folderId: number) => void;
@@ -30,7 +31,7 @@ function hasThumbnail(filename: string): boolean {
 }
 
 export const FileCard = memo(function FileCard({
-  file, onDelete, onDownload, onPreview, isSelected, onClick, onContextMenu,
+  file, onDelete, onDownload, onPreview, isSelected, disabled, onClick, onContextMenu,
   onDrop, onDragStart, onDragEnd, activeFolderId, height, onToggleSelection,
 }: FileCardProps) {
   const isFolder = file.type === 'folder';
@@ -41,9 +42,10 @@ export const FileCard = memo(function FileCard({
 
   const handleMouseEnter = () => {
     if (isFolder) {
-      queryClient.prefetchQuery({
+      queryClient.prefetchInfiniteQuery({
         queryKey: ['files', file.id],
-        queryFn: () => fetchFiles(file.id),
+        queryFn: ({ pageParam }) => fetchFiles(file.id, pageParam),
+        initialPageParam: undefined,
         staleTime: 120000,
       });
     }
@@ -62,6 +64,7 @@ export const FileCard = memo(function FileCard({
 
   return (
     <div className="relative gpu-accel-hover" onContextMenu={onContextMenu} onClick={onClick} onMouseEnter={handleMouseEnter}
+      aria-selected={isSelected}
       onDragOver={(e) => { if (isFolder) { e.preventDefault(); e.stopPropagation(); if (!isDragOver) setIsDragOver(true); } }}
       onDragLeave={(e) => { if (isFolder) { e.preventDefault(); e.stopPropagation(); setIsDragOver(false); } }}
       onDrop={(e) => { if (isFolder && onDrop) { e.preventDefault(); e.stopPropagation(); setIsDragOver(false); onDrop(e, file.id); } }}
@@ -111,17 +114,21 @@ export const FileCard = memo(function FileCard({
         <div className="absolute top-2 right-2 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
           {onPreview && (
             <button onClick={(e) => { e.stopPropagation(); onPreview(); }}
-              className="grid h-7 w-7 place-items-center rounded-md bg-black/60 text-white/80 backdrop-blur transition-colors duration-150 hover:text-white hover:bg-primary"
+              disabled={disabled}
+              className="grid h-7 w-7 place-items-center rounded-md bg-black/60 text-white/80 backdrop-blur transition-colors duration-150 hover:text-white hover:bg-primary disabled:opacity-40 disabled:pointer-events-none"
+              aria-label={isMediaFile(file.name) ? 'Play' : 'Preview'}
               title={isMediaFile(file.name) ? 'Play' : 'Preview'}>
               {isMediaFile(file.name) ? <Play className="h-3.5 w-3.5 translate-x-[1px]" fill="currentColor" /> : <Eye className="h-3.5 w-3.5" />}
             </button>
           )}
           <button onClick={(e) => { e.stopPropagation(); onDownload(); }}
-            className="grid h-7 w-7 place-items-center rounded-md bg-black/60 text-white/80 backdrop-blur transition-colors hover:bg-emerald-500 hover:text-white" title="Download">
+            disabled={disabled}
+            className="grid h-7 w-7 place-items-center rounded-md bg-black/60 text-white/80 backdrop-blur transition-colors hover:bg-emerald-500 hover:text-white disabled:opacity-40 disabled:pointer-events-none" aria-label="Download" title="Download">
             <Download className="h-3.5 w-3.5" />
           </button>
           <button onClick={(e) => { e.stopPropagation(); onDelete(); }}
-            className="grid h-7 w-7 place-items-center rounded-md bg-black/60 text-white/80 backdrop-blur transition-colors hover:bg-rose-500 hover:text-white" title="Delete">
+            disabled={disabled}
+            className="grid h-7 w-7 place-items-center rounded-md bg-black/60 text-white/80 backdrop-blur transition-colors hover:bg-rose-500 hover:text-white disabled:opacity-40 disabled:pointer-events-none" aria-label="Delete" title="Delete">
             <Trash2 className="h-3.5 w-3.5" />
           </button>
         </div>

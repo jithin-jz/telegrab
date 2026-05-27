@@ -4,17 +4,23 @@
 any other id, we first consult the `state.peer_cache` populated by the
 folder scan; on miss we walk the dialog list once and prime the cache (same
 trade-off the Rust version made).
+
+Cache entries are stored as `(entity, cached_at)` tuples and expire after
+`PEER_CACHE_TTL` seconds (default 5 minutes).
 """
 
 from __future__ import annotations
 
 import logging
+import time
 from typing import Any
 
 from telethon import TelegramClient
 from telethon.tl.types import InputPeerSelf
 
 log = logging.getLogger(__name__)
+
+PEER_CACHE_TTL = 300  # 5 minutes
 
 
 async def resolve_peer(state, client: TelegramClient, folder_id: int | None) -> Any:
@@ -24,15 +30,20 @@ async def resolve_peer(state, client: TelegramClient, folder_id: int | None) -> 
 
     cached = state.peer_cache.get(folder_id)
     if cached is not None:
-        return cached
+        entity, cached_at = cached
+        if time.time() - cached_at < PEER_CACHE_TTL:
+            return entity
+        # Expired — remove and continue to resolution
+        del state.peer_cache[folder_id]
 
     log.debug("Peer cache miss for folder_id=%s — scanning dialogs", folder_id)
+    now = time.time()
     found = None
     async for dialog in client.iter_dialogs():
         entity = dialog.entity
         eid = getattr(entity, "id", None)
         if eid is not None:
-            state.peer_cache[eid] = entity
+            state.peer_cache[eid] = (entity, now)
             if eid == folder_id:
                 found = entity
                 # keep iterating — warms the cache for future calls
@@ -41,7 +52,7 @@ async def resolve_peer(state, client: TelegramClient, folder_id: int | None) -> 
         # As a last resort, ask Telegram directly.
         try:
             found = await client.get_entity(folder_id)
-            state.peer_cache[folder_id] = found
+            state.peer_cache[folder_id] = (found, time.time())
         except Exception as exc:  # noqa: BLE001
             raise ValueError(f"Folder/Chat {folder_id} not found: {exc}") from exc
 

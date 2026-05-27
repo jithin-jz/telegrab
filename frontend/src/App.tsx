@@ -4,12 +4,18 @@ import { load } from './lib/platform/store';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Dashboard } from './components/Dashboard';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { OfflineBanner } from './components/OfflineBanner';
+import { SkipNav } from './components/ui/skip-nav';
+import { StatusAnnouncer } from './components/ui/status-announcer';
 import { motion, AnimatePresence } from 'framer-motion';
 import './styles/globals.css';
 
 import { Toaster } from 'sonner';
 import { ConfirmProvider } from './contexts/ConfirmContext';
 import { SettingsProvider, useSettings } from './contexts/SettingsContext';
+import { UpdateProvider } from './contexts/UpdateContext';
+import { useNetworkStatus } from './hooks/useNetworkStatus';
+import { TooltipProvider } from './components/ui/tooltip';
 
 const AuthWizard = lazy(() => import('./components/AuthWizard').then(m => ({ default: m.AuthWizard })));
 
@@ -34,6 +40,7 @@ const TelegramLogo = ({ className }: { className?: string }) => (
 function AppContent() {
   const [authStatus, setAuthStatus] = useState<AuthStatus>('loading');
   const { settings, isLoaded: settingsLoaded } = useSettings();
+  const isOnline = useNetworkStatus();
 
   // Minimise the window on launch if the user has Start Minimised enabled.
   // Runs once per app session, as soon as the persisted setting is loaded.
@@ -84,9 +91,13 @@ function AppContent() {
   }, []);
 
   return (
-    <main 
-      className="text-foreground selection:bg-primary/30 relative flex h-screen w-screen flex-col overflow-hidden bg-canvas"
-    >
+    <>
+      <SkipNav />
+      <StatusAnnouncer />
+      <main 
+        className="text-foreground selection:bg-primary/30 relative flex h-screen w-screen flex-col overflow-hidden bg-canvas"
+      >
+        <OfflineBanner isOffline={!isOnline} />
       <div className="flex-1 flex flex-col min-h-0">
         <Toaster
           theme="dark"
@@ -150,6 +161,7 @@ function AppContent() {
         </AnimatePresence>
       </div>
     </main>
+    </>
   );
 }
 
@@ -157,11 +169,15 @@ function App() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <ConfirmProvider>
-          <SettingsProvider>
-              <AppContent />
-          </SettingsProvider>
-        </ConfirmProvider>
+        <TooltipProvider delayDuration={200}>
+          <ConfirmProvider>
+            <SettingsProvider>
+              <UpdateProvider>
+                <AppContent />
+              </UpdateProvider>
+            </SettingsProvider>
+          </ConfirmProvider>
+        </TooltipProvider>
       </QueryClientProvider>
     </ErrorBoundary>
   );

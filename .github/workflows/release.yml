@@ -39,6 +39,18 @@ jobs:
           backend\.venv\Scripts\python.exe -m pip install ./backend
           backend\.venv\Scripts\python.exe -m pip install pyinstaller==6.11.1 pillow
 
+      - name: Run backend tests
+        shell: pwsh
+        run: |
+          backend\.venv\Scripts\python.exe -m pip install pytest
+          backend\.venv\Scripts\python.exe -m pytest backend/tests/ -v --tb=short
+
+      - name: Lint backend
+        shell: pwsh
+        run: |
+          backend\.venv\Scripts\python.exe -m pip install ruff
+          backend\.venv\Scripts\python.exe -m ruff check backend/telegrab/
+
       - name: Sync version from tag
         shell: pwsh
         run: |
@@ -50,6 +62,10 @@ jobs:
 
       - name: Install Node deps
         run: npm ci
+        working-directory: frontend
+
+      - name: Type-check frontend
+        run: npx tsc --noEmit
         working-directory: frontend
 
       - name: Build installer
@@ -101,6 +117,16 @@ jobs:
           backend/.venv/bin/python -m pip install ./backend
           backend/.venv/bin/python -m pip install pyinstaller==6.11.1 pillow
 
+      - name: Run backend tests
+        run: |
+          backend/.venv/bin/python -m pip install pytest
+          backend/.venv/bin/python -m pytest backend/tests/ -v --tb=short
+
+      - name: Lint backend
+        run: |
+          backend/.venv/bin/python -m pip install ruff
+          backend/.venv/bin/python -m ruff check backend/telegrab/
+
       - name: Sync version from tag
         run: |
           TAG="${{ github.ref_type == 'tag' && github.ref_name || github.event.inputs.version || '' }}"
@@ -111,6 +137,10 @@ jobs:
 
       - name: Install Node deps
         run: npm ci
+        working-directory: frontend
+
+      - name: Type-check frontend
+        run: npx tsc --noEmit
         working-directory: frontend
 
       - name: Build installer
@@ -162,6 +192,16 @@ jobs:
           backend/.venv/bin/python -m pip install ./backend
           backend/.venv/bin/python -m pip install pyinstaller==6.11.1 pillow
 
+      - name: Run backend tests
+        run: |
+          backend/.venv/bin/python -m pip install pytest
+          backend/.venv/bin/python -m pytest backend/tests/ -v --tb=short
+
+      - name: Lint backend
+        run: |
+          backend/.venv/bin/python -m pip install ruff
+          backend/.venv/bin/python -m ruff check backend/telegrab/
+
       - name: Sync version from tag
         run: |
           TAG="${{ github.ref_type == 'tag' && github.ref_name || github.event.inputs.version || '' }}"
@@ -172,6 +212,10 @@ jobs:
 
       - name: Install Node deps
         run: npm ci
+        working-directory: frontend
+
+      - name: Type-check frontend
+        run: npx tsc --noEmit
         working-directory: frontend
 
       - name: Build frontend
@@ -217,12 +261,45 @@ jobs:
         with:
           path: artifacts
 
+      - name: Verify version matches tag
+        run: |
+          VERSION=$(grep -m1 -oP '(?<=^version = ")[^"]+' backend/pyproject.toml)
+          TAG="${{ github.ref_type == 'tag' && github.ref_name || github.event.inputs.version || '' }}"
+          if [ -z "$TAG" ]; then
+            echo "No tag found, skipping version check"
+            exit 0
+          fi
+          EXPECTED="v${VERSION}"
+          if [ "$TAG" != "$EXPECTED" ]; then
+            echo "::error::Version mismatch: pyproject.toml has v${VERSION} but tag is ${TAG}"
+            exit 1
+          fi
+          echo "Version check passed: ${TAG} matches pyproject.toml"
+
       - name: Get version
         id: version
         run: |
           VERSION=$(grep -m1 -oP '(?<=^version = ")[^"]+' backend/pyproject.toml)
           echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
           echo "name=Telegrab v${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Compute checksums
+        id: checksums
+        run: |
+          cd artifacts
+          echo "## SHA-256 Checksums" > checksums.md
+          echo '```' >> checksums.md
+          find . -type f \( -name "*.exe" -o -name "*.zip" -o -name "*.tar.gz" \) | sort | while read f; do
+            sha256sum "$f" >> checksums.md
+          done
+          echo '```' >> checksums.md
+          cat checksums.md
+          # Store for release body
+          {
+            echo "CHECKSUMS<<EOF"
+            cat checksums.md
+            echo "EOF"
+          } >> "$GITHUB_ENV"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -231,6 +308,8 @@ jobs:
           name: "${{ github.ref_type == 'tag' && github.ref_name || steps.version.outputs.name }}"
           draft: false
           generate_release_notes: true
+          body: "${{ env.CHECKSUMS }}"
+          append_body: true
           files: |
             artifacts/telegrab-windows/telegrab-windows-setup.exe
             artifacts/telegrab-windows/telegrab-windows-portable.exe

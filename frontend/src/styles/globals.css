@@ -128,7 +128,7 @@
 }
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
   scroll-behavior: smooth;
 }
 
@@ -268,15 +268,57 @@
 
 /* Scrollbar for light mode */
 [data-theme="light"] .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.15);
+  background: rgba(0, 0, 0, 0.0);
+  transition: background 300ms var(--ease-standard);
+}
+[data-theme="light"] .custom-scrollbar:hover::-webkit-scrollbar-thumb,
+[data-theme="light"] .custom-scrollbar:focus-within::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.1);
 }
 [data-theme="light"] .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.25);
+  background: rgba(0, 0, 0, 0.2) !important;
 }
 
 /* Command palette and modals overlay */
 [data-theme="light"] .backdrop-blur-sm {
   backdrop-filter: blur(4px);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Theme transition — smooth color changes on toggle (no layout shift)
+   ═══════════════════════════════════════════════════════════════════════════ */
+html[data-theme],
+html:root {
+  transition: background-color 200ms ease, color 200ms ease;
+}
+
+body,
+.bg-canvas,
+.bg-surface,
+.bg-card {
+  transition: background-color 200ms ease, color 200ms ease;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Disabled state — accent-colored elements rendered at reduced opacity
+   ═══════════════════════════════════════════════════════════════════════════ */
+button:disabled,
+[role="button"][aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Accent hover/active — auto-derives from --color-primary via brightness
+   ═══════════════════════════════════════════════════════════════════════════ */
+.btn-primary:hover,
+[data-accent-btn]:hover {
+  filter: brightness(0.9);
+}
+.btn-primary:active,
+[data-accent-btn]:active {
+  filter: brightness(0.8);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -539,6 +581,8 @@ body::before {
 .btn-primary:disabled {
   background: var(--color-muted);
   color: var(--color-stone);
+  opacity: 0.45;
+  filter: none;
 }
 
 .btn-dark {
@@ -565,24 +609,69 @@ body::before {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   Custom scrollbars — barely visible, Linear-style
+   Smooth scroll — TARGETED only (never on virtualizer containers)
+
+   IMPORTANT: Do NOT apply scroll-behavior: smooth on the FileExplorer's
+   parentRef div or any container managed by @tanstack/react-virtual.
+   The virtualizer reads scrollTop synchronously; smooth-scroll makes
+   programmatic scrolls asynchronous and breaks index calculations.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Native anchor-link / hash scroll — html only, safe everywhere */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Utility class — apply only to non-virtualizer scrollable surfaces
+   (sidebar, settings, modals, download/upload queues, command palette). */
+.smooth-scroll {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Custom scrollbars — barely visible, Linear-style, fade on hover
    ═══════════════════════════════════════════════════════════════════════════ */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.07);
   border-radius: 99px;
-  border: 2px solid transparent;
+  border: 1px solid transparent;
   background-clip: content-box;
+  transition: background 200ms var(--ease-standard);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.18);
   background-clip: content-box;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Fade the scrollbar in when the container is being scrolled or hovered.
+   Applied via the .custom-scrollbar class on scrollable containers. */
+.custom-scrollbar {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.0);
+  transition: background 300ms var(--ease-standard);
+}
+.custom-scrollbar:hover::-webkit-scrollbar-thumb,
+.custom-scrollbar:focus-within::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.09);
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -816,6 +905,74 @@ textarea:focus {
 ::selection {
   background: rgba(124, 92, 255, 0.32);
   color: var(--color-ink);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Accessibility — Skip navigation & focus indicators
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Skip-navigation link: visually hidden, revealed on focus */
+.skip-nav {
+  position: absolute;
+  top: -100%;
+  left: 16px;
+  z-index: 9999;
+  padding: 8px 16px;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 0 0 8px 8px;
+  text-decoration: none;
+  opacity: 0;
+  pointer-events: none;
+  transition: top 150ms ease, opacity 150ms ease;
+}
+.skip-nav:focus {
+  top: 0;
+  opacity: 1;
+  pointer-events: auto;
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
+}
+
+/* Global focus indicator for all interactive elements.
+   Uses 2px outline with the ring color (--color-ring: #7c5cff) which
+   provides ≥3:1 contrast against both dark (#0a0a0c) and light (#f8f9fa) backgrounds.
+   Only applies on keyboard focus (:focus-visible) to avoid mouse-click outlines. */
+:focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
+}
+
+/* Remove the default browser focus styles in favor of our accessible ring */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Ensure buttons, links, inputs and other interactive elements get the ring */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible,
+[role="button"]:focus-visible,
+[role="menuitem"]:focus-visible,
+[role="tab"]:focus-visible,
+[role="link"]:focus-visible,
+[role="gridcell"]:focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
+}
+
+/* Override the existing input focus style to use the standard ring instead of box-shadow only */
+input:focus-visible,
+textarea:focus-visible {
+  border-color: var(--color-primary);
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
+  box-shadow: none;
 }
 
 /* GPU Acceleration Hints */

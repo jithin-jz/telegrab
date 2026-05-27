@@ -133,8 +133,28 @@ async def _ensure_client_inner(api_id: int, api_hash: str | None = None) -> Tele
     return client
 
 
+def _check_cryptg() -> None:
+    """Verify that the cryptg C-extension is active.
+
+    cryptg provides native AES-IGE encryption, which is 5-10x faster than
+    Telethon's pure-Python fallback. If it is missing at runtime (e.g. due
+    to a missing Visual C++ Redistributable on Windows), all MTProto crypto
+    will be slow — this warning makes the problem immediately visible in logs.
+    """
+    try:
+        import cryptg  # noqa: F401
+        log.info("cryptg native crypto acceleration is active")
+    except ImportError:
+        log.warning(
+            "cryptg is not available — falling back to slow pure-Python AES. "
+            "Install the Visual C++ Redistributable (Windows) or rebuild cryptg "
+            "to restore full transfer speed."
+        )
+
+
 def _build_client(session_str: str, api_id: int, api_hash: str) -> TelegramClient:
     from .. import __version__
+    _check_cryptg()
     return TelegramClient(
         session_str,
         api_id,
@@ -144,6 +164,15 @@ def _build_client(session_str: str, api_id: int, api_hash: str) -> TelegramClien
         app_version=__version__,
         lang_code="en",
         system_lang_code="en",
+        # ── Performance tuning ─────────────────────────────────────────
+        # Retry transient connection failures up to 5 times before giving up.
+        connection_retries=5,
+        # Wait 1 second between connection retries (avoids thundering-herd).
+        retry_delay=1,
+        # Auto-sleep on FloodWaitError up to 60 s; longer waits raise instead.
+        flood_sleep_threshold=60,
+        # Retry individual RPC requests up to 5 times on network errors.
+        request_retries=5,
     )
 
 

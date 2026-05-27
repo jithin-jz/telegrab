@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 import { cn } from '../../lib/utils';
 import type { ViewMode } from '../../contexts/SettingsContext';
 
@@ -52,9 +53,10 @@ export function TopBar({
 
   // Predictive pre-fetching when hovering over home/root breadcrumb
   const handleHomeMouseEnter = () => {
-    queryClient.prefetchQuery({
+    queryClient.prefetchInfiniteQuery({
       queryKey: ['files', null],
-      queryFn: () => fetchFiles(null),
+      queryFn: ({ pageParam }) => fetchFiles(null, pageParam),
+      initialPageParam: undefined,
       staleTime: 120000,
     });
   };
@@ -176,17 +178,20 @@ function IconButton({
   onClick?: () => void;
 }) {
   return (
-    <button
-      onClick={onClick}
-      aria-label={title}
-      className="text-slate hover:text-foreground group relative grid h-8 w-8 place-items-center rounded-md transition-colors hover:bg-surface-soft"
-      title=""
-    >
-      {children}
-      <span className="bg-surface border-hairline text-foreground pointer-events-none absolute top-full left-1/2 z-50 mt-2 -translate-x-1/2 rounded-full border px-3 py-1 text-[11px] font-medium whitespace-nowrap opacity-0 shadow-xl transition-opacity group-hover:opacity-100">
-        {title}
-      </span>
-    </button>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          onClick={onClick}
+          aria-label={title}
+          className="text-slate hover:text-foreground grid h-8 w-8 place-items-center rounded-md transition-colors hover:bg-surface-soft"
+        >
+          {children}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent>
+        <p>{title}</p>
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -212,16 +217,23 @@ function ViewModeDropdown({ viewMode, setViewMode }: { viewMode: ViewMode; setVi
     setViewMode(next);
   };
 
+  const ariaLabel = viewMode === 'list' ? 'List view' : 'Grid view';
+
   return (
-    <button
-      onClick={handleClick}
-      className="text-slate hover:text-foreground group relative grid h-8 w-8 place-items-center rounded-md transition-colors hover:bg-surface-soft"
-    >
-      {VIEW_ICONS[viewMode]}
-      <span className="bg-surface border-hairline text-foreground pointer-events-none absolute top-full left-1/2 z-50 mt-2 -translate-x-1/2 rounded-full border px-3 py-1 text-[11px] font-medium whitespace-nowrap opacity-0 shadow-xl transition-opacity group-hover:opacity-100">
-        {VIEW_LABELS[viewMode]}
-      </span>
-    </button>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          onClick={handleClick}
+          aria-label={ariaLabel}
+          className="text-slate hover:text-foreground grid h-8 w-8 place-items-center rounded-md transition-colors hover:bg-surface-soft"
+        >
+          {VIEW_ICONS[viewMode]}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent>
+        <p>{VIEW_LABELS[viewMode]}</p>
+      </TooltipContent>
+    </Tooltip>
   );
 }
 

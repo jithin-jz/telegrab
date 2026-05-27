@@ -27,6 +27,9 @@ _MAX_BASE64_SIZE = 2 * 1024 * 1024  # 2MB
 # Inflight dedup: (folder_id, message_id) -> Future
 _inflight: dict[tuple[int | None, int], asyncio.Future[str]] = {}
 
+# Limit concurrent Telegram download operations for thumbnails/previews
+_thumbnail_semaphore = asyncio.Semaphore(4)
+
 _IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "gif", "webp", "bmp", "svg"}
 _MIME_TO_EXT = {
     "image/jpeg": "jpg",
@@ -148,7 +151,8 @@ async def _do_get_preview(message_id: int, folder_id: int | None) -> str:
             log.warning("Bandwidth limit hit for preview: %s", err)
             raise RuntimeError("Bandwidth limit reached")
         try:
-            result = await client.download_media(msg, file=str(save_path))
+            async with _thumbnail_semaphore:
+                result = await client.download_media(msg, file=str(save_path))
             if result is None:
                 raise RuntimeError("Download returned None")
         except Exception as exc:  # noqa: BLE001
@@ -230,7 +234,8 @@ async def cmd_get_thumbnail(message_id: int, folder_id: int | None) -> str:
 
     save_path = cache_dir / f"{message_id}.{ext}"
     try:
-        await client.download_media(msg, file=str(save_path), thumb=-1)
+        async with _thumbnail_semaphore:
+            await client.download_media(msg, file=str(save_path), thumb=-1)
     except Exception as exc:  # noqa: BLE001
         log.warning("Thumbnail download failed: %s", exc)
         return ""

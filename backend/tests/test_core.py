@@ -279,7 +279,10 @@ class TestUpdaterDiskSpace:
 
         with patch("shutil.disk_usage", return_value=fake_usage):
             with pytest.raises(RuntimeError, match="Insufficient disk space"):
-                cmd_download_and_install_update("https://example.com/update.exe")
+                cmd_download_and_install_update(
+                    "https://github.com/test/repo/releases/download/v1.0/update.exe",
+                    expected_sha256="abc123",
+                )
 
 
 # ─────────────────────── Dedup Hash Tests ───────────────────────

@@ -238,7 +238,7 @@ export function PdfViewer({
       {/* Scrollable Document Container */}
       <div
         ref={containerRef}
-        className="custom-scrollbar relative flex w-full flex-1 flex-col items-center overflow-auto pt-20 pb-8"
+        className="custom-scrollbar smooth-scroll relative flex w-full flex-1 flex-col items-center overflow-auto pt-20 pb-8"
         onClick={(e) => e.stopPropagation()}
       >
         {loading && (

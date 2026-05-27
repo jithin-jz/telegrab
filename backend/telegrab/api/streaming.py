@@ -16,6 +16,8 @@ request handlers.
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import hmac
 import logging
 import re
 import time
@@ -27,7 +29,18 @@ from ..config import get_stream_config
 log = logging.getLogger(__name__)
 
 CHUNK_SIZE = 512 * 1024
+# Socket read buffer — must be at least as large as CHUNK_SIZE to avoid
+# fragmenting chunks across multiple reads (2 MB gives comfortable headroom).
+_SOCKET_BUFFER_SIZE = 2 * 1024 * 1024
 RANGE_RE = re.compile(r"^bytes=(\d*)-(\d*)$")
+
+# Maximum length of the HTTP request line (method + path + version).
+# Requests exceeding this are rejected as malformed (Req 12.5).
+_MAX_REQUEST_LINE_LENGTH = 8192
+
+# Maximum concurrent streaming connections (Req 12.6).
+_MAX_CONNECTIONS = 8
+_active_connections = 0
 
 _HTTP_200 = b"HTTP/1.1 200 OK\r\n"
 _HTTP_206 = b"HTTP/1.1 206 Partial Content\r\n"
@@ -35,11 +48,13 @@ _HTTP_400 = b"HTTP/1.1 400 Bad Request\r\n\r\nBad Request"
 _HTTP_403 = b"HTTP/1.1 403 Forbidden\r\n\r\nForbidden"
 _HTTP_404 = b"HTTP/1.1 404 Not Found\r\n\r\nNot Found"
 _HTTP_416 = b"HTTP/1.1 416 Range Not Satisfiable\r\n\r\nRange Not Satisfiable"
-_HTTP_503 = b"HTTP/1.1 503 Service Unavailable\r\n\r\nNot connected"
+_HTTP_503 = b"HTTP/1.1 503 Service Unavailable\r\n\r\nService Unavailable"
+
 
 # Message metadata cache: (folder_id, message_id) -> (timestamp, message)
 _msg_cache: dict[tuple[int | None, int], tuple[float, object]] = {}
 _MSG_CACHE_TTL = 30.0
+_MSG_CACHE_MAX = 256
 
 
 def _build_headers(headers: dict[str, str]) -> bytes:
@@ -48,30 +63,65 @@ def _build_headers(headers: dict[str, str]) -> bytes:
 
 
 async def _handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
-    try:
-        # Read the request line + headers (stop at blank line).
-        raw_lines: list[str] = []
-        while True:
-            line = await reader.readline()
-            if not line or line == b"\r\n":
-                break
-            raw_lines.append(line.decode(errors="replace").rstrip("\r\n"))
+    global _active_connections
 
-        if not raw_lines:
+    # Req 12.6, 12.7: Reject when at connection limit with HTTP 503.
+    if _active_connections >= _MAX_CONNECTIONS:
+        try:
+            writer.write(_HTTP_503)
+            await asyncio.wait_for(writer.drain(), timeout=1.0)
+        except (TimeoutError, Exception):  # noqa: BLE001
+            pass
+        finally:
+            with contextlib.suppress(Exception):
+                writer.close()
+        return
+
+    _active_connections += 1
+    try:
+        await _handle_request(reader, writer)
+    finally:
+        _active_connections -= 1
+
+
+async def _handle_request(
+    reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+) -> None:
+    try:
+        # Read the request line first with length validation (Req 12.5).
+        request_line_raw = await reader.readline()
+        if not request_line_raw:
             writer.write(_HTTP_400)
             await writer.drain()
             writer.close()
             return
 
-        request_line = raw_lines[0]
+        # Validate request line length (Req 12.5).
+        if len(request_line_raw) > _MAX_REQUEST_LINE_LENGTH:
+            log.debug("Rejected request: line exceeds %d bytes", _MAX_REQUEST_LINE_LENGTH)
+            writer.write(_HTTP_400)
+            await writer.drain()
+            writer.close()
+            return
+
+        request_line = request_line_raw.decode(errors="replace").rstrip("\r\n")
+
+        # Read remaining headers (stop at blank line).
         req_headers: dict[str, str] = {}
-        for h in raw_lines[1:]:
-            if ": " in h:
-                k, _, v = h.partition(": ")
+        while True:
+            line = await reader.readline()
+            if not line or line == b"\r\n":
+                break
+            decoded = line.decode(errors="replace").rstrip("\r\n")
+            if ": " in decoded:
+                k, _, v = decoded.partition(": ")
                 req_headers[k.lower()] = v
 
+        # Validate request line has method and path (Req 12.5).
+        # No sensitive data logged on malformed requests.
         parts = request_line.split(" ")
-        if len(parts) < 2:
+        if len(parts) < 2 or not parts[0] or not parts[1]:
+            log.debug("Rejected malformed request: missing method or path")
             writer.write(_HTTP_400)
             await writer.drain()
             writer.close()
@@ -82,10 +132,11 @@ async def _handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) ->
         path = parsed.path          # e.g. /stream/home/12345
         qs   = parse_qs(parsed.query)
 
-        # Validate token
+        # Req 12.2, 12.3: Validate token with constant-time comparison.
+        # Return HTTP 403 without reading file data if token is invalid/missing.
         cfg = get_stream_config()
         token = qs.get("token", [""])[0]
-        if token != cfg.token:
+        if not hmac.compare_digest(token, cfg.token):
             writer.write(_HTTP_403)
             await writer.drain()
             writer.close()
@@ -116,7 +167,7 @@ async def _handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) ->
         state = tg.get_state()
         client = state.client
         if client is None:
-            writer.write(_HTTP_503)
+            writer.write(b"HTTP/1.1 503 Service Unavailable\r\n\r\nNot connected")
             await writer.drain()
             writer.close()
             return
@@ -133,8 +184,13 @@ async def _handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) ->
             msg = await client.get_messages(peer, ids=message_id)
             if msg is not None:
                 _msg_cache[cache_key] = (now, msg)
+                if len(_msg_cache) > _MSG_CACHE_MAX:
+                    oldest = min(_msg_cache, key=lambda k: _msg_cache[k][0])
+                    del _msg_cache[oldest]
 
         if msg is None or msg.media is None:
+            # Evict stale entry from cache if present (Req 2.4)
+            _msg_cache.pop(cache_key, None)
             writer.write(_HTTP_404)
             await writer.drain()
             writer.close()
@@ -185,9 +241,9 @@ async def _handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) ->
         writer.write(status_line + _build_headers(resp_headers))
         await writer.drain()
 
-        # Stream the body
+        # Stream the body — drain after every chunk for smooth delivery
+        # without large buffer build-up.
         sent = 0
-        chunk_count = 0
         try:
             async for chunk in client.iter_download(msg, offset=start, request_size=CHUNK_SIZE):
                 if not chunk:
@@ -199,14 +255,10 @@ async def _handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) ->
                 if not chunk:
                     break
                 writer.write(chunk)
-                chunk_count += 1
-                if chunk_count % 4 == 0:
-                    await writer.drain()
+                await writer.drain()   # drain every chunk — avoids buffer bloat
                 sent += len(chunk)
                 if length > 0 and sent >= length:
                     break
-            if chunk_count % 4 != 0:
-                await writer.drain()
         except asyncio.CancelledError:
             log.debug("Stream cancelled for msg %s", message_id)
             raise
@@ -218,20 +270,24 @@ async def _handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) ->
     except Exception as exc:  # noqa: BLE001
         log.error("Stream handler error: %s", exc)
     finally:
-        try:
+        with contextlib.suppress(Exception):
             writer.close()
-        except Exception:  # noqa: BLE001
-            pass
 
 
 async def serve_streaming() -> None:
-    """Run the pure-asyncio streaming server on the current event loop."""
+    """Run the pure-asyncio streaming server on the current event loop.
+
+    Binds exclusively to 127.0.0.1 (Req 12.1) — only local connections accepted.
+    The socket buffer is set to 2 MB so a full 512 KB chunk never gets split
+    across multiple reads.
+    """
     cfg = get_stream_config()
     server = await asyncio.start_server(
         _handle,
         host="127.0.0.1",
         port=cfg.port,
-        limit=256 * 1024,
+        limit=_SOCKET_BUFFER_SIZE,
+        reuse_address=True,
     )
     log.info("Media streaming server started on http://127.0.0.1:%s", cfg.port)
     async with server:

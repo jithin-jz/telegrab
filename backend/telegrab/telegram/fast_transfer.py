@@ -13,6 +13,7 @@ from typing import (
     BinaryIO,
 )
 
+import aiofiles
 from telethon import TelegramClient, helpers, utils
 from telethon.crypto import AuthKey
 from telethon.network import MTProtoSender
@@ -105,7 +106,7 @@ class UploadSender:
 
     async def _next(self, data: bytes) -> None:
         self.request.bytes = data
-        log.debug("Sending file part %d/%d with %d bytes", 
+        log.debug("Sending file part %d/%d with %d bytes",
                   self.request.file_part, self.part_count, len(data))
         await self.client._call(self.sender, self.request)
         self.request.file_part += self.stride
@@ -139,11 +140,20 @@ class ParallelTransferrer:
         self.senders = None
 
     @staticmethod
-    def _get_connection_count(file_size: int, max_count: int = 12,
-                              full_size: int = 20 * 1024 * 1024) -> int:
-        if file_size > 10 * 1024 * 1024:
-            return 12
-        return 4
+    def _get_connection_count(file_size: int, max_count: int = 20) -> int:
+        """Return an adaptive connection count based on file size.
+
+        Telegram supports up to 20 parallel connections per DC.
+        Larger files benefit from more connections due to higher
+        per-connection overhead amortisation.
+        """
+        if file_size > 100 * 1024 * 1024:   # > 100 MB → 20 connections
+            return 20
+        if file_size > 10 * 1024 * 1024:    # > 10 MB  → 16 connections
+            return 16
+        if file_size > 1 * 1024 * 1024:     # > 1 MB   → 8 connections
+            return 8
+        return 4                             # small files — 4 is sufficient
 
     async def _init_download(self, connections: int, file: TypeLocation, part_count: int,
                              part_size: int) -> None:
@@ -204,7 +214,12 @@ class ParallelTransferrer:
     async def init_upload(self, file_id: int, file_size: int, part_size_kb: float | None = None,
                           connection_count: int | None = None) -> tuple[int, int, bool]:
         connection_count = connection_count or self._get_connection_count(file_size)
-        part_size_kb = part_size_kb or (512.0 if file_size > 10 * 1024 * 1024 else utils.get_appropriated_part_size(file_size))
+        # Use 512 KB parts for anything over 1 MB to minimise round-trips;
+        # fall back to Telethon's recommendation for tiny files.
+        part_size_kb = part_size_kb or (
+            512.0 if file_size > 1 * 1024 * 1024
+            else utils.get_appropriated_part_size(file_size)
+        )
         part_size = int(part_size_kb * 1024)
         part_count = (file_size + part_size - 1) // part_size
         is_large = file_size > 10 * 1024 * 1024
@@ -222,77 +237,99 @@ class ParallelTransferrer:
                        part_size_kb: float | None = None,
                        connection_count: int | None = None) -> AsyncGenerator[bytes, None]:
         connection_count = connection_count or self._get_connection_count(file_size)
-        part_size_kb = part_size_kb or (512.0 if file_size > 10 * 1024 * 1024 else utils.get_appropriated_part_size(file_size))
+        # Use 512 KB parts for anything over 1 MB to minimise round-trips.
+        part_size_kb = part_size_kb or (
+            512.0 if file_size > 1 * 1024 * 1024
+            else utils.get_appropriated_part_size(file_size)
+        )
         part_size = int(part_size_kb * 1024)
         part_count = math.ceil(file_size / part_size)
-        log.debug("Starting parallel download: %d %d %d %s", 
-                  connection_count, part_size, part_count, str(file))
+        log.debug("Starting parallel download: %d connections, %d KB parts, %d parts, file=%s",
+                  connection_count, int(part_size_kb), part_count, str(file))
         await self._init_download(connection_count, file, part_count, part_size)
 
         part = 0
         while part < part_count:
-            tasks = []
-            for sender in self.senders:
-                tasks.append(self.loop.create_task(sender.next()))
-            for task in tasks:
-                data = await task
+            # Launch all sender tasks concurrently, then collect with gather
+            # so we never block on one while others are already done.
+            tasks = [self.loop.create_task(sender.next()) for sender in self.senders]
+            results = await asyncio.gather(*tasks)
+            for data in results:
                 if not data:
-                    break
+                    log.debug("Parallel download finished, cleaning up connections")
+                    await self._cleanup()
+                    return
                 yield data
                 part += 1
-                log.debug("Part %d downloaded", part)
+                log.debug("Part %d/%d downloaded", part, part_count)
+                if part >= part_count:
+                    break
 
         log.debug("Parallel download finished, cleaning up connections")
         await self._cleanup()
 
 
-def stream_file(file_to_stream: BinaryIO, chunk_size=1024):
-    while True:
-        data_read = file_to_stream.read(chunk_size)
-        if not data_read:
-            break
-        yield data_read
-
-
 async def _internal_transfer_to_telegram(client: TelegramClient,
-                                         response: BinaryIO,
+                                         file_path: str,
                                          filename: str | None = None,
                                          progress_callback: callable = None
                                          ) -> tuple[TypeInputFile, int]:
+    """Upload a file to Telegram using async I/O throughout.
+
+    Uses aiofiles for non-blocking disk reads so the event loop is never
+    stalled during large file uploads.
+    """
     file_id = helpers.generate_random_long()
-    file_size = Path(response.name).stat().st_size
+    file_size = Path(file_path).stat().st_size
 
     if not filename:
         try:
-            filename = Path(response.name).name
+            filename = Path(file_path).name
         except Exception:
             filename = "upload"
 
     hash_md5 = hashlib.md5()
     uploader = ParallelTransferrer(client)
     part_size, part_count, is_large = await uploader.init_upload(file_id, file_size)
+
     buffer = bytearray()
-    for data in stream_file(response, chunk_size=part_size):
-        if progress_callback:
-            r = progress_callback(response.tell(), file_size)
-            if inspect.isawaitable(r):
-                await r
-        if not is_large:
-            hash_md5.update(data)
-        if len(buffer) == 0 and len(data) == part_size:
-            await uploader.upload(data)
-            continue
-        new_len = len(buffer) + len(data)
-        if new_len >= part_size:
-            cutoff = part_size - len(buffer)
-            buffer.extend(data[:cutoff])
-            await uploader.upload(bytes(buffer))
-            buffer.clear()
-            buffer.extend(data[cutoff:])
-        else:
-            buffer.extend(data)
+    bytes_uploaded = 0
+
+    async with aiofiles.open(file_path, "rb") as f:
+        while True:
+            # Non-blocking read — does not stall the event loop
+            data = await f.read(part_size)
+            if not data:
+                break
+
+            if progress_callback:
+                r = progress_callback(bytes_uploaded, file_size)
+                if inspect.isawaitable(r):
+                    await r
+
+            if not is_large:
+                hash_md5.update(data)
+
+            if len(buffer) == 0 and len(data) == part_size:
+                await uploader.upload(data)
+                bytes_uploaded += len(data)
+                continue
+
+            new_len = len(buffer) + len(data)
+            if new_len >= part_size:
+                cutoff = part_size - len(buffer)
+                buffer.extend(data[:cutoff])
+                await uploader.upload(bytes(buffer))
+                bytes_uploaded += part_size
+                buffer.clear()
+                buffer.extend(data[cutoff:])
+            else:
+                buffer.extend(data)
+
     if len(buffer) > 0:
         await uploader.upload(bytes(buffer))
+        bytes_uploaded += len(buffer)
+
     await uploader.finish_upload()
     if is_large:
         return InputFileBig(file_id, part_count, filename), file_size
@@ -304,16 +341,25 @@ async def download_file(client: TelegramClient,
                         out: BinaryIO,
                         progress_callback: callable = None
                         ) -> BinaryIO:
+    """Download a file from Telegram using async I/O throughout.
+
+    Uses aiofiles for non-blocking disk writes so the event loop is never
+    stalled while flushing chunks to disk.
+    """
     size = location.size
     dc_id, location = utils.get_input_location(location)
     downloader = ParallelTransferrer(client, dc_id)
     downloaded = downloader.download(location, size)
-    async for x in downloaded:
-        out.write(x)
-        if progress_callback:
-            r = progress_callback(out.tell(), size)
-            if inspect.isawaitable(r):
-                await r
+
+    async with aiofiles.open(out.name, "wb") as af:
+        bytes_received = 0
+        async for x in downloaded:
+            await af.write(x)
+            bytes_received += len(x)
+            if progress_callback:
+                r = progress_callback(bytes_received, size)
+                if inspect.isawaitable(r):
+                    await r
 
     return out
 
@@ -323,4 +369,11 @@ async def upload_file(client: TelegramClient,
                       filename: str | None = None,
                       progress_callback: callable = None,
                       ) -> TypeInputFile:
-    return (await _internal_transfer_to_telegram(client, file, filename, progress_callback))[0]
+    """Upload a file object to Telegram.
+
+    Delegates to _internal_transfer_to_telegram using the file's path so
+    that aiofiles can re-open it with async I/O.
+    """
+    return (await _internal_transfer_to_telegram(
+        client, file.name, filename, progress_callback
+    ))[0]

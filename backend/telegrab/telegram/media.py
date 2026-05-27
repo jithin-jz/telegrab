@@ -1,8 +1,12 @@
 """Helpers for converting Telethon messages/media into the metadata dicts
-the React frontend expects (see `app/src/types.ts`)."""
+the React frontend expects (see `app/src/types.ts`).
+
+Also exposes a shared download semaphore for limiting concurrent Telegram
+download operations (thumbnails, previews, etc.)."""
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +18,14 @@ from telethon.tl.types import (
     MessageMediaPhoto,
     Photo,
 )
+
+# Limit concurrent Telegram download operations to 4
+_thumbnail_semaphore = asyncio.Semaphore(4)
+
+
+def get_download_semaphore() -> asyncio.Semaphore:
+    """Return the shared semaphore for limiting concurrent Telegram downloads."""
+    return _thumbnail_semaphore
 
 
 def file_metadata_from_message(

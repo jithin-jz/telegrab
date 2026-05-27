@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, File, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, File, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { invoke, convertFileSrc } from '../../lib/platform/core';
 import { TelegramFile } from '../../types';
-import { isImageFile } from '../../lib/utils';
+import { isImageFile, formatBytes } from '../../lib/utils';
 
 const PREVIEW_CACHE_TTL_MS = 5 * 60 * 1000;
 const PREVIEW_CACHE_MAX_ITEMS = 8;
@@ -57,6 +57,7 @@ interface PreviewModalProps {
   onClose: () => void;
   onNext?: () => void;
   onPrev?: () => void;
+  onDownload?: (file: TelegramFile) => void;
   currentIndex?: number;
   totalItems?: number;
   nextFile?: TelegramFile | null;
@@ -69,6 +70,7 @@ export function PreviewModal({
   onClose,
   onNext,
   onPrev,
+  onDownload,
   currentIndex,
   totalItems,
   nextFile,
@@ -237,9 +239,20 @@ export function PreviewModal({
         )}
 
         {error && (
-          <div className="rounded-lg border border-red-500/20 bg-white/10 p-4 text-red-400">
-            <p className="font-bold">Preview Error</p>
-            <p className="text-sm">{error}</p>
+          <div className="flex flex-col items-center rounded-xl border border-white/10 bg-[#1c1c1c] p-8 text-center shadow-2xl">
+            <File className="mb-4 h-14 w-14 text-gray-400" />
+            <h3 className="mb-1 text-lg font-medium text-white">{file.name}</h3>
+            <p className="mb-3 text-sm text-gray-500">{formatBytes(file.size)}</p>
+            <p className="mb-6 max-w-xs text-xs text-red-400/80">{error}</p>
+            {onDownload && (
+              <button
+                onClick={() => onDownload(file)}
+                className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-500"
+              >
+                <Download className="h-4 w-4" />
+                Download File
+              </button>
+            )}
           </div>
         )}
 
@@ -267,6 +280,7 @@ export function PreviewModal({
               <div className="rounded-xl border border-white/10 bg-[#1c1c1c] p-8 text-center shadow-2xl">
                 <File className="text-primary mx-auto mb-4 h-16 w-16" />
                 <h3 className="mb-2 text-xl font-medium text-white">{file.name}</h3>
+                <p className="mb-2 text-sm text-gray-500">{formatBytes(file.size)}</p>
                 <p className="mb-6 text-gray-400">Preview not supported in app.</p>
                 <p className="text-xs text-gray-500">File type: {file.name.split('.').pop()}</p>
               </div>

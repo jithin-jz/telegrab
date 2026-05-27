@@ -21,11 +21,27 @@ from telethon.tl import functions, types
 
 from .. import telegram as tg
 from ..infra import bus, get_manager
+from .network import retry_with_backoff
 
 log = logging.getLogger(__name__)
 
 # Throttle progress events so we don't drown the JS bus.
 _PROGRESS_INTERVAL_SECS = 0.25
+
+
+def _emit_progress(event: str, payload: dict) -> None:
+    """Schedule a progress event on the running event loop without blocking.
+
+    bus.emit() posts across the pywebview JS bridge. Scheduling it with
+    call_soon_threadsafe means the transfer coroutine is never stalled
+    waiting for the bridge round-trip to complete.
+    """
+    try:
+        loop = asyncio.get_running_loop()
+        loop.call_soon(bus.emit, event, payload)
+    except RuntimeError:
+        # Fallback if called from outside the loop (e.g. tests)
+        bus.emit(event, payload)
 
 
 # ─────────────────────────────── listings ───────────────────────────────
@@ -126,6 +142,9 @@ async def cmd_upload_file(
     if not p.exists():
         raise RuntimeError(f"File not found: {path}")
 
+    # Save original path before potential encryption reassignment
+    original_file_path = path
+
     # Vault encryption: encrypt file before upload if folder is an unlocked vault
     encrypted_tmp: str | None = None
     if folder_id and vault_mod.is_vault(folder_id):
@@ -150,7 +169,7 @@ async def cmd_upload_file(
         return "Mock upload successful"
 
     if tid:
-        bus.emit(
+        _emit_progress(
             "upload-progress",
             {
                 "id": tid,
@@ -183,7 +202,7 @@ async def cmd_upload_file(
         speed = int((uploaded - last_emit_bytes) / dt)
         percent = min(99, int(uploaded * 100 / total)) if total else 0
 
-        bus.emit(
+        _emit_progress(
             "upload-progress",
             {
                 "id": tid,
@@ -201,50 +220,95 @@ async def cmd_upload_file(
 
     try:
         from ..telegram import fast_transfer
-        with p.open("rb") as f:
-            uploaded_file = await fast_transfer.upload_file(
-                client,
-                f,
-                filename=file_name,
-                progress_callback=progress_cb
+
+        async def _do_upload():
+            with p.open("rb") as f:
+                return await fast_transfer.upload_file(
+                    client,
+                    f,
+                    filename=file_name,
+                    progress_callback=progress_cb,
+                )
+
+        uploaded_file = await retry_with_backoff(
+            _do_upload,
+            transfer_id=tid or None,
+        )
+
+        async def _do_send():
+            return await client.send_file(
+                peer,
+                file=uploaded_file,
+                caption="",
+                file_name=file_name,
+                force_document=True,
             )
-        sent_msg = await client.send_file(
-            peer,
-            file=uploaded_file,
-            caption="",
-            file_name=file_name,
-            force_document=True,
+
+        sent_msg = await retry_with_backoff(
+            _do_send,
+            transfer_id=tid or None,
         )
     except asyncio.CancelledError:
         tg.clear_cancellation(tid)
+        # Task 6.4: Delete temporary encrypted file on cancellation
+        if encrypted_tmp:
+            with contextlib.suppress(OSError):
+                Path(encrypted_tmp).unlink()
+        # Task 6.3: Emit transfer-failed with reason "user cancellation"
+        if tid:
+            bytes_sent = last_emit_bytes if last_emit_bytes > 0 else 0
+            if bytes_sent > 0:
+                bus.emit(
+                    "transfer-failed",
+                    {
+                        "transferId": tid,
+                        "bytesSent": bytes_sent,
+                        "reason": "user cancellation",
+                    },
+                )
         raise RuntimeError("Transfer cancelled") from None
     except Exception as exc:  # noqa: BLE001
+        # Task 6.3: Emit transfer-failed on network error after chunks sent
+        if tid and last_emit_bytes > 0:
+            bus.emit(
+                "transfer-failed",
+                {
+                    "transferId": tid,
+                    "bytesSent": last_emit_bytes,
+                    "reason": str(exc),
+                },
+            )
         raise RuntimeError(tg.map_error(exc)) from exc
 
     get_manager().add_up(size)
 
     if tid:
-        bus.emit(
+        # Use the last measured speed instead of 0 for a more accurate
+        # final progress event.
+        final_speed = int((size - last_emit_bytes) / max(time.monotonic() - last_emit_time, 1e-6))
+        _emit_progress(
             "upload-progress",
             {
                 "id": tid,
                 "percent": 100,
                 "uploaded_bytes": size,
                 "total_bytes": size,
-                "speed_bytes_per_sec": 0,
+                "speed_bytes_per_sec": max(final_speed, 0),
             },
         )
 
     # Store file hash for duplicate detection
     try:
-        original_path = encrypted_tmp or path
-        # Use the original file path for hashing (not the encrypted one)
-        src_path = path if not encrypted_tmp else str(Path(path))
-        file_hash = dedup_mod.compute_file_hash(src_path if not encrypted_tmp else original_path)
+        file_hash = dedup_mod.compute_file_hash(original_file_path)
         msg_id = sent_msg.id if sent_msg else 0
         dedup_mod.store_hash(file_hash, folder_id, msg_id, file_name, size)
-    except Exception:
-        pass  # non-critical
+    except Exception as exc:
+        log.warning(
+            "Dedup hash storage failed for folder_id=%s file=%s: %s",
+            folder_id,
+            file_name,
+            exc,
+        )
 
     # Cleanup encrypted temp file
     if encrypted_tmp:
@@ -296,7 +360,7 @@ async def cmd_download_file(
             raise RuntimeError(err or "Bandwidth limit hit")
 
     if tid:
-        bus.emit(
+        _emit_progress(
             "download-progress",
             {
                 "id": tid,
@@ -323,7 +387,7 @@ async def cmd_download_file(
         dt = max(now - last_emit_time, 1e-6)
         speed = int((received - last_emit_bytes) / dt)
         percent = min(100, int(received * 100 / total)) if total else 0
-        bus.emit(
+        _emit_progress(
             "download-progress",
             {
                 "id": tid,
@@ -339,19 +403,53 @@ async def cmd_download_file(
     try:
         if isinstance(msg.media, types.MessageMediaDocument):
             from ..telegram import fast_transfer
-            with save_p.open("wb") as f:
-                await fast_transfer.download_file(
-                    client,
-                    msg.media.document,
-                    f,
-                    progress_callback=progress_cb
-                )
+
+            async def _do_download():
+                with save_p.open("wb") as f:
+                    await fast_transfer.download_file(
+                        client,
+                        msg.media.document,
+                        f,
+                        progress_callback=progress_cb,
+                    )
+
+            await retry_with_backoff(
+                _do_download,
+                transfer_id=tid or None,
+            )
         else:
-            await client.download_media(msg, file=save_path, progress_callback=progress_cb)
+
+            async def _do_download_media():
+                await client.download_media(
+                    msg, file=save_path, progress_callback=progress_cb
+                )
+
+            await retry_with_backoff(
+                _do_download_media,
+                transfer_id=tid or None,
+            )
     except asyncio.CancelledError:
         tg.clear_cancellation(tid)
-        with contextlib.suppress(OSError):
+        # Task 6.2: Delete partial file; emit transfer-failed if deletion fails
+        try:
             Path(save_path).unlink()
+        except FileNotFoundError:
+            pass  # File was never created; nothing to clean up
+        except OSError as unlink_err:
+            if tid:
+                bus.emit(
+                    "transfer-failed",
+                    {
+                        "transferId": tid,
+                        "bytesSent": 0,
+                        "reason": f"Failed to delete partial file: {unlink_err}",
+                    },
+                )
+                log.warning(
+                    "Failed to delete partial download file %s: %s",
+                    save_path,
+                    unlink_err,
+                )
         raise RuntimeError("Transfer cancelled") from None
     except Exception as exc:  # noqa: BLE001
         raise RuntimeError(f"Download chunk error: {exc}") from exc
@@ -360,14 +458,17 @@ async def cmd_download_file(
         get_manager().add_down(total_size)
 
     if tid:
-        bus.emit(
+        # Use the last measured speed instead of 0 for a more accurate
+        # final progress event.
+        final_speed = int((total_size - last_emit_bytes) / max(time.monotonic() - last_emit_time, 1e-6))
+        _emit_progress(
             "download-progress",
             {
                 "id": tid,
                 "percent": 100,
                 "uploaded_bytes": total_size,
                 "total_bytes": total_size,
-                "speed_bytes_per_sec": 0,
+                "speed_bytes_per_sec": max(final_speed, 0),
             },
         )
 

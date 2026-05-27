@@ -14,6 +14,7 @@ interface FileListItemProps {
   file: TelegramFile;
   selectedIds: Set<number>;
   activeFolderId: number | null;
+  disabled?: boolean;
   onFileClick: (e: React.MouseEvent, id: number) => void;
   handleContextMenu: (e: React.MouseEvent, file: TelegramFile) => void;
   onDragStart?: (fileId: number) => void;
@@ -28,6 +29,7 @@ export const FileListItem = memo(function FileListItem({
   file,
   selectedIds,
   activeFolderId,
+  disabled,
   onFileClick,
   handleContextMenu,
   onDragStart,
@@ -58,6 +60,7 @@ export const FileListItem = memo(function FileListItem({
     <div
       onClick={(e) => onFileClick(e, file.id)}
       onContextMenu={(e) => handleContextMenu(e, file)}
+      aria-selected={selectedIds.has(file.id)}
       draggable
       onDragStart={(e) => {
         if (onDragStart) onDragStart(file.id);
@@ -90,7 +93,9 @@ export const FileListItem = memo(function FileListItem({
         <div className="bg-surface border-hairline absolute top-1/2 right-0 flex -translate-y-1/2 items-center rounded border px-1 opacity-0 shadow-lg group-hover:opacity-100">
           <button
             onClick={(e) => { e.stopPropagation(); onPreview(file); }}
-            className="hover:text-foreground text-slate p-1"
+            disabled={disabled}
+            className="hover:text-foreground text-slate p-1 disabled:opacity-40 disabled:pointer-events-none"
+            aria-label={isMediaFile(file.name) ? 'Play' : 'Preview'}
             title={isMediaFile(file.name) ? 'Play' : 'Preview'}
           >
             {isMediaFile(file.name) ? (
@@ -101,14 +106,18 @@ export const FileListItem = memo(function FileListItem({
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); onDownload(file.id, file.name); }}
-            className="hover:text-foreground text-slate p-1"
+            disabled={disabled}
+            className="hover:text-foreground text-slate p-1 disabled:opacity-40 disabled:pointer-events-none"
+            aria-label="Download"
             title="Download"
           >
             <Download className="h-4 w-4" />
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); onDelete(file.id); }}
-            className="text-slate p-1 hover:text-rose-400"
+            disabled={disabled}
+            className="text-slate p-1 hover:text-rose-400 disabled:opacity-40 disabled:pointer-events-none"
+            aria-label="Delete"
             title="Delete"
           >
             <Trash2 className="h-4 w-4" />

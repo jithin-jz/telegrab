@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { Plus, ArrowUpDown, ArrowUp, ArrowDown, UploadCloud } from 'lucide-react';
+import { Plus, ArrowUpDown, ArrowUp, ArrowDown, UploadCloud, Loader2, RefreshCw } from 'lucide-react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { FileCard } from './FileCard';
 import { EmptyState } from './EmptyState';
@@ -19,6 +19,7 @@ interface FileExplorerProps {
   viewMode: 'large-grid' | 'medium-grid' | 'list';
   selectedIds: number[];
   activeFolderId: number | null;
+  inFlightIds?: Set<number>;
   onFileClick: (e: React.MouseEvent, id: number) => void;
   onDelete: (id: number) => void;
   onDownload: (id: number, name: string) => void;
@@ -29,6 +30,14 @@ interface FileExplorerProps {
   onDrop?: (e: React.DragEvent, folderId: number) => void;
   onDragStart?: (fileId: number) => void;
   onDragEnd?: () => void;
+  /** Pagination: call to load the next page of files */
+  onFetchNextPage?: () => void;
+  /** Pagination: whether more pages are available */
+  hasNextPage?: boolean;
+  /** Pagination: whether the next page is currently being fetched */
+  isFetchingNextPage?: boolean;
+  /** Pagination: whether the last page fetch failed (for inline retry) */
+  pageFetchError?: boolean;
 }
 
 function useGridColumns(containerRef: React.RefObject<HTMLDivElement | null>, viewMode: string) {
@@ -72,6 +81,7 @@ export function FileExplorer({
   viewMode,
   selectedIds,
   activeFolderId,
+  inFlightIds,
   onFileClick,
   onDelete,
   onDownload,
@@ -82,6 +92,10 @@ export function FileExplorer({
   onDrop,
   onDragStart,
   onDragEnd,
+  onFetchNextPage,
+  hasNextPage,
+  isFetchingNextPage,
+  pageFetchError,
 }: FileExplorerProps) {
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
@@ -100,6 +114,31 @@ export function FileExplorer({
   const cardWidth = (containerWidth - GAP * (columns - 1)) / columns;
   const cardHeight = cardWidth * 0.75; // aspect-[4/3]
   const rowHeight = Math.max(cardHeight + GAP, 150);
+
+  // Scroll-near-bottom detection for pagination.
+  // Triggers fetchNextPage when user scrolls within 200px of the bottom.
+  useEffect(() => {
+    const container = parentRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      if (!hasNextPage || isFetchingNextPage || !onFetchNextPage || pageFetchError) return;
+
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+
+      if (distanceFromBottom < 200) {
+        onFetchNextPage();
+      }
+    };
+
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [hasNextPage, isFetchingNextPage, onFetchNextPage, pageFetchError]);
+
+  const handleRetryNextPage = useCallback(() => {
+    onFetchNextPage?.();
+  }, [onFetchNextPage]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent, file: TelegramFile) => {
     e.preventDefault();
@@ -222,7 +261,7 @@ export function FileExplorer({
 
   if (files.length === 0) {
     return (
-      <div className="flex-1 overflow-auto p-6">
+      <div className="smooth-scroll flex-1 overflow-auto p-6">
         <EmptyState onUpload={onManualUpload} />
       </div>
     );
@@ -266,6 +305,8 @@ export function FileExplorer({
           </div>
 
           <div
+            role="grid"
+            aria-label="File explorer"
             className="relative w-full"
             style={{ height: `${gridVirtualizer.getTotalSize()}px` }}
           >
@@ -274,6 +315,7 @@ export function FileExplorer({
               return (
                 <div
                   key={virtualRow.key}
+                  role="row"
                   className="absolute top-0 left-0 grid w-full"
                   style={{
                     height: `${cardHeight}px`,
@@ -285,13 +327,14 @@ export function FileExplorer({
                   {row.map((item) => {
                     if (item === 'upload') {
                       return (
+                        <div key="upload" role="gridcell">
                         <button
-                          key="upload"
                           onClick={(e) => {
                             e.stopPropagation();
                             onManualUpload();
                           }}
-                          className="border-primary/35 text-slate hover:border-primary hover:text-foreground hover:bg-primary/[0.06] group bg-card/60 flex flex-col items-center justify-center rounded-xl border border-dashed transition-all"
+                          aria-label="Upload file"
+                          className="border-primary/35 text-slate hover:border-primary hover:text-foreground hover:bg-primary/[0.06] group bg-card/60 flex w-full flex-col items-center justify-center rounded-xl border border-dashed transition-all"
                           style={{ height: `${cardHeight}px` }}
                         >
                           <div className="bg-primary/10 border-primary/20 group-hover:bg-primary/15 mb-3 grid h-11 w-11 place-items-center rounded-lg border transition-colors">
@@ -300,14 +343,16 @@ export function FileExplorer({
                           <span className="text-foreground text-sm font-medium">Upload file</span>
                           <span className="text-stone mt-1 text-[11px]">Add to this folder</span>
                         </button>
+                        </div>
                       );
                     }
                     const file = item;
                     return (
+                      <div key={file.id} role="gridcell" aria-selected={selectedSet.has(file.id)}>
                       <FileCard
-                        key={file.id}
                         file={file}
                         isSelected={selectedSet.has(file.id)}
+                        disabled={inFlightIds?.has(file.id) ?? false}
                         onClick={(e) => onFileClick(e, file.id)}
                         onContextMenu={(e) => handleContextMenu(e, file)}
                         onDelete={() => onDelete(file.id)}
@@ -320,6 +365,7 @@ export function FileExplorer({
                         height={cardHeight}
                         onToggleSelection={() => onToggleSelection(file.id)}
                       />
+                      </div>
                     );
                   })}
                 </div>
@@ -398,6 +444,7 @@ export function FileExplorer({
                     file={file}
                     selectedIds={selectedSet}
                     activeFolderId={activeFolderId}
+                    disabled={inFlightIds?.has(file.id) ?? false}
                     onFileClick={onFileClick}
                     handleContextMenu={handleContextMenu}
                     onDragStart={onDragStart}
@@ -411,6 +458,26 @@ export function FileExplorer({
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* Pagination footer: loading spinner or retry button */}
+      {isFetchingNextPage && (
+        <div className="flex items-center justify-center py-4">
+          <Loader2 className="text-primary h-5 w-5 animate-spin" />
+          <span className="text-slate ml-2 text-sm">Loading more files…</span>
+        </div>
+      )}
+      {pageFetchError && !isFetchingNextPage && (
+        <div className="flex items-center justify-center gap-2 py-4">
+          <span className="text-red-400 text-sm">Failed to load more files</span>
+          <button
+            onClick={handleRetryNextPage}
+            className="text-primary hover:text-primary/80 flex items-center gap-1 rounded-md border border-primary/30 px-3 py-1 text-sm transition-colors hover:bg-primary/10"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Retry
+          </button>
         </div>
       )}
 

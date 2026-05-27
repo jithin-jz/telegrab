@@ -65,7 +65,7 @@ export function DownloadQueue({
           )}
         </div>
       </div>
-      <div className="custom-scrollbar max-h-60 space-y-1.5 overflow-y-auto p-2">
+      <div className="custom-scrollbar smooth-scroll max-h-60 space-y-1.5 overflow-y-auto p-2">
         {items.map((item) => {
           const progress = item.status === 'downloading' ? getDownloadProgress(item.id) : undefined;
           return (

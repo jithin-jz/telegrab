@@ -1,14 +1,13 @@
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import {
-  X, RotateCcw, Download, Trash2, RefreshCw,
+  RotateCcw, Download, Trash2, RefreshCw,
   Palette, HardDrive, Info, CheckCircle2, Sun, Moon, Laptop,
-  FolderOpen, Zap, LogOut,
+  FolderOpen, Zap, LogOut, X,
 } from 'lucide-react';
 import { invoke } from '../../lib/platform/core';
 import { open as openDialog } from '../../lib/platform/dialog';
 import { open as shellOpen } from '../../lib/platform/shell';
-import { useUpdateCheck } from '../../hooks/useUpdateCheck';
+import { useUpdate } from '../../contexts/UpdateContext';
 import { toast } from 'sonner';
 import {
   useSettings, ACCENT_COLORS,
@@ -21,6 +20,7 @@ import { Button } from '../ui/button';
 import { Switch } from '../ui/switch';
 import { Slider } from '../ui/slider';
 import { Separator } from '../ui/separator';
+import { Dialog, DialogContent, DialogTitle } from '../ui/dialog';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -46,19 +46,11 @@ export function SettingsModal({ isOpen, onClose, onSync, onLogout, isSyncing }: 
   const {
     available, version, checking, downloading, progress,
     checkForUpdates, downloadAndInstall,
-  } = useUpdateCheck();
+  } = useUpdate();
 
   const [activeTab, setActiveTab] = useState<Tab>('appearance');
   const [clearing, setClearing] = useState(false);
-  const [hasChecked, setHasChecked] = useState(false);
   const [cacheSize, setCacheSize] = useState<string>('...');
-
-  useEffect(() => {
-    if (isOpen && !hasChecked && !checking) {
-      setHasChecked(true);
-      checkForUpdates();
-    }
-  }, [isOpen, hasChecked, checking, checkForUpdates]);
 
   useEffect(() => {
     if (isOpen) {
@@ -90,88 +82,72 @@ export function SettingsModal({ isOpen, onClose, onSync, onLogout, isSyncing }: 
     if (ok) { resetSettings(); toast.success('Settings reset to defaults'); }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.15 }}
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-        onClick={onClose}
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent
+        className="flex w-full max-w-[680px] overflow-hidden rounded-2xl p-0 gap-0"
+        style={{ height: '520px' }}
       >
-        <motion.div
-          initial={{ opacity: 0, scale: 0.97, y: 6 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.97, y: 6 }}
-          transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-          className="bg-surface/80 backdrop-blur-xl border-hairline relative flex w-full max-w-[680px] overflow-hidden rounded-2xl border shadow-2xl"
-          style={{ height: '520px' }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Sidebar nav */}
-          <nav className="border-hairline flex w-[180px] flex-shrink-0 flex-col border-r bg-canvas py-3">
-            <div className="px-4 pb-3">
-              <h2 className="text-foreground text-sm font-semibold">Settings</h2>
-            </div>
-            <div className="flex-1 space-y-0.5 px-2">
-              {TABS.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-all ${
-                    activeTab === tab.id
-                      ? 'bg-primary/10 text-primary'
-                      : 'text-slate hover:text-foreground hover:bg-surface-soft'
-                  }`}
-                >
-                  {tab.icon}
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-            <div className="border-hairline border-t px-3 pt-3 space-y-1">
-              <button
-                onClick={onLogout}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-[12px] font-medium text-slate transition-colors hover:bg-surface-soft hover:text-foreground"
-              >
-                <LogOut className="h-3.5 w-3.5" />Sign Out
-              </button>
-              <button
-                onClick={handleReset}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-[12px] font-medium text-rose-400/80 transition-colors hover:bg-rose-500/10 hover:text-rose-400"
-              >
-                <RotateCcw className="h-3.5 w-3.5" />Reset All
-              </button>
-            </div>
-          </nav>
+        {/* Visually hidden title for accessibility (aria-labelledby) */}
+        <DialogTitle className="sr-only">Settings</DialogTitle>
 
-          {/* Content area */}
-          <div className="flex flex-1 flex-col">
-            {/* Header */}
-            <div className="border-hairline flex items-center justify-between border-b px-6 py-3.5">
-              <h3 className="text-foreground text-[15px] font-semibold">
-                {TABS.find((t) => t.id === activeTab)?.label}
-              </h3>
-              <button onClick={onClose} className="text-slate hover:text-foreground rounded-md p-1 transition-colors hover:bg-surface-soft">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            {/* Scrollable content */}
-            <div className="custom-scrollbar flex-1 overflow-y-auto px-6 py-5">
-              {activeTab === 'appearance' && <AppearanceTab />}
-              {activeTab === 'transfers' && <TransfersTab onPickFolder={handlePickDownloadFolder} />}
-              {activeTab === 'behavior' && <BehaviorTab onSync={onSync} isSyncing={isSyncing} />}
-              {activeTab === 'storage' && <StorageTab cacheSize={cacheSize} clearing={clearing} onClearCache={handleClearCache} />}
-              {activeTab === 'about' && <AboutTab available={available} version={version} checking={checking} downloading={downloading} progress={progress} checkForUpdates={checkForUpdates} downloadAndInstall={downloadAndInstall} />}
-            </div>
+        {/* Sidebar nav */}
+        <nav className="border-hairline flex w-[180px] flex-shrink-0 flex-col border-r bg-canvas py-3">
+          <div className="px-4 pb-3">
+            <h2 className="text-foreground text-sm font-semibold">Settings</h2>
           </div>
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
+          <div className="flex-1 space-y-0.5 px-2">
+            {TABS.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-all ${
+                  activeTab === tab.id
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-slate hover:text-foreground hover:bg-surface-soft'
+                }`}
+              >
+                {tab.icon}
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          <div className="border-hairline border-t px-3 pt-3 space-y-1">
+            <button
+              onClick={onLogout}
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-[12px] font-medium text-slate transition-colors hover:bg-surface-soft hover:text-foreground"
+            >
+              <LogOut className="h-3.5 w-3.5" />Sign Out
+            </button>
+            <button
+              onClick={handleReset}
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-[12px] font-medium text-rose-400/80 transition-colors hover:bg-rose-500/10 hover:text-rose-400"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />Reset All
+            </button>
+          </div>
+        </nav>
+
+        {/* Content area */}
+        <div className="flex flex-1 flex-col">
+          {/* Header */}
+          <div className="border-hairline flex items-center justify-between border-b px-6 py-3.5">
+            <h3 className="text-foreground text-[15px] font-semibold">
+              {TABS.find((t) => t.id === activeTab)?.label}
+            </h3>
+          </div>
+
+          {/* Scrollable content */}
+          <div className="custom-scrollbar smooth-scroll flex-1 overflow-y-auto px-6 py-5">
+            {activeTab === 'appearance' && <AppearanceTab />}
+            {activeTab === 'transfers' && <TransfersTab onPickFolder={handlePickDownloadFolder} />}
+            {activeTab === 'behavior' && <BehaviorTab onSync={onSync} isSyncing={isSyncing} />}
+            {activeTab === 'storage' && <StorageTab cacheSize={cacheSize} clearing={clearing} onClearCache={handleClearCache} />}
+            {activeTab === 'about' && <AboutTab available={available} version={version} checking={checking} downloading={downloading} progress={progress} checkForUpdates={checkForUpdates} downloadAndInstall={downloadAndInstall} />}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

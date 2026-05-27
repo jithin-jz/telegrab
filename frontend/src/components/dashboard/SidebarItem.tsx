@@ -56,9 +56,10 @@ export function SidebarItem({
   const handleMouseEnter = () => {
     // Only pre-fetch if we have a folder ID and it's not the active one
     if (folderId !== undefined && !active) {
-      queryClient.prefetchQuery({
+      queryClient.prefetchInfiniteQuery({
         queryKey: ['files', folderId],
-        queryFn: () => fetchFiles(folderId),
+        queryFn: ({ pageParam }) => fetchFiles(folderId, pageParam),
+        initialPageParam: undefined,
         staleTime: 60000, // Consider pre-fetched data fresh for 1 minute
       });
     }

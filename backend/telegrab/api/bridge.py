@@ -16,9 +16,13 @@ on the runtime asyncio loop.
 from __future__ import annotations
 
 import logging
+import traceback
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from ..infra import get_runtime
+from ..infra.logger import _sanitize_args
+from ..infra.runtime import DEFAULT_BRIDGE_TIMEOUT
 from ..services import (
     auth as auth_cmds,
 )
@@ -38,8 +42,12 @@ from ..services import (
     updater as updater_cmds,
 )
 from . import host as host_cmds
+from .errors import BridgeError, ErrorCode
 
 log = logging.getLogger(__name__)
+
+# Timeout for the auto-reconnect attempt on disconnect (seconds).
+_RECONNECT_TIMEOUT = 10.0
 
 
 def _run(coro):
@@ -70,6 +78,190 @@ def _args(maybe_args: Any) -> dict:
 
 class Bridge:
     """JS-facing API surface."""
+
+    def _safe_call(
+        self,
+        coro: Awaitable[Any],
+        args: dict,
+        cmd_name: str,
+        *,
+        required_fields: list[str] | None = None,
+        timeout: float | None = DEFAULT_BRIDGE_TIMEOUT,
+        coro_factory: Callable[[], Awaitable[Any]] | None = None,
+    ) -> Any:
+        """Wrap a bridge call with structured error handling.
+
+        1. Validates required fields in *args*, raising a
+           :class:`BridgeError` naming every missing field.
+        2. Logs the invocation at DEBUG with sanitized args.
+        3. Runs *coro* on the runtime loop with *timeout*.
+        4. On ConnectionError: attempts auto-reconnect within 10 s, then
+           retries the original command once via *coro_factory*.
+        5. Maps known exceptions to structured :class:`BridgeError` responses.
+        6. Logs unhandled exceptions at ERROR with full traceback; returns
+           only the exception type and a generic description to the frontend.
+
+        Parameters
+        ----------
+        coro_factory : callable, optional
+            A zero-argument callable that returns a *new* awaitable for the
+            same operation. Used to retry after a successful reconnect.
+            If not provided, the command cannot be retried on disconnect.
+
+        Returns
+        -------
+        Any
+            The coroutine's return value on success, or a
+            ``BridgeError.to_dict()`` error response on failure.
+        """
+        # ── 1. Validate required args ──────────────────────────────────────
+        if required_fields:
+            missing = [f for f in required_fields if f not in args or args[f] is None]
+            if missing:
+                field_list = ", ".join(missing)
+                err = BridgeError(
+                    code=ErrorCode.VALIDATION_MISSING_FIELD,
+                    message=f"Missing required fields: {field_list}",
+                    detail=f"Command '{cmd_name}' requires fields: {field_list}",
+                )
+                return err.to_dict()
+
+        # ── 2. Log invocation at DEBUG ─────────────────────────────────────
+        log.debug("%s args=%s", cmd_name, _sanitize_args(args))
+
+        # ── 3. Execute with error mapping ──────────────────────────────────
+        try:
+            return get_runtime().run_coro(coro, timeout=timeout)
+
+        except TimeoutError:
+            err = BridgeError(
+                code=ErrorCode.BRIDGE_TIMEOUT,
+                message=f"Operation timed out after {timeout}s. Please try again.",
+                detail=f"Command '{cmd_name}' exceeded {timeout}s timeout.",
+            )
+            return err.to_dict()
+
+        except ConnectionError as exc:
+            # ── 4. Attempt auto-reconnect + single retry ───────────────────
+            log.warning(
+                "ConnectionError in '%s': %s — attempting reconnect",
+                cmd_name,
+                exc,
+            )
+            if self._attempt_reconnect():
+                # Reconnection succeeded — retry the command once
+                if coro_factory is not None:
+                    log.info("Reconnected; retrying '%s'", cmd_name)
+                    try:
+                        return get_runtime().run_coro(
+                            coro_factory(), timeout=timeout
+                        )
+                    except Exception as retry_exc:
+                        log.warning(
+                            "Retry of '%s' after reconnect failed: %s",
+                            cmd_name,
+                            retry_exc,
+                        )
+                        err = BridgeError(
+                            code=ErrorCode.NETWORK_DISCONNECTED,
+                            message="Reconnected but the operation failed. Please try again.",
+                            detail=f"Retry failed in '{cmd_name}': {retry_exc}",
+                        )
+                        return err.to_dict()
+                else:
+                    log.info(
+                        "Reconnected but no coro_factory for '%s'; cannot retry",
+                        cmd_name,
+                    )
+
+            # Reconnection failed or no retry possible
+            err = BridgeError(
+                code=ErrorCode.NETWORK_DISCONNECTED,
+                message="Connection lost. Please check your network and try again.",
+                detail=f"ConnectionError in '{cmd_name}': {exc}",
+            )
+            return err.to_dict()
+
+        except Exception as exc:
+            # Check for FloodWaitError (Telethon-specific)
+            try:
+                from telethon.errors import FloodWaitError
+
+                if isinstance(exc, FloodWaitError):
+                    wait_seconds = exc.seconds
+                    err = BridgeError(
+                        code=ErrorCode.NETWORK_FLOOD_WAIT,
+                        message=f"Rate limited by Telegram. Please wait {wait_seconds}s.",
+                        detail=f"FloodWaitError in '{cmd_name}': wait {wait_seconds}s",
+                    )
+                    return err.to_dict()
+            except ImportError:
+                pass
+
+            # ── Unhandled exception: log full traceback, return safe response ──
+            log.error(
+                "Unhandled %s in %s:\n%s",
+                type(exc).__name__,
+                cmd_name,
+                traceback.format_exc(),
+            )
+            err = BridgeError(
+                code="BRIDGE_INTERNAL_ERROR",
+                message=f"An unexpected error occurred: {type(exc).__name__}",
+                detail=f"{type(exc).__name__}: operation failed",
+            )
+            return err.to_dict()
+
+    # ─────────────────────── reconnection helper ───────────────────────────
+
+    def _attempt_reconnect(self) -> bool:
+        """Try to reconnect the Telegram client within 10 seconds.
+
+        Returns True if reconnection succeeded, False otherwise.
+        """
+        try:
+            runtime = get_runtime()
+            reconnect_result = runtime.run_coro(
+                self._reconnect_client(), timeout=_RECONNECT_TIMEOUT
+            )
+            return reconnect_result
+        except (TimeoutError, Exception) as exc:
+            log.warning("Auto-reconnect failed: %s", exc)
+            return False
+
+    @staticmethod
+    async def _reconnect_client() -> bool:
+        """Attempt to reconnect the Telegram client.
+
+        Uses the existing client state (api_id / api_hash) to re-establish
+        the connection. Returns True on success, False on failure.
+        """
+        from ..telegram.client import get_state
+
+        state = get_state()
+
+        # If we have a client instance, try to reconnect it directly
+        if state.client is not None:
+            try:
+                if not state.client.is_connected():
+                    await state.client.connect()
+                if state.client.is_connected():
+                    return True
+            except Exception as exc:
+                log.warning("Direct client.connect() failed: %s", exc)
+
+        # Fall back to ensure_client which recreates if needed
+        if state.api_id is not None and state.api_hash is not None:
+            try:
+                from ..telegram.client import ensure_client
+
+                client = await ensure_client(state.api_id, state.api_hash)
+                return client.is_connected()
+            except Exception as exc:
+                log.warning("ensure_client reconnect failed: %s", exc)
+                return False
+
+        return False
 
     # ─────────────────────────── auth / connection ───────────────────────────
 

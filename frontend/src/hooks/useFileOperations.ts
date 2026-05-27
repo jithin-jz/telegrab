@@ -29,7 +29,7 @@ export function useFileOperations(
       queryClient.invalidateQueries({ queryKey: ['files', activeFolderId] });
       toast.success('File deleted');
     } catch (e) {
-      toast.error(`Delete failed: ${e}`);
+      toast.error(`Delete failed: ${e}`, { duration: 4000 });
     }
   };
 
@@ -58,7 +58,7 @@ export function useFileOperations(
     setSelectedIds([]);
     queryClient.invalidateQueries({ queryKey: ['files', activeFolderId] });
     if (success > 0) toast.success(`Deleted ${success} files.`);
-    if (fail > 0) toast.error(`Failed to delete ${fail} files.`);
+    if (fail > 0) toast.error(`Failed to delete ${fail} files.`, { duration: 4000 });
   };
 
   const handleDownload = async (id: number, name: string) => {
@@ -71,7 +71,7 @@ export function useFileOperations(
       await invoke('cmd_download_file', { messageId: id, savePath, folderId: activeFolderId });
       toast.success(`Download complete: ${name}`);
     } catch (e) {
-      toast.error(`Download failed: ${e}`);
+      toast.error(`Download failed: ${e}`, { duration: 4000 });
     }
   };
 
@@ -97,7 +97,7 @@ export function useFileOperations(
       setSelectedIds([]);
       if (onSuccess) onSuccess();
     } catch {
-      toast.error('Failed to move files');
+      toast.error('Failed to move files', { duration: 4000 });
     }
   };
 

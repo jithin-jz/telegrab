@@ -155,6 +155,11 @@ def main() -> None:
         format="%(asctime)s %(levelname)-7s [%(name)s] %(message)s",
     )
 
+    # Enforce single instance — exit if another is already running
+    from .infra.single_instance import ensure_single_instance
+    if not ensure_single_instance():
+        sys.exit(0)
+
     runtime = get_runtime()
 
     # Spawn the streaming server immediately. It's lightweight and idle until

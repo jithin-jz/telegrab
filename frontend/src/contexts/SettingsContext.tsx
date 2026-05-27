@@ -1,5 +1,6 @@
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { load } from '../lib/platform/store';
+import { invoke } from '../lib/platform/core';
 
 export type Theme = 'dark' | 'light' | 'system';
 export type ViewMode = 'large-grid' | 'medium-grid' | 'list';
@@ -40,7 +41,7 @@ export interface Settings {
 }
 
 export const defaultSettings: Settings = {
-  theme: 'dark',
+  theme: 'light',
   accentColor: 'purple',
   viewMode: 'medium-grid',
   sortField: 'name',
@@ -61,15 +62,26 @@ export const defaultSettings: Settings = {
   autoSyncInterval: 5,
 };
 
+/**
+ * Merge loaded settings with defaults.
+ * Keys present in `partial` retain their values; absent keys get defaults.
+ */
+export function mergeWithDefaults(partial: Partial<Settings>): Settings {
+  return { ...defaultSettings, ...partial };
+}
+
 export const ACCENT_COLORS: Record<AccentColor, { label: string; value: string }> = {
   purple: { label: 'Purple', value: '#7c5cff' },
   blue: { label: 'Blue', value: '#3b82f6' },
-  sky: { label: 'Sky', value: '#f43f5e' },
+  sky: { label: 'Sky', value: '#0ea5e9' },
   green: { label: 'Green', value: '#22c55e' },
   orange: { label: 'Orange', value: '#f97316' },
   pink: { label: 'Pink', value: '#ec4899' },
   rose: { label: 'Rose', value: '#f43f5e' },
 };
+
+/** Debounce delay for persisting settings (ms). */
+const PERSIST_DEBOUNCE_MS = 500;
 
 interface SettingsContextType {
   settings: Settings;
@@ -83,14 +95,17 @@ const SettingsContext = createContext<SettingsContextType | undefined>(undefined
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [isLoaded, setIsLoaded] = useState(false);
+  const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingSettingsRef = useRef<Settings | null>(null);
 
   useEffect(() => {
     const loadSettings = async () => {
       try {
         const store = await load('settings.json');
-        const saved = await store.get<Settings>('settings');
+        const saved = await store.get<Partial<Settings>>('settings');
         if (saved) {
-          setSettings({ ...defaultSettings, ...saved });
+          // Merge loaded settings with defaults: absent keys filled with default values
+          setSettings(mergeWithDefaults(saved));
         }
       } catch {
         // first run — use defaults
@@ -117,6 +132,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     root.style.setProperty('--color-primary', accent);
     root.style.setProperty('--color-ring', accent);
     root.style.setProperty('--color-telegram-primary', accent);
+    root.style.setProperty('--color-primary-pressed', accent);
   }, [isLoaded, settings.theme, settings.accentColor]);
 
   // Listen for system theme changes
@@ -130,29 +146,63 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     return () => mq.removeEventListener('change', handler);
   }, [settings.theme]);
 
-  const persistSettings = useCallback(async (next: Settings) => {
-    try {
-      const store = await load('settings.json');
-      await store.set('settings', next);
-      await store.save();
-    } catch { /* best-effort */ }
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (persistTimerRef.current) {
+        clearTimeout(persistTimerRef.current);
+      }
+    };
+  }, []);
+
+  /**
+   * Persist settings with debounce (500ms).
+   * On failure: retain UI state and log the failure (Req 9.8).
+   */
+  const schedulePersist = useCallback((next: Settings) => {
+    pendingSettingsRef.current = next;
+
+    if (persistTimerRef.current) {
+      clearTimeout(persistTimerRef.current);
+    }
+
+    persistTimerRef.current = setTimeout(async () => {
+      const toSave = pendingSettingsRef.current;
+      if (!toSave) return;
+      pendingSettingsRef.current = null;
+
+      try {
+        const store = await load('settings.json');
+        await store.set('settings', toSave);
+        await store.save();
+      } catch (err) {
+        // Req 9.8: retain UI state, log failure without reverting
+        const message = err instanceof Error ? err.message : String(err);
+        console.warn('[SettingsContext] Failed to persist settings:', message);
+        // Forward failure to backend for observability
+        invoke('cmd_log', { message: `[Settings] Persistence failed: ${message}` }).catch(() => {
+          // If logging itself fails, silently ignore
+        });
+      }
+    }, PERSIST_DEBOUNCE_MS);
   }, []);
 
   const updateSetting = useCallback(
     <K extends keyof Settings>(key: K, value: Settings[K]) => {
       setSettings((prev) => {
         const next = { ...prev, [key]: value };
-        persistSettings(next);
+        // Req 9.7: optimistically update UI immediately, enqueue persistence (500ms debounce)
+        schedulePersist(next);
         return next;
       });
     },
-    [persistSettings]
+    [schedulePersist]
   );
 
   const resetSettings = useCallback(() => {
     setSettings(defaultSettings);
-    persistSettings(defaultSettings);
-  }, [persistSettings]);
+    schedulePersist(defaultSettings);
+  }, [schedulePersist]);
 
   return (
     <SettingsContext.Provider value={{ settings, updateSetting, resetSettings, isLoaded }}>

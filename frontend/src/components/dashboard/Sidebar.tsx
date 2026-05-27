@@ -45,11 +45,13 @@ export const Sidebar = memo(function Sidebar({
 
   return (
     <aside
+      role="navigation"
+      aria-label="Folder navigation"
       className="bg-canvas border-hairline flex w-[260px] shrink-0 flex-col border-r"
       onClick={(e) => e.stopPropagation()}
     >
       {/* Scrollable folder list */}
-      <nav className="min-h-0 flex-1 overflow-y-auto px-2 pt-4 pb-4">
+      <nav className="custom-scrollbar smooth-scroll min-h-0 flex-1 overflow-y-auto px-2 pt-4 pb-4">
         {/* Section: My Drive */}
         <div className="text-stone px-3 pt-2 pb-1.5 text-[10px] font-semibold tracking-[0.08em] uppercase">
           My Drive

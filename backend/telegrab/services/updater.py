@@ -17,6 +17,7 @@ import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
+from urllib.parse import urlparse
 
 import webview
 
@@ -25,6 +26,73 @@ from .. import __version__
 log = logging.getLogger(__name__)
 
 REPO = "jithin-jz/telegrab"
+
+# ───────────────────────────── URL domain validation ─────────────────────────
+
+
+def _validate_url_domain(url: str) -> bool:
+    """Validate that a URL's hostname is github.com or a subdomain of github.com.
+
+    Returns True if the hostname is exactly ``github.com`` or ends with
+    ``.github.com``. Also accepts ``githubusercontent.com`` and its subdomains,
+    as GitHub uses this CDN domain for release asset downloads.
+    Returns False for all other domains, missing hostnames, or unparseable URLs.
+    """
+    try:
+        parsed = urlparse(url)
+    except Exception:  # noqa: BLE001
+        return False
+
+    hostname = (parsed.hostname or "").lower()
+    if not hostname:
+        return False
+
+    # Accept github.com and *.github.com
+    if hostname == "github.com" or hostname.endswith(".github.com"):
+        return True
+
+    # Accept githubusercontent.com and *.githubusercontent.com (GitHub CDN)
+    if hostname == "githubusercontent.com" or hostname.endswith(".githubusercontent.com"):
+        return True
+
+    return False
+
+
+class _GitHubOnlyRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Custom redirect handler that rejects redirects to non-GitHub domains."""
+
+    def redirect_request(
+        self,
+        req: urllib.request.Request,
+        fp,  # noqa: ANN001
+        code: int,
+        msg: str,
+        headers,  # noqa: ANN001
+        newurl: str,
+    ) -> urllib.request.Request | None:
+        if not _validate_url_domain(newurl):
+            raise urllib.error.URLError(
+                f"Redirect to non-GitHub domain rejected: {urlparse(newurl).hostname}"
+            )
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+# ───────────────────────────── filename sanitization ─────────────────────────
+
+DOWNLOAD_TIMEOUT_SECONDS = 300
+
+
+def _sanitize_filename(filename: str) -> str:
+    """Sanitize a filename by removing path traversal and separator characters.
+
+    Removes all occurrences of ``..``, ``/``, and ``\\`` from the filename.
+    If the result is empty after sanitization, returns ``"telegrab_update"``.
+    """
+    sanitized = filename.replace("..", "").replace("/", "").replace("\\", "")
+    if not sanitized:
+        return "telegrab_update"
+    return sanitized
+
 
 # ───────────────────────────── version parsing ─────────────────────────────
 
@@ -179,6 +247,19 @@ def cmd_download_and_install_update(download_url: str, expected_sha256: str = ""
     if not download_url:
         raise ValueError("No download URL provided")
 
+    # Requirement 11.2: Abort if no SHA-256 checksum provided
+    if not expected_sha256:
+        raise RuntimeError(
+            "Update aborted: no SHA-256 checksum found in release body. "
+            "The update could not be verified for integrity."
+        )
+
+    # Validate URL domain before downloading
+    if not _validate_url_domain(download_url):
+        raise ValueError(
+            "Download URL rejected: hostname is not github.com or *.github.com"
+        )
+
     log.info("Downloading update from %s ...", download_url)
 
     downloads_dir = Path.home() / "Downloads"
@@ -194,20 +275,30 @@ def cmd_download_and_install_update(download_url: str, expected_sha256: str = ""
             f"but only {disk_usage.free // (1024 * 1024)} MB available in Downloads."
         )
 
+    # Requirement 11.6: Sanitize filename
     filename = Path(download_url.split("?")[0].split("#")[0]).name
-    # Sanitize filename to prevent path traversal
-    filename = filename.replace("..", "").replace("/", "").replace("\\", "")
-    if not filename:
-        filename = "telegrab_update"
+    filename = _sanitize_filename(filename)
     dest_path = downloads_dir / f"Telegrab_Update_{filename}"
 
     sha256_hash = hashlib.sha256()
+    downloaded_bytes = 0
 
     try:
         req = urllib.request.Request(
             download_url, headers={"User-Agent": "Telegrab-Updater"}
         )
-        with urllib.request.urlopen(req) as response:
+        # Use custom opener that rejects redirects to non-GitHub domains
+        opener = urllib.request.build_opener(_GitHubOnlyRedirectHandler)
+        # Requirement 11.8: 300-second download timeout
+        with opener.open(req, timeout=DOWNLOAD_TIMEOUT_SECONDS) as response:
+            # Validate the final URL after redirects
+            final_url = response.geturl()
+            if not _validate_url_domain(final_url):
+                raise ValueError(
+                    f"Download redirected to non-GitHub domain: "
+                    f"{urlparse(final_url).hostname}"
+                )
+
             total_size = int(response.headers.get("Content-Length", 0))
 
             if webview.windows:
@@ -225,6 +316,7 @@ def cmd_download_and_install_update(download_url: str, expected_sha256: str = ""
                         break
                     f.write(chunk)
                     sha256_hash.update(chunk)
+                    downloaded_bytes += len(chunk)
                     if webview.windows:
                         js = (
                             "window.dispatchEvent(new CustomEvent('updateProgress', "
@@ -232,35 +324,58 @@ def cmd_download_and_install_update(download_url: str, expected_sha256: str = ""
                         )
                         webview.windows[0].evaluate_js(js)
 
+    except TimeoutError as exc:
+        # Requirement 11.8: Delete partial file on timeout
+        log.error("Download timed out after %d seconds: %s", DOWNLOAD_TIMEOUT_SECONDS, exc)
+        with contextlib.suppress(OSError):
+            dest_path.unlink()
+        raise RuntimeError(
+            f"Update download timed out after {DOWNLOAD_TIMEOUT_SECONDS} seconds. "
+            "Please check your network connection and try again."
+        ) from exc
     except Exception as exc:  # noqa: BLE001
         log.error("Download failed: %s", exc)
+        # Delete partial file on any download failure
+        with contextlib.suppress(OSError):
+            dest_path.unlink()
         raise RuntimeError(f"Download failed: {exc}") from exc
 
-    # Verify SHA-256 checksum if provided
+    # Requirement 11.5: Verify file size matches Content-Length
+    if total_size > 0 and downloaded_bytes != total_size:
+        log.error(
+            "File size mismatch! Expected %d bytes (Content-Length), got %d bytes",
+            total_size,
+            downloaded_bytes,
+        )
+        with contextlib.suppress(OSError):
+            dest_path.unlink()
+        raise RuntimeError(
+            f"Update verification failed: file size mismatch. "
+            f"Expected {total_size} bytes, downloaded {downloaded_bytes} bytes."
+        )
+
+    # Requirement 11.1, 11.3: Verify SHA-256 checksum (mandatory)
     actual_sha256 = sha256_hash.hexdigest()
-    if expected_sha256:
-        if actual_sha256.lower() != expected_sha256.lower():
-            log.error(
-                "Checksum mismatch! Expected %s, got %s", expected_sha256, actual_sha256
-            )
-            with contextlib.suppress(OSError):
-                dest_path.unlink()
-            raise RuntimeError(
-                "Update verification failed: SHA-256 checksum mismatch. "
-                "The download may be corrupted or tampered with."
-            )
-        log.info("SHA-256 checksum verified: %s", actual_sha256)
+    if actual_sha256.lower() != expected_sha256.lower():
+        log.error(
+            "Checksum mismatch! Expected %s, got %s", expected_sha256, actual_sha256
+        )
+        with contextlib.suppress(OSError):
+            dest_path.unlink()
+        raise RuntimeError(
+            "Update verification failed: SHA-256 checksum mismatch. "
+            "The download may be corrupted or tampered with."
+        )
+    log.info("SHA-256 checksum verified: %s", actual_sha256)
 
     log.info("Update downloaded to %s. Launching...", dest_path)
 
     try:
         if sys.platform == "win32":
-            # To ensure the parent process (telegrab.exe) has fully exited and released
-            # all file locks before the installer attempts to overwrite it, we write
-            # a temporary batch file that loops checking tasklist for the current PID.
-            # Once the process has exited, it launches the installer silently and deletes itself.
             pid = os.getpid()
             bat_path = downloads_dir / "telegrab_updater.bat"
+            # Wait for current process to exit, run installer silently,
+            # then relaunch the app from its install location.
             bat_content = (
                 f'@echo off\n'
                 f':loop\n'
@@ -269,18 +384,16 @@ def cmd_download_and_install_update(download_url: str, expected_sha256: str = ""
                 f'    ping 127.0.0.1 -n 2 > nul\n'
                 f'    goto loop\n'
                 f')\n'
-                f'"{dest_path}" /SILENT /SUPPRESSMSGBOXES /NORESTART\n'
+                f'"{dest_path}" /SILENT /SUPPRESSMSGBOXES\n'
                 f'del "%~f0"\n'
             )
             try:
                 bat_path.write_text(bat_content, encoding="utf-8")
                 cmd = [os.environ.get("COMSPEC", "cmd.exe"), "/c", str(bat_path)]
-                # DETACHED_PROCESS (0x00000008) ensures the cmd shell runs independently in background
                 subprocess.Popen(cmd, creationflags=0x00000008)
             except Exception as exc:
                 log.error("Failed to write or run batch file: %s. Falling back to direct launch.", exc)
-                # Fallback to direct launch if batch file creation fails
-                subprocess.Popen([str(dest_path), "/SILENT", "/SUPPRESSMSGBOXES", "/NORESTART"])
+                subprocess.Popen([str(dest_path), "/SILENT", "/SUPPRESSMSGBOXES"])
         elif sys.platform == "darwin":
             subprocess.Popen(["open", str(dest_path)])
         else:
@@ -294,4 +407,4 @@ def cmd_download_and_install_update(download_url: str, expected_sha256: str = ""
         raise RuntimeError(f"Failed to launch update: {exc}") from exc
 
 
-__all__ = ["cmd_check_for_updates", "cmd_download_and_install_update"]
+__all__ = ["cmd_check_for_updates", "cmd_download_and_install_update", "_sanitize_filename"]
