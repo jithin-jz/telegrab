@@ -175,7 +175,7 @@ async def cmd_auth_qr_poll() -> dict[str, Any]:
     state = tg.get_state()
     client = state.client
     qr = state.pending_qr_login
-    
+
     if client is None:
         log.error("QR poll failed: client is None")
         return {"success": False, "next_step": "waiting"}
@@ -201,15 +201,15 @@ async def cmd_auth_qr_poll() -> dict[str, Any]:
 
     # 2. Wait for the event with a timeout
     try:
-        # qr.wait() waits for the scan to complete. 
+        # qr.wait() waits for the scan to complete.
         # We use a 2s timeout so the poll doesn't block the bridge forever.
         await asyncio.wait_for(qr.wait(), timeout=2.0)
-        
+
         # If we reach here, the scan finished. Double check auth.
         state.pending_qr_login = None
         if await client.is_user_authorized():
             return {"success": True, "next_step": "dashboard"}
-        return {"success": True, "next_step": "dashboard"} # Fallback success
+        return {"success": True, "next_step": "dashboard"}  # Fallback success
     except TimeoutError:
         return {"success": False, "next_step": "waiting"}
     except SessionPasswordNeededError:

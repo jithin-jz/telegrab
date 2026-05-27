@@ -43,10 +43,17 @@ def _encrypt(data: bytes) -> str:
                     ("pbData", ctypes.POINTER(ctypes.c_char)),
                 ]
 
-            input_blob = _DataBlob(len(data), ctypes.create_string_buffer(data, len(data)))
+            input_blob = _DataBlob(
+                len(data), ctypes.create_string_buffer(data, len(data))
+            )
             output_blob = _DataBlob()
             if ctypes.windll.crypt32.CryptProtectData(
-                ctypes.byref(input_blob), None, None, None, None, 0,
+                ctypes.byref(input_blob),
+                None,
+                None,
+                None,
+                None,
+                0,
                 ctypes.byref(output_blob),
             ):
                 encrypted = ctypes.string_at(output_blob.pbData, output_blob.cbData)
@@ -84,7 +91,12 @@ def _decrypt(encoded: str) -> bytes:
             input_blob = _DataBlob(len(raw), ctypes.create_string_buffer(raw, len(raw)))
             output_blob = _DataBlob()
             if ctypes.windll.crypt32.CryptUnprotectData(
-                ctypes.byref(input_blob), None, None, None, None, 0,
+                ctypes.byref(input_blob),
+                None,
+                None,
+                None,
+                None,
+                0,
                 ctypes.byref(output_blob),
             ):
                 decrypted = ctypes.string_at(output_blob.pbData, output_blob.cbData)
@@ -157,7 +169,7 @@ def _validate_permissions(path: Path) -> None:
                 startupinfo=si,
             )
             output = result.stdout.strip()
-            username = os.environ.get("USERNAME", "")
+            os.environ.get("USERNAME", "")
             # Heuristic: if output contains entries beyond the current user
             # (e.g. BUILTIN\Users, Everyone, Authenticated Users) the file is
             # too permissive.
@@ -180,13 +192,11 @@ def _validate_permissions(path: Path) -> None:
                 _permissions_set = False
                 _restrict_permissions(path)
         except Exception as exc:
-            log.warning(
-                "Unable to validate store file permissions on Windows: %s", exc
-            )
+            log.warning("Unable to validate store file permissions on Windows: %s", exc)
     else:
         # Unix: check file mode
         try:
-            mode = os.stat(str(path)).st_mode & 0o777
+            mode = path.stat().st_mode & 0o777
             if mode != 0o600:
                 log.warning(
                     "Store file permissions are %04o (expected 0600); "
@@ -194,16 +204,12 @@ def _validate_permissions(path: Path) -> None:
                     mode,
                 )
                 try:
-                    os.chmod(str(path), 0o600)
+                    path.chmod(0o600)
                     log.info("Store file permissions corrected to 0600")
                 except OSError as exc:
-                    log.warning(
-                        "Failed to correct store file permissions: %s", exc
-                    )
+                    log.warning("Failed to correct store file permissions: %s", exc)
         except OSError as exc:
-            log.warning(
-                "Unable to validate store file permissions: %s", exc
-            )
+            log.warning("Unable to validate store file permissions: %s", exc)
 
 
 class JsonStore:

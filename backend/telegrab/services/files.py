@@ -285,7 +285,9 @@ async def cmd_upload_file(
     if tid:
         # Use the last measured speed instead of 0 for a more accurate
         # final progress event.
-        final_speed = int((size - last_emit_bytes) / max(time.monotonic() - last_emit_time, 1e-6))
+        final_speed = int(
+            (size - last_emit_bytes) / max(time.monotonic() - last_emit_time, 1e-6)
+        )
         _emit_progress(
             "upload-progress",
             {
@@ -460,7 +462,10 @@ async def cmd_download_file(
     if tid:
         # Use the last measured speed instead of 0 for a more accurate
         # final progress event.
-        final_speed = int((total_size - last_emit_bytes) / max(time.monotonic() - last_emit_time, 1e-6))
+        final_speed = int(
+            (total_size - last_emit_bytes)
+            / max(time.monotonic() - last_emit_time, 1e-6)
+        )
         _emit_progress(
             "download-progress",
             {
@@ -474,11 +479,13 @@ async def cmd_download_file(
 
     # Vault decryption: decrypt file after download if folder is an unlocked vault
     from . import vault as vault_mod
+
     if folder_id and vault_mod.is_vault(folder_id) and vault_mod.is_unlocked(folder_id):
         try:
             decrypted_tmp = vault_mod.decrypt_file(save_path, folder_id)
             # Replace the encrypted file with the decrypted one
             import shutil
+
             shutil.move(decrypted_tmp, save_path)
         except Exception as exc:
             log.warning("Vault decryption failed: %s", exc)
@@ -498,13 +505,12 @@ async def cmd_delete_file(message_id: int, folder_id: int | None) -> bool:
 
     peer = await tg.resolve_peer(client, folder_id)
     await client.delete_messages(peer, [int(message_id)])
-    
+
     # Remove hash entry when a file is deleted
     from . import dedup as dedup_mod
-    try:
+
+    with contextlib.suppress(Exception):
         dedup_mod.remove_hash(int(message_id), folder_id)
-    except Exception:
-        pass
     return True
 
 

@@ -71,7 +71,17 @@ def upsert_files(folder_id: int | None, files: list[dict[str, Any]]) -> None:
     fk = _folder_key(folder_id)
     conn.executemany(
         "INSERT OR REPLACE INTO file_cache (message_id, folder_id, name, size, created_at, icon_type) VALUES (?, ?, ?, ?, ?, ?)",
-        [(f.get("message_id") or f.get("messageId"), fk, f.get("name"), f.get("size"), f.get("created_at") or f.get("createdAt"), f.get("icon_type") or f.get("iconType")) for f in files],
+        [
+            (
+                f.get("message_id") or f.get("messageId"),
+                fk,
+                f.get("name"),
+                f.get("size"),
+                f.get("created_at") or f.get("createdAt"),
+                f.get("icon_type") or f.get("iconType"),
+            )
+            for f in files
+        ],
     )
     conn.execute(
         "INSERT OR REPLACE INTO cache_meta (folder_id, updated_at) VALUES (?, ?)",

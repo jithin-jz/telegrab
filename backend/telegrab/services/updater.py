@@ -52,10 +52,10 @@ def _validate_url_domain(url: str) -> bool:
         return True
 
     # Accept githubusercontent.com and *.githubusercontent.com (GitHub CDN)
-    if hostname == "githubusercontent.com" or hostname.endswith(".githubusercontent.com"):
-        return True
-
-    return False
+    return bool(
+        hostname == "githubusercontent.com"
+        or hostname.endswith(".githubusercontent.com")
+    )
 
 
 class _GitHubOnlyRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -212,8 +212,14 @@ def cmd_check_for_updates() -> dict | None:
             break
         if is_win and name.endswith(".exe") and not download_url:
             download_url = asset.get("browser_download_url")
-        if not is_mac and not is_win and (
-            name.endswith(".appimage") or name.endswith(".deb") or name.endswith(".rpm")
+        if (
+            not is_mac
+            and not is_win
+            and (
+                name.endswith(".appimage")
+                or name.endswith(".deb")
+                or name.endswith(".rpm")
+            )
         ):
             download_url = asset.get("browser_download_url")
             break
@@ -224,9 +230,7 @@ def cmd_check_for_updates() -> dict | None:
 
     # Try to extract SHA-256 from release body (convention: "SHA256: <hex>" or "sha256: <hex>")
     body = data.get("body") or ""
-    sha256_match = re.search(
-        r"(?:sha256|SHA256)[:\s]+([0-9a-fA-F]{64})", body
-    )
+    sha256_match = re.search(r"(?:sha256|SHA256)[:\s]+([0-9a-fA-F]{64})", body)
     expected_sha256 = sha256_match.group(1) if sha256_match else ""
 
     return {
@@ -239,7 +243,9 @@ def cmd_check_for_updates() -> dict | None:
     }
 
 
-def cmd_download_and_install_update(download_url: str, expected_sha256: str = "") -> None:
+def cmd_download_and_install_update(
+    download_url: str, expected_sha256: str = ""
+) -> None:
     """Download the update to user's Downloads folder, verify checksum, run it, and close the app."""
     import hashlib
     import shutil
@@ -326,7 +332,9 @@ def cmd_download_and_install_update(download_url: str, expected_sha256: str = ""
 
     except TimeoutError as exc:
         # Requirement 11.8: Delete partial file on timeout
-        log.error("Download timed out after %d seconds: %s", DOWNLOAD_TIMEOUT_SECONDS, exc)
+        log.error(
+            "Download timed out after %d seconds: %s", DOWNLOAD_TIMEOUT_SECONDS, exc
+        )
         with contextlib.suppress(OSError):
             dest_path.unlink()
         raise RuntimeError(
@@ -377,13 +385,13 @@ def cmd_download_and_install_update(download_url: str, expected_sha256: str = ""
             # Wait for current process to exit, run installer silently,
             # then relaunch the app from its install location.
             bat_content = (
-                f'@echo off\n'
-                f':loop\n'
+                f"@echo off\n"
+                f":loop\n"
                 f'tasklist /FI "PID eq {pid}" 2>NUL | find "{pid}" >NUL\n'
-                f'if %ERRORLEVEL%==0 (\n'
-                f'    ping 127.0.0.1 -n 2 > nul\n'
-                f'    goto loop\n'
-                f')\n'
+                f"if %ERRORLEVEL%==0 (\n"
+                f"    ping 127.0.0.1 -n 2 > nul\n"
+                f"    goto loop\n"
+                f")\n"
                 f'"{dest_path}" /SILENT /SUPPRESSMSGBOXES\n'
                 f'del "%~f0"\n'
             )
@@ -392,7 +400,10 @@ def cmd_download_and_install_update(download_url: str, expected_sha256: str = ""
                 cmd = [os.environ.get("COMSPEC", "cmd.exe"), "/c", str(bat_path)]
                 subprocess.Popen(cmd, creationflags=0x00000008)
             except Exception as exc:
-                log.error("Failed to write or run batch file: %s. Falling back to direct launch.", exc)
+                log.error(
+                    "Failed to write or run batch file: %s. Falling back to direct launch.",
+                    exc,
+                )
                 subprocess.Popen([str(dest_path), "/SILENT", "/SUPPRESSMSGBOXES"])
         elif sys.platform == "darwin":
             subprocess.Popen(["open", str(dest_path)])
@@ -407,4 +418,8 @@ def cmd_download_and_install_update(download_url: str, expected_sha256: str = ""
         raise RuntimeError(f"Failed to launch update: {exc}") from exc
 
 
-__all__ = ["cmd_check_for_updates", "cmd_download_and_install_update", "_sanitize_filename"]
+__all__ = [
+    "cmd_check_for_updates",
+    "cmd_download_and_install_update",
+    "_sanitize_filename",
+]

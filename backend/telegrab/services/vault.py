@@ -55,11 +55,10 @@ def _check_db_integrity() -> bool:
             _vault_db_healthy = True
             log.debug("Vault database integrity check passed")
             return True
-        else:
-            _vault_db_healthy = False
-            detail = str(result[0]) if result else "unknown error"
-            log.error("Vault database integrity check failed: %s", detail)
-            return False
+        _vault_db_healthy = False
+        detail = str(result[0]) if result else "unknown error"
+        log.error("Vault database integrity check failed: %s", detail)
+        return False
     except Exception as exc:
         _vault_db_healthy = False
         log.error("Vault database integrity check error: %s", exc)
@@ -90,7 +89,7 @@ def _get_vault_db() -> sqlite3.Connection:
                     code=ErrorCode.VAULT_DB_CORRUPT,
                     message="Vault database cannot be opened. Please re-initialize the vault.",
                     detail=f"Failed to open vault database at {path}: {exc}",
-                )
+                ) from exc
             _VAULT_DB.row_factory = sqlite3.Row
             try:
                 _VAULT_DB.executescript("""
@@ -111,7 +110,7 @@ def _get_vault_db() -> sqlite3.Connection:
                     code=ErrorCode.VAULT_DB_CORRUPT,
                     message="Vault database is corrupted. Please re-initialize the vault.",
                     detail=f"Failed to initialize vault database schema at {path}: {exc}",
-                )
+                ) from exc
             # Run integrity check on first initialization
             _check_db_integrity()
     return _VAULT_DB
@@ -119,7 +118,9 @@ def _get_vault_db() -> sqlite3.Connection:
 
 def _derive_key(password: str, salt: bytes) -> bytes:
     """Derive a 256-bit key from password + salt using PBKDF2-SHA256."""
-    return hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, _PBKDF2_ITERATIONS)
+    return hashlib.pbkdf2_hmac(
+        "sha256", password.encode("utf-8"), salt, _PBKDF2_ITERATIONS
+    )
 
 
 def _encrypt_bytes(data: bytes, key: bytes) -> bytes:
@@ -139,7 +140,7 @@ def _decrypt_bytes(data: bytes, key: bytes) -> bytes:
 
     if not data.startswith(_HEADER_MAGIC):
         raise ValueError("Not a vault-encrypted file")
-    payload = data[len(_HEADER_MAGIC):]
+    payload = data[len(_HEADER_MAGIC) :]
     nonce = payload[:12]
     ct = payload[12:]
     aesgcm = AESGCM(key)
@@ -224,7 +225,9 @@ def _reset_inactivity_timer(folder_id: int) -> None:
 
         # Start a new timer
         timeout_seconds = _AUTO_LOCK_MINUTES * 60
-        timer = threading.Timer(timeout_seconds, _on_inactivity_timeout, args=(folder_id,))
+        timer = threading.Timer(
+            timeout_seconds, _on_inactivity_timeout, args=(folder_id,)
+        )
         timer.daemon = True
         timer.start()
         _inactivity_timers[folder_id] = timer
@@ -250,7 +253,9 @@ async def cmd_create_vault(name: str, password: str, folder_id: int) -> dict[str
     _require_healthy_db()
     db = _get_vault_db()
     with _vault_db_lock:
-        existing = db.execute("SELECT 1 FROM vaults WHERE folder_id = ?", (folder_id,)).fetchone()
+        existing = db.execute(
+            "SELECT 1 FROM vaults WHERE folder_id = ?", (folder_id,)
+        ).fetchone()
     if existing:
         raise RuntimeError("This folder is already a vault")
 
@@ -260,6 +265,7 @@ async def cmd_create_vault(name: str, password: str, folder_id: int) -> dict[str
     key_check = _encrypt_bytes(b"TELEGRAB_VAULT_OK", key)
 
     import time
+
     with _vault_db_lock:
         db.execute(
             "INSERT INTO vaults (folder_id, name, salt, key_check, created_at) VALUES (?, ?, ?, ?, ?)",
@@ -279,7 +285,9 @@ async def cmd_unlock_vault(folder_id: int, password: str) -> bool:
     _require_healthy_db()
     db = _get_vault_db()
     with _vault_db_lock:
-        row = db.execute("SELECT salt, key_check FROM vaults WHERE folder_id = ?", (folder_id,)).fetchone()
+        row = db.execute(
+            "SELECT salt, key_check FROM vaults WHERE folder_id = ?", (folder_id,)
+        ).fetchone()
     if not row:
         raise RuntimeError("Not a vault")
 
@@ -340,7 +348,12 @@ def is_vault(folder_id: int | None) -> bool:
         return False
     db = _get_vault_db()
     with _vault_db_lock:
-        return db.execute("SELECT 1 FROM vaults WHERE folder_id = ?", (folder_id,)).fetchone() is not None
+        return (
+            db.execute(
+                "SELECT 1 FROM vaults WHERE folder_id = ?", (folder_id,)
+            ).fetchone()
+            is not None
+        )
 
 
 def is_unlocked(folder_id: int | None) -> bool:
@@ -391,7 +404,7 @@ def encrypt_file(path: str, folder_id: int) -> str:
         tmp.write(base_nonce)
         tmp.write(struct.pack(">I", num_chunks))
 
-        with open(path, "rb") as f:
+        with Path(path).open("rb") as f:
             for i in range(num_chunks):
                 chunk = f.read(_CHUNK_SIZE)
                 # Derive per-chunk nonce: base_nonce XOR chunk_index
@@ -430,7 +443,7 @@ def decrypt_file(path: str, folder_id: int) -> str:
 
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".dec")  # noqa: SIM115
     try:
-        with open(path, "rb") as f:
+        with Path(path).open("rb") as f:
             magic = f.read(8)
 
             if magic == _CHUNKED_MAGIC:
@@ -458,7 +471,7 @@ def decrypt_file(path: str, folder_id: int) -> str:
                 raise ValueError("Not a vault-encrypted file")
 
         tmp.close()
-    except InvalidTag:
+    except InvalidTag as exc:
         # Authentication tag mismatch — corrupted or tampered ciphertext
         tmp.close()
         Path(tmp.name).unlink(missing_ok=True)
@@ -471,8 +484,8 @@ def decrypt_file(path: str, folder_id: int) -> str:
             code=ErrorCode.VAULT_DECRYPTION_FAILED,
             message="Decryption failed: the encrypted file is corrupted or has been tampered with.",
             detail=f"AES-GCM authentication tag mismatch for file: {Path(path).name}. "
-                   "The encrypted file has been preserved unchanged on disk.",
-        )
+            "The encrypted file has been preserved unchanged on disk.",
+        ) from exc
     except Exception:
         tmp.close()
         Path(tmp.name).unlink(missing_ok=True)

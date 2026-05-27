@@ -47,7 +47,7 @@ class ExponentialBackoff:
         Returns:
             Delay in seconds: min(base_delay * 2^attempt, max_delay).
         """
-        return min(self.base_delay * (2 ** attempt), self.max_delay)
+        return min(self.base_delay * (2**attempt), self.max_delay)
 
 
 async def retry_with_backoff(
@@ -99,7 +99,7 @@ async def retry_with_backoff(
                 transfer_id or "N/A",
             )
             await asyncio.sleep(wait_seconds)
-        except (TimeoutError, asyncio.TimeoutError) as exc:
+        except TimeoutError as exc:
             last_exc = exc
             delay = backoff.next_delay(attempt)
             log.warning(

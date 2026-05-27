@@ -29,10 +29,12 @@ from pathlib import Path
 # flash a conhost if a subprocess inherits the creation flags).
 if sys.platform == "win32":
     import ctypes
+
     ctypes.windll.user32.ShowWindow(ctypes.windll.kernel32.GetConsoleWindow(), 0)
 
     # Prevent child processes from spawning visible console windows.
     import subprocess
+
     _startupinfo = subprocess.STARTUPINFO()
     _startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
     _startupinfo.wShowWindow = 0
@@ -157,6 +159,7 @@ def main() -> None:
 
     # Enforce single instance — exit if another is already running
     from .infra.single_instance import ensure_single_instance
+
     if not ensure_single_instance():
         sys.exit(0)
 
@@ -188,7 +191,7 @@ def main() -> None:
     # Dark title bar on Windows
     if sys.platform == "win32":
         try:
-            hwnd = getattr(window, 'hwnd', None)
+            hwnd = getattr(window, "hwnd", None)
             if hwnd:
                 value = ctypes.c_int(1)
                 ctypes.windll.dwmapi.DwmSetWindowAttribute(
@@ -222,6 +225,7 @@ def main() -> None:
 
         def _init_bg():
             from .services.cache import init_cache
+
             try:
                 init_cache()
             except Exception as exc:  # noqa: BLE001
@@ -252,6 +256,7 @@ def main() -> None:
         log.info("Shutting down...")
         with contextlib.suppress(Exception):
             from .services.tray import stop_tray
+
             stop_tray()
         try:
             state = tg.get_state()

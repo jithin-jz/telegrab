@@ -47,7 +47,9 @@ def compute_file_hash(path: str) -> str:
     return h.hexdigest()
 
 
-def store_hash(file_hash: str, folder_id: int | None, message_id: int, name: str, size: int) -> None:
+def store_hash(
+    file_hash: str, folder_id: int | None, message_id: int, name: str, size: int
+) -> None:
     """Store a file hash after successful upload."""
     conn = _get_conn()
     fk = folder_id if folder_id is not None else -1
@@ -67,7 +69,11 @@ def find_duplicate(file_hash: str, folder_id: int | None) -> dict[str, Any] | No
         (file_hash, fk),
     ).fetchone()
     if row:
-        return {"message_id": row["message_id"], "name": row["name"], "size": row["size"]}
+        return {
+            "message_id": row["message_id"],
+            "name": row["name"],
+            "size": row["size"],
+        }
     return None
 
 

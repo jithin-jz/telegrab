@@ -111,14 +111,17 @@ class AsyncRuntime:
                 _MAX_RESTARTS,
                 _RESTART_WINDOW,
             )
-            bus.emit("toast", {
-                "type": "fatal",
-                "title": "Connection Lost",
-                "message": (
-                    "The background runtime could not be restored after "
-                    f"{_MAX_RESTARTS} attempts. Please restart the application."
-                ),
-            })
+            bus.emit(
+                "toast",
+                {
+                    "type": "fatal",
+                    "title": "Connection Lost",
+                    "message": (
+                        "The background runtime could not be restored after "
+                        f"{_MAX_RESTARTS} attempts. Please restart the application."
+                    ),
+                },
+            )
             return
 
         log.warning(
@@ -145,15 +148,20 @@ class AsyncRuntime:
             # Re-establish Telegram connection
             self._reconnect_telegram()
 
-            log.info("AsyncRuntime: successfully recovered (attempt %d)", self._restart_count)
-            bus.emit("toast", {
-                "type": "recovery",
-                "title": "Connection Restored",
-                "message": (
-                    "Temporary disconnection detected. "
-                    "The connection has been restored."
-                ),
-            })
+            log.info(
+                "AsyncRuntime: successfully recovered (attempt %d)", self._restart_count
+            )
+            bus.emit(
+                "toast",
+                {
+                    "type": "recovery",
+                    "title": "Connection Restored",
+                    "message": (
+                        "Temporary disconnection detected. "
+                        "The connection has been restored."
+                    ),
+                },
+            )
         except Exception as exc:  # noqa: BLE001
             log.error(
                 "AsyncRuntime: restart attempt %d failed: %s",
@@ -217,8 +225,9 @@ class AsyncRuntime:
             fut.cancel()
             log.warning("run_coro timed out after %.1fs", timeout or 0)
             raise TimeoutError(
-                f"Operation timed out after {timeout:.1f}s" if timeout else
-                "Operation timed out"
+                f"Operation timed out after {timeout:.1f}s"
+                if timeout
+                else "Operation timed out"
             ) from exc
 
     def spawn(self, coro: Awaitable[T]) -> Future[T]:

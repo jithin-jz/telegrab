@@ -5,8 +5,8 @@ On non-Windows platforms, uses a lock file with PID checking.
 
 from __future__ import annotations
 
-import sys
 import logging
+import sys
 
 log = logging.getLogger(__name__)
 
@@ -24,13 +24,12 @@ def ensure_single_instance() -> bool:
 def _win32_ensure() -> bool:
     global _mutex_handle
     import ctypes
-    from ctypes import wintypes
 
     kernel32 = ctypes.windll.kernel32
-    ERROR_ALREADY_EXISTS = 183
+    error_already_exists = 183
 
     _mutex_handle = kernel32.CreateMutexW(None, False, _MUTEX_NAME)
-    if kernel32.GetLastError() == ERROR_ALREADY_EXISTS:
+    if kernel32.GetLastError() == error_already_exists:
         log.info("Another instance is already running. Exiting.")
         # Try to bring existing window to front
         _bring_existing_to_front()
@@ -46,8 +45,8 @@ def _bring_existing_to_front() -> None:
     user32 = ctypes.windll.user32
     hwnd = user32.FindWindowW(None, "Telegrab")
     if hwnd:
-        SW_RESTORE = 9
-        user32.ShowWindow(hwnd, SW_RESTORE)
+        sw_restore = 9
+        user32.ShowWindow(hwnd, sw_restore)
         user32.SetForegroundWindow(hwnd)
 
 
@@ -64,6 +63,6 @@ def _posix_ensure() -> bool:
         # Keep file open for lifetime of process
         _posix_ensure._lock_file = lock_file  # type: ignore[attr-defined]
         return True
-    except (OSError, IOError):
+    except OSError:
         log.info("Another instance is already running. Exiting.")
         return False

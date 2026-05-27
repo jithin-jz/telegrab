@@ -32,7 +32,8 @@ async def cmd_create_folder(name: str) -> dict[str, Any]:
         raise RuntimeError("Folder name too long (max 128 characters).")
     # Reject control characters and path separators
     import re
-    if re.search(r'[\x00-\x1f/\\]', name):
+
+    if re.search(r"[\x00-\x1f/\\]", name):
         raise RuntimeError("Folder name contains invalid characters.")
 
     state = tg.get_state()
@@ -195,7 +196,7 @@ async def cmd_scan_folders() -> list[dict[str, Any]]:
                 continue
 
             # Only check about field for owned/admin channels
-            if not getattr(entity, 'creator', False):
+            if not getattr(entity, "creator", False):
                 continue
 
             try:

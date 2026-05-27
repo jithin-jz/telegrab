@@ -91,7 +91,9 @@ async def ensure_client(api_id: int, api_hash: str | None = None) -> TelegramCli
         return await _ensure_client_inner(api_id, api_hash)
 
 
-async def _ensure_client_inner(api_id: int, api_hash: str | None = None) -> TelegramClient:
+async def _ensure_client_inner(
+    api_id: int, api_hash: str | None = None
+) -> TelegramClient:
     state = _state
 
     if state.client is not None and state.api_id == api_id:
@@ -143,6 +145,7 @@ def _check_cryptg() -> None:
     """
     try:
         import cryptg  # noqa: F401
+
         log.info("cryptg native crypto acceleration is active")
     except ImportError:
         log.warning(
@@ -154,6 +157,7 @@ def _check_cryptg() -> None:
 
 def _build_client(session_str: str, api_id: int, api_hash: str) -> TelegramClient:
     from .. import __version__
+
     _check_cryptg()
     return TelegramClient(
         session_str,

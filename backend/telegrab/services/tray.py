@@ -15,6 +15,7 @@ _icon = None
 try:
     import pystray
     from PIL import Image, ImageDraw
+
     _HAS_PYSTRAY = True
 except ImportError:
     _HAS_PYSTRAY = False

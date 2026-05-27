@@ -34,7 +34,9 @@ def _get_conn() -> sqlite3.Connection:
     return _conn
 
 
-async def cmd_pin_file(message_id: int, folder_id: int | None, name: str, size: int) -> bool:
+async def cmd_pin_file(
+    message_id: int, folder_id: int | None, name: str, size: int
+) -> bool:
     conn = _get_conn()
     fk = folder_id if folder_id is not None else -1
     conn.execute(

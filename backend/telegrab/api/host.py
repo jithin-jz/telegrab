@@ -86,8 +86,12 @@ def _configure_user32() -> None:
     user32.SetWindowLongW.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_long]
     user32.SetWindowPos.restype = ctypes.c_int
     user32.SetWindowPos.argtypes = [
-        ctypes.c_void_p, ctypes.c_void_p,
-        ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int,
+        ctypes.c_void_p,
+        ctypes.c_void_p,
+        ctypes.c_int,
+        ctypes.c_int,
+        ctypes.c_int,
+        ctypes.c_int,
         ctypes.c_uint,
     ]
     user32.ShowWindow.restype = ctypes.c_int
@@ -126,7 +130,7 @@ def _apply_native_styles() -> None:
     try:
         _ensure_configured()
         user32 = ctypes.windll.user32
-        hwnd = getattr(_window, 'hwnd', None)
+        hwnd = getattr(_window, "hwnd", None)
         if not hwnd:
             hwnd = user32.FindWindowW(None, "Telegrab")
         if not hwnd:
@@ -139,7 +143,12 @@ def _apply_native_styles() -> None:
 
         # Force the OS to re-evaluate the non-client area.
         user32.SetWindowPos(
-            hwnd, 0, 0, 0, 0, 0,
+            hwnd,
+            0,
+            0,
+            0,
+            0,
+            0,
             _SWP_FRAMECHANGED | _SWP_NOMOVE | _SWP_NOSIZE | _SWP_NOZORDER,
         )
     except Exception as exc:  # noqa: BLE001
@@ -314,7 +323,7 @@ def cmd_window_minimize() -> None:
         try:
             _ensure_configured()
             # Use pywebview's native handle if available, fall back to FindWindowW
-            hwnd = getattr(_window, 'hwnd', None)
+            hwnd = getattr(_window, "hwnd", None)
             if not hwnd:
                 hwnd = ctypes.windll.user32.FindWindowW(None, "Telegrab")
             if hwnd:
@@ -383,7 +392,7 @@ def cmd_window_maximize() -> None:
         try:
             _ensure_configured()
             user32 = ctypes.windll.user32
-            hwnd = getattr(_window, 'hwnd', None)
+            hwnd = getattr(_window, "hwnd", None)
             if not hwnd:
                 hwnd = user32.FindWindowW(None, "Telegrab")
             if hwnd:
@@ -442,7 +451,7 @@ def cmd_window_restore() -> None:
         try:
             _ensure_configured()
             user32 = ctypes.windll.user32
-            hwnd = getattr(_window, 'hwnd', None)
+            hwnd = getattr(_window, "hwnd", None)
             if not hwnd:
                 hwnd = user32.FindWindowW(None, "Telegrab")
             if hwnd:

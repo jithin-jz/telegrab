@@ -57,6 +57,7 @@ class BandwidthManager:
 
     def _save_if_needed(self) -> None:
         import time as _time
+
         now = _time.monotonic()
         if not self._dirty:
             return
@@ -66,6 +67,7 @@ class BandwidthManager:
 
     def _flush_locked(self) -> None:
         import time as _time
+
         try:
             with self._path.open("w", encoding="utf-8") as fh:
                 json.dump(asdict(self._stats), fh)

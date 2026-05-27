@@ -153,9 +153,7 @@ class Bridge:
                 if coro_factory is not None:
                     log.info("Reconnected; retrying '%s'", cmd_name)
                     try:
-                        return get_runtime().run_coro(
-                            coro_factory(), timeout=timeout
-                        )
+                        return get_runtime().run_coro(coro_factory(), timeout=timeout)
                     except Exception as retry_exc:
                         log.warning(
                             "Retry of '%s' after reconnect failed: %s",
@@ -221,10 +219,9 @@ class Bridge:
         """
         try:
             runtime = get_runtime()
-            reconnect_result = runtime.run_coro(
+            return runtime.run_coro(
                 self._reconnect_client(), timeout=_RECONNECT_TIMEOUT
             )
-            return reconnect_result
         except (TimeoutError, Exception) as exc:
             log.warning("Auto-reconnect failed: %s", exc)
             return False
@@ -301,9 +298,7 @@ class Bridge:
     def cmd_get_files(self, args: Any = None) -> list[dict]:
         a = _args(args)
         fid = a.get("folderId")
-        return _run_long(
-            file_cmds.cmd_get_files(int(fid) if fid is not None else None)
-        )
+        return _run_long(file_cmds.cmd_get_files(int(fid) if fid is not None else None))
 
     def cmd_upload_file(self, args: Any = None) -> str:
         a = _args(args)
@@ -365,9 +360,7 @@ class Bridge:
 
     def cmd_rename_folder(self, args: Any = None) -> dict:
         a = _args(args)
-        return _run(
-            folder_cmds.cmd_rename_folder(int(a["folderId"]), str(a["name"]))
-        )
+        return _run(folder_cmds.cmd_rename_folder(int(a["folderId"]), str(a["name"])))
 
     def cmd_delete_folder(self, args: Any = None) -> bool:
         a = _args(args)
@@ -420,6 +413,7 @@ class Bridge:
     def cmd_get_cache_size(self, args: Any = None) -> int:
         """Return total cache size in bytes."""
         from ..config import preview_cache_dir, thumbnail_cache_dir
+
         total = 0
         for d in (preview_cache_dir(), thumbnail_cache_dir()):
             if d.exists():
@@ -433,6 +427,7 @@ class Bridge:
         import shutil
 
         from ..config import preview_cache_dir, thumbnail_cache_dir
+
         for d in (preview_cache_dir(), thumbnail_cache_dir()):
             if d.exists():
                 shutil.rmtree(d, ignore_errors=True)
@@ -524,25 +519,32 @@ class Bridge:
 
     def cmd_create_vault(self, args: Any = None) -> dict:
         from ..services import vault as vault_cmds
+
         a = _args(args)
-        return _run(vault_cmds.cmd_create_vault(a["name"], a["password"], int(a["folderId"])))
+        return _run(
+            vault_cmds.cmd_create_vault(a["name"], a["password"], int(a["folderId"]))
+        )
 
     def cmd_unlock_vault(self, args: Any = None) -> bool:
         from ..services import vault as vault_cmds
+
         a = _args(args)
         return _run(vault_cmds.cmd_unlock_vault(int(a["folderId"]), a["password"]))
 
     def cmd_lock_vault(self, args: Any = None) -> bool:
         from ..services import vault as vault_cmds
+
         a = _args(args)
         return _run(vault_cmds.cmd_lock_vault(int(a["folderId"])))
 
     def cmd_list_vaults(self, args: Any = None) -> list:
         from ..services import vault as vault_cmds
+
         return _run(vault_cmds.cmd_list_vaults())
 
     def cmd_delete_vault(self, args: Any = None) -> bool:
         from ..services import vault as vault_cmds
+
         a = _args(args)
         return _run(vault_cmds.cmd_delete_vault(int(a["folderId"])))
 
@@ -550,24 +552,43 @@ class Bridge:
 
     def cmd_check_duplicate(self, args: Any = None) -> dict:
         from ..services import dedup as dedup_cmds
+
         a = _args(args)
         fid = a.get("folderId")
-        return _run(dedup_cmds.cmd_check_duplicate(a["path"], int(fid) if fid is not None else None))
+        return _run(
+            dedup_cmds.cmd_check_duplicate(
+                a["path"], int(fid) if fid is not None else None
+            )
+        )
 
     # ─────────────────────── pinned files ───────────────────────
 
     def cmd_pin_file(self, args: Any = None) -> bool:
         from ..services import pins as pin_cmds
+
         a = _args(args)
         fid = a.get("folderId")
-        return _run(pin_cmds.cmd_pin_file(int(a["messageId"]), int(fid) if fid is not None else None, a["name"], int(a["size"])))
+        return _run(
+            pin_cmds.cmd_pin_file(
+                int(a["messageId"]),
+                int(fid) if fid is not None else None,
+                a["name"],
+                int(a["size"]),
+            )
+        )
 
     def cmd_unpin_file(self, args: Any = None) -> bool:
         from ..services import pins as pin_cmds
+
         a = _args(args)
         fid = a.get("folderId")
-        return _run(pin_cmds.cmd_unpin_file(int(a["messageId"]), int(fid) if fid is not None else None))
+        return _run(
+            pin_cmds.cmd_unpin_file(
+                int(a["messageId"]), int(fid) if fid is not None else None
+            )
+        )
 
     def cmd_get_pinned_files(self, args: Any = None) -> list:
         from ..services import pins as pin_cmds
+
         return _run(pin_cmds.cmd_get_pinned_files())

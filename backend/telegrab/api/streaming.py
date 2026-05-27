@@ -98,7 +98,9 @@ async def _handle_request(
 
         # Validate request line length (Req 12.5).
         if len(request_line_raw) > _MAX_REQUEST_LINE_LENGTH:
-            log.debug("Rejected request: line exceeds %d bytes", _MAX_REQUEST_LINE_LENGTH)
+            log.debug(
+                "Rejected request: line exceeds %d bytes", _MAX_REQUEST_LINE_LENGTH
+            )
             writer.write(_HTTP_400)
             await writer.drain()
             writer.close()
@@ -129,8 +131,8 @@ async def _handle_request(
 
         path_qs = parts[1]
         parsed = urlparse(path_qs)
-        path = parsed.path          # e.g. /stream/home/12345
-        qs   = parse_qs(parsed.query)
+        path = parsed.path  # e.g. /stream/home/12345
+        qs = parse_qs(parsed.query)
 
         # Req 12.2, 12.3: Validate token with constant-time comparison.
         # Return HTTP 403 without reading file data if token is invalid/missing.
@@ -197,7 +199,7 @@ async def _handle_request(
             return
 
         total = tg.media_total_size(msg)
-        mime  = tg.mime_type_from_message(msg)
+        mime = tg.mime_type_from_message(msg)
         fname = tg.filename_from_message(msg)
 
         # Parse Range header
@@ -212,11 +214,11 @@ async def _handle_request(
                 if a == "" and b != "":
                     n = int(b)
                     start = max(total - n, 0)
-                    end   = total - 1
+                    end = total - 1
                 else:
                     start = int(a) if a else 0
-                    end   = int(b) if b else total - 1
-                    end   = min(end, total - 1)
+                    end = int(b) if b else total - 1
+                    end = min(end, total - 1)
                 if start > end or start >= total:
                     writer.write(_HTTP_416)
                     await writer.drain()
@@ -227,9 +229,9 @@ async def _handle_request(
         length = end - start + 1 if total > 0 else 0
 
         resp_headers: dict[str, str] = {
-            "Content-Type":        mime,
-            "Accept-Ranges":       "bytes",
-            "Cache-Control":       "private, max-age=120",
+            "Content-Type": mime,
+            "Accept-Ranges": "bytes",
+            "Cache-Control": "private, max-age=120",
             "Content-Disposition": f'inline; filename="{fname}"',
         }
         if length > 0:
@@ -245,7 +247,9 @@ async def _handle_request(
         # without large buffer build-up.
         sent = 0
         try:
-            async for chunk in client.iter_download(msg, offset=start, request_size=CHUNK_SIZE):
+            async for chunk in client.iter_download(
+                msg, offset=start, request_size=CHUNK_SIZE
+            ):
                 if not chunk:
                     break
                 if length > 0:
@@ -255,7 +259,7 @@ async def _handle_request(
                 if not chunk:
                     break
                 writer.write(chunk)
-                await writer.drain()   # drain every chunk — avoids buffer bloat
+                await writer.drain()  # drain every chunk — avoids buffer bloat
                 sent += len(chunk)
                 if length > 0 and sent >= length:
                     break
