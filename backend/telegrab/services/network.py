@@ -50,7 +50,7 @@ class ExponentialBackoff:
         return min(self.base_delay * (2**attempt), self.max_delay)
 
 
-async def retry_with_backoff(
+async def retry_with_backoff(  # noqa: UP047
     operation: Callable[[], Awaitable[T]],
     *,
     transfer_id: str | None = None,
