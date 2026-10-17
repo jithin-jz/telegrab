@@ -403,3 +403,23 @@ class TestStoreFlush:
         store.set("theme", "dark")
         store.flush()
         assert JsonStore().get("theme") == "dark"
+
+
+class TestTray:
+    def test_missing_display_does_not_break_startup(self, monkeypatch):
+        """pystray raises display errors (not ImportError) on headless Linux."""
+        import builtins
+
+        from telegrab.services import tray
+
+        real_import = builtins.__import__
+
+        def fake_import(name, *args, **kwargs):
+            if name == "pystray":
+                raise RuntimeError("DisplayNameError: no display")
+            return real_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "__import__", fake_import)
+        assert tray._import_pystray() is None
+        tray.start_tray(lambda: None, lambda: None)  # must not raise
+        assert tray._icon is None

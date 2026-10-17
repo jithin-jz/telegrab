@@ -283,13 +283,17 @@ def _self_test() -> int:
     try:
         import io
 
-        from .services.tray import _HAS_PYSTRAY, _load_icon_image
+        from .services.tray import _HAS_PILLOW, _import_pystray, _load_icon_image
 
-        if not _HAS_PYSTRAY:
-            problems.append("system tray support (pystray/Pillow) is missing")
+        if not _HAS_PILLOW:
+            problems.append("Pillow (tray icon) is missing")
         else:
             # pystray converts the image to an .ico on Windows.
             _load_icon_image().save(io.BytesIO(), format="ICO")
+        # On Linux pystray needs a display server to import; build machines
+        # are headless, so only Windows/macOS can verify it here.
+        if sys.platform in ("win32", "darwin") and _import_pystray() is None:
+            problems.append("pystray failed to import")
     except Exception as exc:  # noqa: BLE001
         problems.append(f"tray icon failed: {exc!r}")
     if os.environ.get(
