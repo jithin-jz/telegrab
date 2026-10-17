@@ -45,3 +45,6 @@ dist-installer/
 # OS
 Thumbs.db
 Desktop.ini
+
+# Firebase
+.firebase/

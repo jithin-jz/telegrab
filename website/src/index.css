@@ -1,0 +1,119 @@
+@import "tailwindcss";
+
+/* Same palette as the desktop app (frontend/src/styles/globals.css). */
+@theme {
+  --color-canvas: #1e1e2e;
+  --color-surface: #252536;
+  --color-surface-2: #2b2b3e;
+  --color-surface-3: #343449;
+  --color-hairline: rgba(255, 255, 255, 0.07);
+  --color-hairline-strong: rgba(255, 255, 255, 0.12);
+  --color-ink: #f5f5f7;
+  --color-slate: #a1a1aa;
+  --color-steel: #8e8ea3;
+  --color-primary: #89b4fa;
+  --color-primary-hover: #a5c6fc;
+  --color-primary-soft: rgba(137, 180, 250, 0.14);
+  --color-primary-ink: #89b4fa;
+  --color-success: #46c264;
+  --color-warning: #f5d75e;
+
+  --font-sans: 'InterVariable', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'SFMono-Regular', 'Cascadia Code', Menlo, Consolas, monospace;
+}
+
+html {
+  color-scheme: dark;
+  scroll-behavior: smooth;
+  scroll-padding-top: 5rem;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-feature-settings: 'cv11', 'ss01';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: rgba(137, 180, 250, 0.35);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Scroll-in reveal (see components/Reveal.tsx). */
+.reveal {
+  opacity: 0;
+  transform: translateY(14px);
+  transition:
+    opacity 0.6s ease,
+    transform 0.6s cubic-bezier(0.2, 0.7, 0.2, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* Soft blue glow behind the hero. */
+.hero-glow {
+  background:
+    radial-gradient(60% 50% at 50% 0%, rgba(137, 180, 250, 0.2), transparent 70%),
+    radial-gradient(40% 35% at 85% 20%, rgba(91, 141, 239, 0.12), transparent 70%);
+}
+
+/* Faint grid that fades out towards the edges. */
+.grid-bg {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, #000 40%, transparent 100%);
+}
+
+.text-gradient {
+  background: linear-gradient(180deg, #ffffff 30%, #b9b9c3 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@keyframes progress-sweep {
+  from { transform: scaleX(0.15); }
+  to { transform: scaleX(1); }
+}
+.progress-anim {
+  transform-origin: left;
+  animation: progress-sweep 3.2s ease-in-out infinite alternate;
+}
+
+details > summary {
+  list-style: none;
+}
+details > summary::-webkit-details-marker {
+  display: none;
+}
+details[open] .faq-chevron {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .progress-anim {
+    animation: none;
+  }
+}
