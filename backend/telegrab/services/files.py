@@ -234,6 +234,11 @@ class _Progress:
         self.emit(done, total)
 
 
+def _on_flood_wait(seconds: float) -> None:
+    """Tell the UI a transfer is paused by a Telegram rate limit."""
+    _emit_progress("rate-limited", {"wait_seconds": seconds})
+
+
 def _emit_transfer_failed(tid: str, bytes_sent: int, reason: str) -> None:
     if tid and bytes_sent > 0:
         bus.emit(
@@ -259,10 +264,11 @@ async def cmd_upload_file(
 
     client = require_client()
     tid = transfer_id or ""
-    # Always the user's original name — never the encrypted temp file's.
+    # Always the user's original name.
     file_name = source.name
-    upload_path = source
-    encrypted_tmp: Path | None = None
+    from ..telegram import fast_transfer
+
+    part_source: fast_transfer.PartSource | None = None
 
     try:
         if tg.is_cancelled(tid):
@@ -271,18 +277,12 @@ async def cmd_upload_file(
         if await vault_mod.ensure_vault_known(folder_id):
             if not vault_mod.is_unlocked(folder_id):
                 raise RuntimeError("Vault is locked. Unlock it first.")
-            # Encryption is CPU/disk bound — keep it off the event loop.
-            encrypted_tmp = Path(
-                await asyncio.to_thread(
-                    vault_mod.encrypt_file,
-                    str(source),
-                    folder_id,
-                    vault_mod.vault_temp_dir(),
-                )
-            )
-            upload_path = encrypted_tmp
+            # Encrypted on the fly as parts are sent — no ciphertext copy on disk.
+            part_source = vault_mod.VaultUploadSource(source, folder_id)
+        else:
+            part_source = fast_transfer.FilePartSource(source)
 
-        size = upload_path.stat().st_size
+        size = part_source.size
         ok, err = get_manager().can_transfer(size)
         if not ok:
             raise RuntimeError(err or "Bandwidth limit hit")
@@ -291,13 +291,15 @@ async def cmd_upload_file(
         progress.emit(0, size)
 
         peer = await tg.resolve_peer(client, folder_id)
-        from ..telegram import fast_transfer
 
         async def _do_upload():
-            with upload_path.open("rb") as f:
-                return await fast_transfer.upload_file(
-                    client, f, filename=file_name, progress_callback=progress.callback
-                )
+            return await fast_transfer.upload_source(
+                client,
+                part_source,
+                file_name,
+                progress.callback,
+                on_flood_wait=_on_flood_wait,
+            )
 
         try:
             uploaded_file = await retry_with_backoff(
@@ -327,9 +329,8 @@ async def cmd_upload_file(
         raise RuntimeError(_CANCELLED_MSG) from None
     finally:
         tg.clear_cancellation(tid)
-        if encrypted_tmp is not None:
-            with contextlib.suppress(OSError):
-                encrypted_tmp.unlink()
+        if part_source is not None:
+            part_source.close()
 
     # Store file hash for duplicate detection
     try:
@@ -414,12 +415,23 @@ async def cmd_download_file(
         if isinstance(msg.media, types.MessageMediaDocument):
             from ..telegram import fast_transfer
 
+            async def _refetch_document():
+                # File references expire; long downloads may outlive them.
+                fresh = await client.get_messages(peer, ids=int(message_id))
+                if fresh is None or not isinstance(
+                    fresh.media, types.MessageMediaDocument
+                ):
+                    raise RuntimeError("The file was deleted during the download")
+                return fresh.media.document
+
             async def _do_download():
                 await fast_transfer.download_file(
                     client,
                     msg.media.document,
                     str(partial),
-                    progress_callback=progress.callback,
+                    progress.callback,
+                    refresh_location=_refetch_document,
+                    on_flood_wait=_on_flood_wait,
                 )
         else:
 

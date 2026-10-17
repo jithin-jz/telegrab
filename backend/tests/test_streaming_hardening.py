@@ -57,7 +57,7 @@ class TestConnectionLimiting:
     @pytest.mark.asyncio
     async def test_rejects_when_at_max_connections(self):
         """HTTP 503 returned when _active_connections >= _MAX_CONNECTIONS."""
-        streaming._active_connections = 8
+        streaming._active_connections = streaming._MAX_CONNECTIONS
 
         reader = AsyncMock()
         writer = MagicMock()
@@ -76,7 +76,7 @@ class TestConnectionLimiting:
     @pytest.mark.asyncio
     async def test_503_closes_within_1_second(self):
         """Connection is closed within 1 second of rejection."""
-        streaming._active_connections = 8
+        streaming._active_connections = streaming._MAX_CONNECTIONS
 
         reader = AsyncMock()
         writer = MagicMock()
@@ -129,7 +129,7 @@ class TestConnectionLimiting:
     @pytest.mark.asyncio
     async def test_allows_connection_when_under_limit(self):
         """Connections under the limit are accepted normally."""
-        streaming._active_connections = 7
+        streaming._active_connections = streaming._MAX_CONNECTIONS - 1
 
         reader = AsyncMock()
         # Empty request triggers 400 (shortcut to test acceptance)

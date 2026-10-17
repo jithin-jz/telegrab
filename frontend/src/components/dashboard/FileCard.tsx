@@ -1,7 +1,7 @@
-import { useState, useEffect, memo } from 'react';
+import { useState, memo } from 'react';
 import { Folder, Eye, Trash2, Download, Check, Play } from 'lucide-react';
-import { invoke } from '../../lib/platform/core';
 import { TelegramFile } from '../../types';
+import { Thumbnail } from './Thumbnail';
 import { FileTypeIcon } from '../FileTypeIcon';
 import { cn } from '../../lib/utils';
 import { useQueryClient } from '@tanstack/react-query';
@@ -36,8 +36,7 @@ export const FileCard = memo(function FileCard({
 }: FileCardProps) {
   const isFolder = file.type === 'folder';
   const [isDragOver, setIsDragOver] = useState(false);
-  const [thumbnail, setThumbnail] = useState<string | null>(null);
-  const [thumbnailLoading, setThumbnailLoading] = useState(false);
+  const [thumbnail, setThumbnail] = useState(false);
   const queryClient = useQueryClient();
 
   const handleMouseEnter = () => {
@@ -52,16 +51,7 @@ export const FileCard = memo(function FileCard({
   };
 
   const fileFolder = folderOf(file, activeFolderId);
-  useEffect(() => {
-    if (isFolder || !hasThumbnail(file.name)) return;
-    let cancelled = false;
-    setThumbnailLoading(true);
-    invoke<string>('cmd_get_thumbnail', { messageId: file.id, folderId: fileFolder })
-      .then((result) => { if (!cancelled && result) setThumbnail(result); })
-      .catch(() => {})
-      .finally(() => { if (!cancelled) setThumbnailLoading(false); });
-    return () => { cancelled = true; };
-  }, [file.id, file.name, fileFolder, isFolder]);
+  const wantsThumbnail = !isFolder && hasThumbnail(file.name);
 
   return (
     <div className="relative gpu-accel-hover" onContextMenu={onContextMenu} onClick={onClick} onMouseEnter={handleMouseEnter}
@@ -82,21 +72,20 @@ export const FileCard = memo(function FileCard({
         )}
         style={height ? { height: `${height}px` } : { aspectRatio: '4/3' }}
       >
-        {thumbnail ? (
-          <div className="absolute inset-0">
-            <img src={thumbnail} alt={file.name} className="h-full w-full object-cover" loading="lazy" decoding="async" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent" />
-          </div>
-        ) : (
+        {!thumbnail && (
           <div className="absolute inset-x-0 top-0 bottom-[64px] flex items-center justify-center">
             <div aria-hidden className="pointer-events-none absolute inset-0 opacity-60" style={{ background: 'radial-gradient(60% 60% at 50% 45%, rgba(124,92,255,0.10) 0%, transparent 70%)' }} />
             {isFolder ? (
               <Folder className="text-primary relative h-10 w-10" strokeWidth={1.5} />
-            ) : thumbnailLoading ? (
-              <div className="border-primary/30 border-t-primary relative h-7 w-7 animate-spin rounded-full border-2" />
             ) : (
               <div className="relative"><FileTypeIcon filename={file.name} size="lg" /></div>
             )}
+          </div>
+        )}
+        {wantsThumbnail && (
+          <div className="pointer-events-none absolute inset-0">
+            <Thumbnail messageId={file.id} folderId={fileFolder} className="h-full w-full object-cover" onLoaded={setThumbnail} />
+            {thumbnail && <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent" />}
           </div>
         )}
 

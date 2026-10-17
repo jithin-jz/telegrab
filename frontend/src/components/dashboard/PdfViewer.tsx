@@ -7,7 +7,8 @@ import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import { TelegramFile } from '../../types';
 
 // Use Vite's ?url suffix to get a properly bundled asset URL for the worker
-import workerUrl from 'pdfjs-dist/legacy/build/pdf.worker.mjs?url';
+// Minified worker: the unminified one is copied verbatim (~2.4 MB).
+import workerUrl from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url';
 import { folderOf } from '../../lib/api';
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
 

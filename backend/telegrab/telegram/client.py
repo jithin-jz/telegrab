@@ -261,6 +261,9 @@ async def _shutdown_client(state: TelegramState) -> None:
     state.pending_qr_login = None
 
     if state.client is not None:
+        from . import fast_transfer
+
+        await fast_transfer.close_pools(state.client)
         try:
             await state.client.disconnect()  # type: ignore[func-returns-value]
         except Exception as exc:  # noqa: BLE001

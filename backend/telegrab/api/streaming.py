@@ -1,16 +1,21 @@
 """Pure-asyncio media streaming server (no FastAPI / uvicorn).
 
-Listens on 127.0.0.1:{STREAM_PORT} and handles:
+Listens on 127.0.0.1 (preferred port {STREAM_PORT}) and handles:
 
   GET /stream/{folder_id}/{message_id}?token=<session_token>
+  GET /thumb/{folder_id}/{message_id}?token=<session_token>
 
 Implements HTTP/1.1 byte-range requests (206 Partial Content) so
 <video>/<audio> elements inside pywebview can seek without buffering
 the whole file.
 
 This server runs on the *same* asyncio event loop as the Telethon client
-(via AsyncRuntime.spawn), so we can directly await `iter_download` inside
-request handlers.
+(via AsyncRuntime.spawn), so request handlers can directly use the pooled
+transfer engine (`fast_transfer.iter_range`).
+
+Serving thumbnails here (instead of base64 strings over the JS bridge) lets
+the webview decode and cache them natively — much less memory and bridge
+traffic for folders with thousands of images.
 """
 
 from __future__ import annotations
@@ -25,8 +30,11 @@ import sys
 import time
 from urllib.parse import parse_qs, quote, urlparse
 
+from telethon.tl.types import Document
+
 from .. import telegram as tg
 from ..config import get_stream_config
+from ..telegram import fast_transfer
 
 log = logging.getLogger(__name__)
 
@@ -40,8 +48,9 @@ RANGE_RE = re.compile(r"^bytes=(\d*)-(\d*)$")
 # Requests exceeding this are rejected as malformed (Req 12.5).
 _MAX_REQUEST_LINE_LENGTH = 8192
 
-# Maximum concurrent streaming connections (Req 12.6).
-_MAX_CONNECTIONS = 8
+# Maximum concurrent connections (Req 12.6). Thumbnails for a grid arrive in
+# parallel, so this must comfortably exceed the browser's per-host limit.
+_MAX_CONNECTIONS = 32
 _active_connections = 0
 
 # A client must send its full request head within this many seconds, and
@@ -171,16 +180,17 @@ async def _handle_request(
             writer.close()
             return
 
-        # Parse /stream/{folder_id}/{message_id}
-        m = re.match(r"^/stream/([^/]+)/(\d+)$", path)
+        # Parse /stream|thumb/{folder_id}/{message_id}
+        m = re.match(r"^/(stream|thumb)/([^/]+)/(\d+)$", path)
         if not m:
             writer.write(_HTTP_404)
             await writer.drain()
             writer.close()
             return
 
-        folder_id_str = m.group(1)
-        message_id = int(m.group(2))
+        route = m.group(1)
+        folder_id_str = m.group(2)
+        message_id = int(m.group(3))
 
         if folder_id_str.lower() in {"me", "home", "null"}:
             fid: int | None = None
@@ -199,6 +209,10 @@ async def _handle_request(
             writer.write(b"HTTP/1.1 503 Service Unavailable\r\n\r\nNot connected")
             await writer.drain()
             writer.close()
+            return
+
+        if route == "thumb":
+            await _serve_thumbnail(writer, message_id, fid, qs.get("q", ["medium"])[0])
             return
 
         from ..services import vault as vault_mod
@@ -281,12 +295,15 @@ async def _handle_request(
         await writer.drain()
 
         # Stream the body — drain after every chunk for smooth delivery
-        # without large buffer build-up.
+        # without large buffer build-up. Documents use the pooled engine with
+        # read-ahead; photos (small) fall back to Telethon's iterator.
+        if isinstance(getattr(msg.media, "document", None), Document) and total > 0:
+            body = fast_transfer.iter_range(client, msg.media.document, start, end)
+        else:
+            body = client.iter_download(msg, offset=start, request_size=CHUNK_SIZE)
         sent = 0
         try:
-            async for chunk in client.iter_download(
-                msg, offset=start, request_size=CHUNK_SIZE
-            ):
+            async for chunk in body:
                 if not chunk:
                     break
                 if length > 0:
@@ -303,8 +320,16 @@ async def _handle_request(
         except asyncio.CancelledError:
             log.debug("Stream cancelled for msg %s", message_id)
             raise
+        except (ConnectionError, OSError) as exc:
+            # The player closed the connection (seek / stop) — expected.
+            log.debug("Stream closed for msg %s: %s", message_id, exc)
         except Exception as exc:  # noqa: BLE001
             log.error("Stream error msg %s: %s", message_id, exc)
+        finally:
+            aclose = getattr(body, "aclose", None)
+            if aclose is not None:
+                with contextlib.suppress(Exception):
+                    await aclose()
 
     except asyncio.CancelledError:
         raise
@@ -315,6 +340,30 @@ async def _handle_request(
     finally:
         with contextlib.suppress(Exception):
             writer.close()
+
+
+async def _serve_thumbnail(
+    writer: asyncio.StreamWriter,
+    message_id: int,
+    folder_id: int | None,
+    quality: str = "medium",
+) -> None:
+    from ..services import preview
+
+    data = await preview.get_thumbnail_bytes(message_id, folder_id, quality)
+    if not data:
+        writer.write(_HTTP_404)
+        await writer.drain()
+        return
+    headers = {
+        "Content-Type": "image/jpeg",
+        "Content-Length": str(len(data)),
+        # A message's thumbnail never changes; let the webview cache it.
+        "Cache-Control": "private, max-age=604800, immutable",
+        "X-Content-Type-Options": "nosniff",
+    }
+    writer.write(_HTTP_200 + _build_headers(headers) + data)
+    await writer.drain()
 
 
 def _bind_socket(port: int) -> socket.socket:

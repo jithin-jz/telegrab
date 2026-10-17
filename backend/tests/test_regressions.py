@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import os
 import struct
 from types import SimpleNamespace
@@ -164,83 +163,28 @@ class TestVaultFileFormat:
 # ───────────────────────────── transfer engine ─────────────────────────────
 
 
-class _Sender:
-    def __init__(self, parts, fail_at=None):
-        self.parts = list(parts)
-        self.fail_at = fail_at
-        self.calls = 0
-        self.disconnected = False
+class TestTransferEngineWiring:
+    """Pool lifecycle hooks (engine behaviour itself: test_fast_transfer.py)."""
 
-    async def next(self):
-        self.calls += 1
-        if self.fail_at is not None and self.calls == self.fail_at:
-            raise ConnectionError("dropped")
-        await asyncio.sleep(0)
-        return self.parts.pop(0) if self.parts else None
+    async def test_pools_are_closed_with_the_client(self, monkeypatch):
+        from telegrab.telegram import client as client_mod
+        from telegrab.telegram import fast_transfer
 
-    async def disconnect(self):
-        self.disconnected = True
+        closed = []
 
+        async def fake_close(client):
+            closed.append(client)
 
-def _transferrer(senders):
-    from telegrab.telegram.fast_transfer import ParallelTransferrer
+        class Client:
+            async def disconnect(self):
+                return None
 
-    t = ParallelTransferrer.__new__(ParallelTransferrer)
-    t.loop = asyncio.get_running_loop()
-    t.senders = senders
-
-    async def fake_init(connections, file, part_count, part_size):
-        t.senders = senders
-
-    t._init_download = fake_init
-    return t
-
-
-class TestTransferCleanup:
-    async def test_download_error_disconnects_all_senders(self):
-        senders = [_Sender([b"a" * 4] * 3, fail_at=2), _Sender([b"b" * 4] * 3)]
-        t = _transferrer(senders)
-        with pytest.raises(ConnectionError):
-            async for _ in t.download(object(), 24, part_size_kb=4 / 1024, connection_count=2):
-                pass
-        assert all(s.disconnected for s in senders)
-
-    async def test_consumer_stopping_early_disconnects(self):
-        import contextlib
-
-        senders = [_Sender([b"a" * 4] * 5), _Sender([b"b" * 4] * 5)]
-        t = _transferrer(senders)
-        async with contextlib.aclosing(
-            t.download(object(), 40, part_size_kb=4 / 1024, connection_count=2)
-        ) as gen:
-            async for _ in gen:
-                break
-        assert all(s.disconnected for s in senders)
-
-    async def test_partial_sender_creation_failure_closes_opened(self):
-        from telegrab.telegram.fast_transfer import ParallelTransferrer
-
-        t = ParallelTransferrer.__new__(ParallelTransferrer)
-        t.senders = None
-        opened = []
-
-        async def factory(i):
-            if i == 2:
-                raise ConnectionError("dc down")
-            s = _Sender([])
-            opened.append(s)
-            return s
-
-        with pytest.raises(ConnectionError):
-            await t._create_senders(4, factory)
-        assert opened and all(s.disconnected for s in opened)
-
-    async def test_upload_part_limit(self):
-        from telegrab.telegram.fast_transfer import ParallelTransferrer
-
-        t = ParallelTransferrer.__new__(ParallelTransferrer)
-        with pytest.raises(ValueError, match="too large"):
-            await t.init_upload(1, 5 * 1024**3)
+        monkeypatch.setattr(fast_transfer, "close_pools", fake_close)
+        state = client_mod.TelegramState()
+        state.client = Client()
+        c = state.client
+        await client_mod._shutdown_client(state)
+        assert closed == [c] and state.client is None
 
 
 # ───────────────────────────── streaming ─────────────────────────────
@@ -334,28 +278,121 @@ class TestUpdaterChecksums:
 
 
 class TestThumbnailCache:
-    async def test_cache_key_includes_folder(self, data_dirs, monkeypatch):
+    async def test_cache_key_includes_folder_and_quality(self, data_dirs):
         from telegrab.config import thumbnail_cache_dir
         from telegrab.services import preview
 
         d = thumbnail_cache_dir()
-        (d / "11_5.jpg").write_bytes(b"\xff\xd8folder-11")
-        (d / "22_5.jpg").write_bytes(b"\xff\xd8folder-22")
-        a = await preview.cmd_get_thumbnail(5, 11)
-        b = await preview.cmd_get_thumbnail(5, 22)
-        assert a != b
+        (d / "11_5_medium.jpg").write_bytes(b"\xff\xd8folder-11")
+        (d / "22_5_medium.jpg").write_bytes(b"\xff\xd8folder-22")
+        (d / "22_5_low.jpg").write_bytes(b"\xff\xd8folder-22-low")
+        a = await preview.get_thumbnail_bytes(5, 11, "medium")
+        b = await preview.get_thumbnail_bytes(5, 22, "medium")
+        c = await preview.get_thumbnail_bytes(5, 22, "low")
+        assert len({a, b, c}) == 3
 
-    def test_old_unscoped_thumbnails_are_removed(self, data_dirs):
+    def test_old_unscoped_thumbnails_are_removed(self, data_dirs, monkeypatch):
         from telegrab.config import thumbnail_cache_dir
         from telegrab.services import preview
 
+        monkeypatch.setattr(preview, "_legacy_thumbs_removed", False)
         d = thumbnail_cache_dir()
         (d / "5.jpg").write_bytes(b"old")
-        (d / "home_5.jpg").write_bytes(b"new")
+        (d / "home_5.jpg").write_bytes(b"older format")
+        (d / "home_5_medium.jpg").write_bytes(b"new")
         preview._last_prune.clear()
         preview._prune_thumbnails(d)
         assert not (d / "5.jpg").exists()
-        assert (d / "home_5.jpg").exists()
+        assert not (d / "home_5.jpg").exists()
+        assert (d / "home_5_medium.jpg").exists()
+
+
+class TestThumbnailChoice:
+    def _sizes(self):
+        from telethon.tl.types import (
+            PhotoPathSize,
+            PhotoSize,
+            PhotoStrippedSize,
+            VideoSize,
+        )
+
+        return [
+            PhotoStrippedSize(type="i", bytes=b"x" * 20),
+            PhotoSize(type="s", w=90, h=60, size=1_000),
+            PhotoSize(type="m", w=320, h=213, size=9_000),
+            PhotoSize(type="x", w=800, h=533, size=60_000),
+            VideoSize(type="u", w=1280, h=720, size=900_000),
+            PhotoPathSize(type="j", bytes=b"svg"),
+        ]
+
+    @pytest.mark.parametrize(("quality", "expected"), [("low", "m"), ("medium", "m"), ("high", "x")])
+    def test_picks_jpeg_size_for_quality(self, quality, expected):
+        from telegrab.services.preview import pick_thumbnail
+
+        assert pick_thumbnail(self._sizes(), quality).type == expected
+
+    def test_never_picks_video_or_vector_thumbs(self):
+        from telethon.tl.types import PhotoPathSize, VideoSize
+
+        from telegrab.services.preview import pick_thumbnail
+
+        only_bad = [VideoSize(type="u", w=1, h=1, size=1), PhotoPathSize(type="j", bytes=b"")]
+        assert pick_thumbnail(only_bad, "high") is None
+
+    def test_stripped_preview_is_last_resort(self):
+        from telethon.tl.types import PhotoStrippedSize
+
+        from telegrab.services.preview import pick_thumbnail
+
+        stripped = PhotoStrippedSize(type="i", bytes=b"x")
+        assert pick_thumbnail([stripped], "medium") is stripped
+
+
+class TestThumbEndpoint:
+    async def test_serves_cached_jpeg_with_long_cache(self, data_dirs, monkeypatch):
+        from telegrab.api import streaming
+        from telegrab.services import preview
+
+        async def fake_bytes(message_id, folder_id, quality):
+            assert (message_id, folder_id, quality) == (5, 9, "low")
+            return b"\xff\xd8jpeg"
+
+        monkeypatch.setattr(preview, "get_thumbnail_bytes", fake_bytes)
+        written: list[bytes] = []
+
+        class Writer:
+            def write(self, data):
+                written.append(data)
+
+            async def drain(self):
+                return None
+
+        await streaming._serve_thumbnail(Writer(), 5, 9, "low")
+        response = b"".join(written)
+        assert response.startswith(b"HTTP/1.1 200")
+        assert b"Content-Type: image/jpeg" in response
+        assert b"immutable" in response
+        assert response.endswith(b"\xff\xd8jpeg")
+
+    async def test_missing_thumbnail_is_404(self, monkeypatch):
+        from telegrab.api import streaming
+        from telegrab.services import preview
+
+        async def none(*a):
+            return None
+
+        monkeypatch.setattr(preview, "get_thumbnail_bytes", none)
+        written: list[bytes] = []
+
+        class Writer:
+            def write(self, data):
+                written.append(data)
+
+            async def drain(self):
+                return None
+
+        await streaming._serve_thumbnail(Writer(), 5, None)
+        assert b"".join(written).startswith(b"HTTP/1.1 404")
 
 
 class TestStoreFlush:

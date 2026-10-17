@@ -11,7 +11,15 @@ import shutil
 import time
 from pathlib import Path
 
-from telethon.tl.types import Document, MessageMediaDocument, MessageMediaPhoto
+from telethon.tl.types import (
+    Document,
+    MessageMediaDocument,
+    MessageMediaPhoto,
+    PhotoCachedSize,
+    PhotoSize,
+    PhotoSizeProgressive,
+    PhotoStrippedSize,
+)
 
 from .. import telegram as tg
 from ..config import preview_cache_dir, thumbnail_cache_dir
@@ -37,7 +45,11 @@ _MAX_BASE64_SIZE = 2 * 1024 * 1024  # 2MB
 _inflight: dict[tuple[int | None, int], asyncio.Task[str]] = {}
 _last_prune: dict[Path, float] = {}
 
-_THUMB_NAME_RE = re.compile(r"^(home|\d+)_\d+\.")
+_THUMB_NAME_RE = re.compile(r"^(home|\d+)_\d+_(low|medium|high)\.")
+
+# Longest side, in pixels, that each thumbnail-quality setting aims for.
+_THUMB_TARGET_PX = {"low": 160, "medium": 320, "high": 800}
+THUMB_QUALITIES = tuple(_THUMB_TARGET_PX)
 
 _IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "gif", "webp", "bmp", "svg"}
 _MIME_TO_EXT = {
@@ -238,55 +250,113 @@ def cache_size_bytes() -> int:
     return total
 
 
+_legacy_thumbs_removed = False
+_thumb_inflight: dict[tuple[int | None, int, str], asyncio.Task[bytes | None]] = {}
+
+
+def pick_thumbnail(thumbs: list | None, quality: str):
+    """Choose the JPEG thumbnail size matching a quality setting.
+
+    Only JPEG kinds are considered: Telethon's ``thumb=-1`` can pick a
+    VideoSize (an MP4 animation) or a vector PhotoPathSize. The blurry
+    stripped preview is used only when nothing else exists.
+    """
+    target = _THUMB_TARGET_PX.get(quality, _THUMB_TARGET_PX["medium"])
+    sized = [
+        t
+        for t in thumbs or []
+        if isinstance(t, PhotoSize | PhotoSizeProgressive | PhotoCachedSize)
+        and getattr(t, "w", 0)
+    ]
+    if not sized:
+        return next((t for t in thumbs or [] if isinstance(t, PhotoStrippedSize)), None)
+    sized.sort(key=lambda t: max(t.w, t.h))
+    return next((t for t in sized if max(t.w, t.h) >= target), sized[-1])
+
+
 def _prune_thumbnails(cache_dir: Path) -> None:
+    global _legacy_thumbs_removed
     # Thumbnails used to be keyed by message id alone, which collides across
-    # folders (message ids restart in every channel) — drop that old format.
-    with contextlib.suppress(OSError):
-        for entry in cache_dir.iterdir():
-            if entry.is_file() and not _THUMB_NAME_RE.match(entry.name):
-                entry.unlink(missing_ok=True)
+    # folders (message ids restart in every channel) — drop that old format
+    # once per session.
+    if not _legacy_thumbs_removed:
+        _legacy_thumbs_removed = True
+        with contextlib.suppress(OSError):
+            for entry in cache_dir.iterdir():
+                if entry.is_file() and not _THUMB_NAME_RE.match(entry.name):
+                    entry.unlink(missing_ok=True)
     _prune_cache(cache_dir, THUMB_CACHE_MAX_FILES, THUMB_CACHE_MAX_TOTAL_BYTES)
 
 
-async def cmd_get_thumbnail(message_id: int, folder_id: int | None) -> str:
+async def _fetch_thumbnail(
+    message_id: int, folder_id: int | None, quality: str
+) -> bytes | None:
     cache_dir = thumbnail_cache_dir()
-    save_path = cache_dir / f"{_folder_part(folder_id)}_{message_id}.jpg"
+    save_path = cache_dir / f"{_folder_part(folder_id)}_{message_id}_{quality}.jpg"
+    with contextlib.suppress(OSError):
+        if save_path.exists():
+            return await asyncio.to_thread(save_path.read_bytes)
 
-    if save_path.exists():
-        with contextlib.suppress(OSError):
-            return await asyncio.to_thread(_data_uri, save_path, "jpg")
-
-    state = tg.get_state()
-    client = state.client
+    client = tg.get_state().client
     if client is None:
-        return ""
+        return None
 
     peer = await tg.resolve_peer(client, folder_id)
     msg = await client.get_messages(peer, ids=int(message_id))
     if msg is None or msg.media is None:
-        return ""
+        return None
 
     media = msg.media
     if isinstance(media, MessageMediaDocument):
         doc = getattr(media, "document", None)
         # Only documents that carry thumbnails (photos, videos, etc.)
-        if not isinstance(doc, Document) or not getattr(doc, "thumbs", None):
-            return ""
-    elif not isinstance(media, MessageMediaPhoto):
-        return ""
+        thumbs = getattr(doc, "thumbs", None) if isinstance(doc, Document) else None
+    elif isinstance(media, MessageMediaPhoto):
+        thumbs = getattr(media.photo, "sizes", None)
+    else:
+        return None
+    choice = pick_thumbnail(thumbs, quality)
+    if choice is None:
+        return None
 
     try:
         async with get_download_semaphore():
-            data = await client.download_media(msg, file=bytes, thumb=-1)
+            data = await client.download_media(msg, file=bytes, thumb=choice)
     except Exception as exc:  # noqa: BLE001
         log.warning("Thumbnail download failed: %s", exc)
-        return ""
+        return None
     if not data:
-        return ""
+        return None
 
     with contextlib.suppress(OSError):
-        save_path.write_bytes(data)
+        await asyncio.to_thread(save_path.write_bytes, data)
     _prune_thumbnails(cache_dir)
+    return data
+
+
+async def get_thumbnail_bytes(
+    message_id: int, folder_id: int | None, quality: str = "medium"
+) -> bytes | None:
+    """JPEG thumbnail bytes for a file, from cache or Telegram (None if none).
+
+    Concurrent requests for the same thumbnail share one fetch.
+    """
+    if quality not in _THUMB_TARGET_PX:
+        quality = "medium"
+    key = (folder_id, message_id, quality)
+    task = _thumb_inflight.get(key)
+    if task is None:
+        task = asyncio.ensure_future(_fetch_thumbnail(message_id, folder_id, quality))
+        _thumb_inflight[key] = task
+        task.add_done_callback(lambda _t, k=key: _thumb_inflight.pop(k, None))
+    return await asyncio.shield(task)
+
+
+async def cmd_get_thumbnail(message_id: int, folder_id: int | None) -> str:
+    """Thumbnail as a data: URI (legacy bridge path; the UI uses /thumb/ URLs)."""
+    data = await get_thumbnail_bytes(message_id, folder_id, "high")
+    if not data:
+        return ""
     return f"data:image/jpeg;base64,{base64.b64encode(data).decode('ascii')}"
 
 
@@ -294,6 +364,7 @@ __all__ = [
     "cmd_get_preview",
     "cmd_clean_cache",
     "cmd_get_thumbnail",
+    "get_thumbnail_bytes",
     "cache_size_bytes",
     "clear_cache_dirs",
 ]

@@ -1,10 +1,10 @@
-import { useState, useEffect, memo } from 'react';
+import { useState, memo } from 'react';
 import { Folder, Eye, Download, Trash2, Play } from 'lucide-react';
 import { TelegramFile } from '../../types';
 import { FileTypeIcon } from '../FileTypeIcon';
 import { isMediaFile } from '../../lib/utils';
-import { invoke } from '../../lib/platform/core';
 import { folderOf } from '../../lib/api';
+import { Thumbnail } from './Thumbnail';
 
 function isImageFile(filename: string): boolean {
   const ext = filename.split('.').pop()?.toLowerCase() || '';
@@ -41,23 +41,12 @@ export const FileListItem = memo(function FileListItem({
   onDelete,
 }: FileListItemProps) {
   const [isDragOver, setIsDragOver] = useState(false);
-  const [thumbnail, setThumbnail] = useState<string | null>(null);
+  const [thumbnail, setThumbnail] = useState(false);
   const isFolder = file.type === 'folder';
   const showThumb = !isFolder && isImageFile(file.name);
 
   const fileFolder = folderOf(file, activeFolderId);
 
-  // Lazy load thumbnail for image files
-  useEffect(() => {
-    if (!showThumb) return;
-    let cancelled = false;
-    invoke<string>('cmd_get_thumbnail', { messageId: file.id, folderId: fileFolder })
-      .then((result) => {
-        if (!cancelled && result) setThumbnail(result);
-      })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [file.id, fileFolder, showThumb]);
 
   return (
     <div
@@ -82,13 +71,14 @@ export const FileListItem = memo(function FileListItem({
       }}
       className={`group hover:bg-surface-soft grid cursor-pointer grid-cols-[2rem_2fr_6rem_8rem] items-center gap-4 rounded-lg border border-transparent px-4 py-2 transition-all ${selectedIds.has(file.id) ? 'bg-primary/10 border-primary/20' : ''} ${isDragOver ? 'ring-primary bg-primary/20 ring-2' : ''} `}
     >
-      <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded">
-        {thumbnail ? (
-          <img src={thumbnail} alt="" className="h-8 w-8 rounded object-cover" />
-        ) : isFolder ? (
+      <div className="relative flex h-8 w-8 items-center justify-center overflow-hidden rounded">
+        {!thumbnail && (isFolder ? (
           <Folder className="text-primary h-5 w-5" />
         ) : (
           <FileTypeIcon filename={file.name} className="h-5 w-5" />
+        ))}
+        {showThumb && (
+          <Thumbnail messageId={file.id} folderId={fileFolder} className="absolute inset-0 h-8 w-8 rounded object-cover" onLoaded={setThumbnail} />
         )}
       </div>
       <div className="text-foreground relative truncate pr-8 text-sm font-medium">

@@ -13,17 +13,13 @@ import {
   X,
   Music2,
 } from 'lucide-react';
-import { invoke } from '../../lib/platform/core';
 import { TelegramFile } from '../../types';
 import { isVideoFile, isAudioFile } from '../../lib/utils';
 import { cn } from '../../lib/utils';
 import { folderOf } from '../../lib/api';
 import { useSettings } from '../../contexts/SettingsContext';
+import { streamUrl as buildStreamUrl, useStreamInfo } from '../../lib/stream';
 
-interface StreamInfo {
-  token: string;
-  base_url: string;
-}
 
 interface MiniPlayerProps {
   file: TelegramFile;
@@ -62,7 +58,7 @@ export function MiniPlayer({
   totalItems,
   activeFolderId,
 }: MiniPlayerProps) {
-  const [streamInfo, setStreamInfo] = useState<StreamInfo | null>(null);
+  const streamInfo = useStreamInfo();
   const { settings } = useSettings();
   const [playing, setPlaying] = useState(settings.mediaAutoplay);
   const [progress, setProgress] = useState(0);
@@ -78,16 +74,8 @@ export function MiniPlayer({
   const isAudio = isAudioFile(file.name);
 
   const fileFolder = folderOf(file, activeFolderId);
-  const folderIdParam = fileFolder !== null ? fileFolder.toString() : 'home';
-  const streamUrl = streamInfo
-    ? `${streamInfo.base_url}/stream/${folderIdParam}/${file.id}?token=${streamInfo.token}`
-    : null;
+  const streamUrl = streamInfo ? buildStreamUrl(streamInfo, fileFolder, file.id) : null;
 
-  useEffect(() => {
-    invoke<StreamInfo>('cmd_get_stream_info')
-      .then(setStreamInfo)
-      .catch(() => {});
-  }, []);
 
   // Reset state when the playing file changes
   useEffect(() => {

@@ -173,7 +173,7 @@ class TestSearch:
 def _fake_fast_download(monkeypatch, *, payload=b"hello", fail: Exception | None = None):
     from telegrab.telegram import fast_transfer
 
-    async def fake_download(client, location, out, progress_callback=None):
+    async def fake_download(client, location, out, progress_callback=None, **kwargs):
         Path(out).write_bytes(payload[:2])  # partial data first
         if progress_callback:
             progress_callback(2, len(payload))
@@ -290,14 +290,16 @@ class TestUpload:
             return SimpleNamespace(id=42)
 
         client.send_file = send_file
-        staged: list[str] = []
+        sources: list = []
 
-        async def fake_upload(client, f, filename=None, progress_callback=None):
-            staged.append(f.name)
+        async def fake_upload(client, source, filename, progress_callback=None, **kwargs):
+            sources.append(source)
             sent["upload_name"] = filename
+            # The uploader sees ciphertext, never the plaintext.
+            assert source.read(0, 8) == vault_mod._CHUNKED_V2_MAGIC
             return object()
 
-        monkeypatch.setattr(fast_transfer, "upload_file", fake_upload)
+        monkeypatch.setattr(fast_transfer, "upload_source", fake_upload)
 
         async def always_vault(folder_id):
             return True
@@ -310,8 +312,9 @@ class TestUpload:
         await files.cmd_upload_file(str(src), 5, "t1")
 
         assert sent == {"name": "Holiday Photo.jpg", "upload_name": "Holiday Photo.jpg"}
-        assert staged and not Path(staged[0]).exists()  # ciphertext removed
-        assert Path(staged[0]).parent == vault_mod.vault_temp_dir()
+        assert isinstance(sources[0], vault_mod.VaultUploadSource)
+        # Encrypted on the fly: nothing was staged on disk.
+        assert list(vault_mod.vault_temp_dir().iterdir()) == []
 
     async def test_locked_vault_upload_refused(self, fake_tg, tmp_path, monkeypatch):
         from telegrab.services import vault as vault_mod
@@ -338,11 +341,11 @@ class TestUpload:
         monkeypatch.setattr(files_mod.bus, "emit", lambda e, p: events.append((e, p)))
         monkeypatch.setattr(files_mod, "_emit_progress", lambda e, p: None)
 
-        async def fake_upload(client, f, filename=None, progress_callback=None):
+        async def fake_upload(client, source, filename, progress_callback=None, **kwargs):
             progress_callback(10, 20)  # after the throttle window
             raise ValueError("server said no")
 
-        monkeypatch.setattr(fast_transfer, "upload_file", fake_upload)
+        monkeypatch.setattr(fast_transfer, "upload_source", fake_upload)
         monkeypatch.setattr(files_mod, "_PROGRESS_INTERVAL_SECS", 0.0)
         src = tmp_path / "a.txt"
         src.write_bytes(b"x" * 20)

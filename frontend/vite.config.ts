@@ -74,7 +74,10 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (!id.includes('node_modules')) return;
-          if (id.includes('pdfjs-dist')) return 'pdf';
+          // Let PDF.js split naturally with the lazy PdfViewer chunk. Forcing a
+          // named chunk made the bundler put Vite's lazy-import helper in it,
+          // so PDF.js loaded at startup for every user.
+          if (id.includes('pdfjs-dist')) return;
           if (id.includes('framer-motion') || id.includes('motion-dom') || id.includes('motion-utils')) return 'motion';
           if (id.includes('@tanstack')) return 'tanstack';
           if (id.includes('react-dom') || id.includes('/react/')) return 'react';

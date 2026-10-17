@@ -259,7 +259,10 @@ def main() -> None:
         try:
             state = tg.get_state()
             if state.client is not None:
-                runtime.run_coro(state.client.disconnect(), timeout=5.0)  # type: ignore[func-returns-value]
+                from .telegram.client import _shutdown_client
+
+                # Closes pooled transfer connections, then the main client.
+                runtime.run_coro(_shutdown_client(state), timeout=5.0)
         except Exception as exc:  # noqa: BLE001
             log.warning("Client shutdown error: %s", exc)
         runtime.stop()
@@ -277,6 +280,18 @@ def _self_test() -> int:
         from .telegram import fast_transfer  # noqa: F401
     except Exception as exc:  # noqa: BLE001
         problems.append(f"import failed: {exc!r}")
+    try:
+        import io
+
+        from .services.tray import _HAS_PYSTRAY, _load_icon_image
+
+        if not _HAS_PYSTRAY:
+            problems.append("system tray support (pystray/Pillow) is missing")
+        else:
+            # pystray converts the image to an .ico on Windows.
+            _load_icon_image().save(io.BytesIO(), format="ICO")
+    except Exception as exc:  # noqa: BLE001
+        problems.append(f"tray icon failed: {exc!r}")
     if os.environ.get(
         "TELEGRAB_DEV_URL"
     ) is None and not _resolve_frontend_url().startswith("file:"):

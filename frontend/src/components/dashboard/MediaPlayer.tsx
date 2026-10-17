@@ -1,15 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
-import { invoke } from '../../lib/platform/core';
 import { TelegramFile } from '../../types';
 import { isVideoFile, isAudioFile } from '../../lib/utils';
 import { folderOf } from '../../lib/api';
 import { useSettings } from '../../contexts/SettingsContext';
+import { streamUrl as buildStreamUrl, useStreamInfo } from '../../lib/stream';
 
-interface StreamInfo {
-  token: string;
-  base_url: string;
-}
 
 interface MediaPlayerProps {
   file: TelegramFile;
@@ -30,20 +26,12 @@ export function MediaPlayer({
   totalItems,
   activeFolderId,
 }: MediaPlayerProps) {
-  const [streamInfo, setStreamInfo] = useState<StreamInfo | null>(null);
+  const streamInfo = useStreamInfo();
   const { settings } = useSettings();
 
-  useEffect(() => {
-    invoke<StreamInfo>('cmd_get_stream_info')
-      .then(setStreamInfo)
-      .catch(() => {});
-  }, []);
 
   const fileFolder = folderOf(file, activeFolderId);
-  const folderIdParam = fileFolder !== null ? fileFolder.toString() : 'home';
-  const streamUrl = streamInfo
-    ? `${streamInfo.base_url}/stream/${folderIdParam}/${file.id}?token=${streamInfo.token}`
-    : null;
+  const streamUrl = streamInfo ? buildStreamUrl(streamInfo, fileFolder, file.id) : null;
 
   const isVideo = isVideoFile(file.name);
   const isAudio = isAudioFile(file.name);

@@ -620,6 +620,110 @@ def _chunk_nonce(base_nonce: bytes, index: int) -> bytes:
     return (int.from_bytes(base_nonce, "big") ^ index).to_bytes(12, "big")
 
 
+def _v2_header(base_nonce: bytes, num_chunks: int) -> bytes:
+    return (
+        _CHUNKED_V2_MAGIC
+        + base_nonce
+        + struct.pack(">I", _V2_CHUNK_SIZE)
+        + struct.pack(">Q", num_chunks)
+    )
+
+
+class VaultUploadSource:
+    """Random-access view of a file's vault ciphertext, encrypted on demand.
+
+    Produces exactly the bytes :func:`encrypt_file` would write (format
+    ``TGVLTCH2``), but chunk by chunk as the uploader asks for them, so a
+    vault upload starts immediately and never writes ciphertext to disk.
+    Every chunk except the last is a full ``_V2_CHUNK_SIZE`` of plaintext,
+    which makes chunk offsets computable without encrypting anything.
+
+    Implements the uploader's ``PartSource`` protocol. Methods are blocking
+    and thread-safe (the uploader calls them via ``asyncio.to_thread``).
+    """
+
+    _CACHE_CHUNKS = 4  # encrypted chunks kept for parts that straddle them
+
+    def __init__(self, path: str | Path, folder_id: int) -> None:
+        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+        _require_healthy_db()
+        self._aes = AESGCM(_session_key_copy(folder_id))
+        _reset_inactivity_timer(folder_id)
+        self.path = Path(path)
+        self.plain_size = self.path.stat().st_size
+        self.num_chunks = max(1, -(-self.plain_size // _V2_CHUNK_SIZE))
+        self._base_nonce = os.urandom(12)
+        self._header = _v2_header(self._base_nonce, self.num_chunks)
+        # Per chunk: 4-byte length prefix + plaintext + 16-byte GCM tag.
+        self.size = len(self._header) + self.num_chunks * 20 + self.plain_size
+        self._cache: dict[int, bytes] = {}
+        self._order: list[int] = []
+        self._lock = threading.Lock()
+        self._f = None
+
+    def _chunk_offset(self, index: int) -> int:
+        return len(self._header) + index * (_V2_CHUNK_SIZE + 20)
+
+    def _framed_chunk(self, index: int) -> bytes:
+        cached = self._cache.get(index)
+        if cached is not None:
+            return cached
+        if self._f is None:
+            self._f = self.path.open("rb")
+        self._f.seek(index * _V2_CHUNK_SIZE)
+        plain = self._f.read(_V2_CHUNK_SIZE)
+        aad = self._header + struct.pack(
+            ">QB", index, int(index == self.num_chunks - 1)
+        )
+        ct = self._aes.encrypt(_chunk_nonce(self._base_nonce, index), plain, aad)
+        framed = struct.pack(">I", len(ct)) + ct
+        self._cache[index] = framed
+        self._order.append(index)
+        if len(self._order) > self._CACHE_CHUNKS:
+            self._cache.pop(self._order.pop(0), None)
+        return framed
+
+    def read(self, offset: int, length: int) -> bytes:
+        end = min(offset + length, self.size)
+        out = bytearray()
+        pos = offset
+        with self._lock:
+            while pos < end:
+                header_len = len(self._header)
+                if pos < header_len:
+                    take = self._header[pos : min(end, header_len)]
+                else:
+                    index = min(
+                        (pos - header_len) // (_V2_CHUNK_SIZE + 20), self.num_chunks - 1
+                    )
+                    start = self._chunk_offset(index)
+                    framed = self._framed_chunk(index)
+                    take = framed[pos - start : min(end - start, len(framed))]
+                if not take:
+                    break
+                out += take
+                pos += len(take)
+        return bytes(out)
+
+    def md5(self) -> str:
+        h = hashlib.md5()
+        pos = 0
+        while pos < self.size:
+            block = self.read(pos, 1024 * 1024)
+            h.update(block)
+            pos += len(block)
+        return h.hexdigest()
+
+    def close(self) -> None:
+        with self._lock:
+            if self._f is not None:
+                self._f.close()
+                self._f = None
+            self._cache.clear()
+            self._order.clear()
+
+
 def encrypt_file(path: str, folder_id: int, out_dir: str | Path | None = None) -> str:
     """Encrypt a file for vault upload. Returns the path of the ciphertext.
 
@@ -635,12 +739,7 @@ def encrypt_file(path: str, folder_id: int, out_dir: str | Path | None = None) -
     file_size = Path(path).stat().st_size
     num_chunks = max(1, (file_size + _V2_CHUNK_SIZE - 1) // _V2_CHUNK_SIZE)
     base_nonce = os.urandom(12)
-    header = (
-        _CHUNKED_V2_MAGIC
-        + base_nonce
-        + struct.pack(">I", _V2_CHUNK_SIZE)
-        + struct.pack(">Q", num_chunks)
-    )
+    header = _v2_header(base_nonce, num_chunks)
     aesgcm = AESGCM(key)
 
     tmp = tempfile.NamedTemporaryFile(  # noqa: SIM115
@@ -764,6 +863,7 @@ __all__ = [
     "is_unlocked",
     "encrypt_file",
     "decrypt_file",
+    "VaultUploadSource",
     "vault_temp_dir",
     "purge_temp_files",
     "format_vault_tag",

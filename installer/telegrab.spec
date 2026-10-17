@@ -122,6 +122,17 @@ a = Analysis(
         "pydoc_data",
         "test",
         "_pytest",
+        # Pillow is only used to load/convert the tray icon; drop its native
+        # font, WebP, AVIF, colour-management and GUI-toolkit modules (~2.5 MB).
+        "PIL._imagingft",
+        "PIL._webp",
+        "PIL._avif",
+        "PIL._imagingcms",
+        "PIL._imagingtk",
+        "PIL._imagingmath",
+        "PIL.ImageTk",
+        "PIL.ImageQt",
+        "PIL.ImageCms",
     ],
     noarchive=False,
 )
@@ -220,8 +231,8 @@ elif sys.platform == "darwin":
         bundle_identifier="com.telegrab.app",
         info_plist={
             "CFBundleDisplayName": "telegrab",
-            "CFBundleShortVersionString": "1.1.0",
-            "CFBundleVersion": "1.1.0",
+            "CFBundleShortVersionString": "1.2.0",
+            "CFBundleVersion": "1.2.0",
             "NSHighResolutionCapable": True,
             "LSMinimumSystemVersion": "10.15",
             "NSAppleEventsUsageDescription": "telegrab opens external links.",

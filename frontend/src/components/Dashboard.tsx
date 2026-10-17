@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { useQuery, useInfiniteQuery, useQueryClient, InfiniteData } from '@tanstack/react-query';
 import { invoke, errorMessage } from '../lib/platform/core';
@@ -20,8 +20,6 @@ import { MediaPlayer } from './dashboard/MediaPlayer';
 import { MiniPlayer } from './dashboard/MiniPlayer';
 
 
-import { PdfViewer } from './dashboard/PdfViewer';
-import { SettingsModal } from './dashboard/SettingsModal';
 import { CommandPalette } from './dashboard/CommandPalette';
 import { VaultModal, type VaultStatus } from './dashboard/VaultModal';
 import { SectionErrorBoundary } from './SectionErrorBoundary';
@@ -38,6 +36,12 @@ import { useUpdate } from '../contexts/UpdateContext';
 import { useDashboardSelection } from '../hooks/useDashboardSelection';
 import { useDashboardPreview } from '../hooks/useDashboardPreview';
 import { listen, type UnlistenFn } from '../lib/platform/event';
+
+// Loaded on first use: PDF.js alone is ~500 KB of JavaScript plus its worker.
+const PdfViewer = lazy(() => import('./dashboard/PdfViewer').then((m) => ({ default: m.PdfViewer })));
+const SettingsModal = lazy(() =>
+  import('./dashboard/SettingsModal').then((m) => ({ default: m.SettingsModal }))
+);
 
 export function Dashboard({ onLogout }: { onLogout: () => void }) {
   const queryClient = useQueryClient();
@@ -73,6 +77,9 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [showMoveModal, setShowMoveModal] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
+  // Mount Settings lazily, then keep it mounted so its close animation runs.
+  const [settingsMounted, setSettingsMounted] = useState(false);
+  useEffect(() => { if (showSettings) setSettingsMounted(true); }, [showSettings]);
   const [showVault, setShowVault] = useState(false);
   const { confirm } = useConfirm();
   const internalDragRef = useRef<number | null>(null);
@@ -351,7 +358,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
         <AnimatePresence>
           {showMoveModal && <MoveToFolderModal isOpen={showMoveModal} folders={folders} onClose={() => setShowMoveModal(false)} onSelect={handleBulkMove} activeFolderId={activeFolderId} key="move-modal" />}
           {playingFile && playerExpanded && <SectionErrorBoundary section="MediaPlayer"><MediaPlayer file={playingFile} onClose={() => setPlayerExpanded(false)} onNext={handleNext} onPrev={handlePrev} currentIndex={contextIndex} totalItems={contextFiles.length} activeFolderId={activeFolderId} key="media-player" /></SectionErrorBoundary>}
-          {pdfFile && <PdfViewer file={pdfFile} onClose={() => setPdfFile(null)} onNext={handleNext} onPrev={handlePrev} currentIndex={contextIndex} totalItems={contextFiles.length} activeFolderId={activeFolderId} key="pdf-viewer" />}
+          {pdfFile && <Suspense key="pdf-viewer" fallback={null}><PdfViewer file={pdfFile} onClose={() => setPdfFile(null)} onNext={handleNext} onPrev={handlePrev} currentIndex={contextIndex} totalItems={contextFiles.length} activeFolderId={activeFolderId} /></Suspense>}
 
         </AnimatePresence>
 
@@ -387,7 +394,11 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
         </AnimatePresence>
 
         <SectionErrorBoundary section="SettingsModal">
-          <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} onSync={handleSyncFolders} onLogout={handleLogout} isSyncing={isSyncing} />
+          {settingsMounted && (
+            <Suspense fallback={null}>
+              <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} onSync={handleSyncFolders} onLogout={handleLogout} isSyncing={isSyncing} />
+            </Suspense>
+          )}
         </SectionErrorBoundary>
         {activeFolderId !== null && vaultStatus && (
           <VaultModal
