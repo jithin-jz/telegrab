@@ -20,7 +20,7 @@ _spec.loader.exec_module(_updater_mod)
 
 _validate_url_domain = _updater_mod._validate_url_domain
 _GitHubOnlyRedirectHandler = _updater_mod._GitHubOnlyRedirectHandler
-cmd_download_and_install_update = _updater_mod.cmd_download_and_install_update
+download_and_install = _updater_mod.download_and_install
 
 
 class TestValidateUrlDomain:
@@ -29,7 +29,7 @@ class TestValidateUrlDomain:
     # --- Valid domains ---
 
     def test_accepts_github_com(self):
-        assert _validate_url_domain("https://github.com/user/repo/releases/download/v1.0/file.exe") is True
+        assert _validate_url_domain("https://github.com/jithin-jz/telegrab/releases/download/v1.0/file.exe") is True
 
     def test_accepts_github_com_http(self):
         assert _validate_url_domain("http://github.com/path") is True
@@ -121,21 +121,21 @@ class TestGitHubOnlyRedirectHandler:
 
 
 class TestDownloadUrlValidationIntegration:
-    """Integration tests for URL validation in cmd_download_and_install_update."""
+    """Integration tests for URL validation in download_and_install."""
 
     def test_rejects_non_github_download_url(self):
-        with pytest.raises(ValueError, match="hostname is not github.com"):
-            cmd_download_and_install_update("https://evil.com/malware.exe", expected_sha256="a" * 64)
+        with pytest.raises(ValueError, match="not a release asset"):
+            download_and_install("https://evil.com/malware.exe", expected_sha256="a" * 64)
 
     def test_rejects_empty_download_url(self):
         with pytest.raises(ValueError, match="No download URL provided"):
-            cmd_download_and_install_update("")
+            download_and_install("")
 
     def test_aborts_when_no_checksum_provided(self):
         """Verify that missing checksum aborts before domain validation."""
         with pytest.raises(RuntimeError, match="no SHA-256 checksum found"):
-            cmd_download_and_install_update(
-                "https://github.com/user/repo/releases/download/v1.0/file.exe"
+            download_and_install(
+                "https://github.com/jithin-jz/telegrab/releases/download/v1.0/file.exe"
             )
 
     @patch("shutil.disk_usage")
@@ -149,7 +149,7 @@ class TestDownloadUrlValidationIntegration:
         mock_disk.return_value = MagicMock(free=100)  # Less than 200MB
 
         with pytest.raises(RuntimeError, match="Insufficient disk space"):
-            cmd_download_and_install_update(
-                "https://github.com/user/repo/releases/download/v1.0/file.exe",
+            download_and_install(
+                "https://github.com/jithin-jz/telegrab/releases/download/v1.0/file.exe",
                 expected_sha256="a" * 64,
             )

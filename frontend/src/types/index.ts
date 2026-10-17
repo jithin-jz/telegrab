@@ -5,7 +5,10 @@ export interface TelegramFile {
   sizeStr: string; // Formatted size
   created_at?: string;
   type?: 'folder' | 'file'; // implied icon_type
-  // Add other fields if backend sends them
+  /** Folder the file lives in (null = Saved Messages). Set by the backend. */
+  folder_id?: number | null;
+  mime_type?: string | null;
+  file_ext?: string | null;
 }
 
 export interface TelegramFolder {

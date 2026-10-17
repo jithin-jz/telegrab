@@ -4,6 +4,7 @@ import { TelegramFile } from '../../types';
 import { FileTypeIcon } from '../FileTypeIcon';
 import { isMediaFile } from '../../lib/utils';
 import { invoke } from '../../lib/platform/core';
+import { folderOf } from '../../lib/api';
 
 function isImageFile(filename: string): boolean {
   const ext = filename.split('.').pop()?.toLowerCase() || '';
@@ -44,17 +45,19 @@ export const FileListItem = memo(function FileListItem({
   const isFolder = file.type === 'folder';
   const showThumb = !isFolder && isImageFile(file.name);
 
+  const fileFolder = folderOf(file, activeFolderId);
+
   // Lazy load thumbnail for image files
   useEffect(() => {
     if (!showThumb) return;
     let cancelled = false;
-    invoke<string>('cmd_get_thumbnail', { messageId: file.id, folderId: activeFolderId })
+    invoke<string>('cmd_get_thumbnail', { messageId: file.id, folderId: fileFolder })
       .then((result) => {
         if (!cancelled && result) setThumbnail(result);
       })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [file.id, activeFolderId, showThumb]);
+  }, [file.id, fileFolder, showThumb]);
 
   return (
     <div

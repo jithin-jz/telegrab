@@ -22,8 +22,10 @@
   Enjoy a sleek, Linear-inspired interface with fluid animations, drag-and-drop mechanics, full folder structures, instant search, and visual list/grid view toggles.
 - **🎬 Instant Media Streaming**
   Watch HD/4K videos or listen to audio tracks instantly via high-efficiency local streaming without waiting for the full file download.
-- **🔒 Vault Secure Encryption**
-  Secure your sensitive directories and personal files with local, AES-256 encrypted vaults.
+- **🔒 Encrypted Vaults**
+  Turn any folder into a vault: files are encrypted with AES-256-GCM on your device before upload. Vault settings are stored in the folder itself on Telegram, so vaults keep working after a reinstall or on another computer. There is no password recovery.
+- **🌐 Proxy Support**
+  Connect through SOCKS5, SOCKS4, HTTP or MTProxy — configurable from the sign-in screen and Settings → Network.
 - **🔌 Offline-Resilient Transfer Queue**
   Add files to transfer queues offline. Telegrab handles network changes gracefully, automatically pausing transfers and resuming them once connection is restored.
 - **🔄 Auto-Updates & Single Instance Lock**
@@ -33,17 +35,19 @@
 
 ## 🏗️ Architecture & Technology Stack
 
-Telegrab is split into a high-performance Python backend managing the MTProto Telegram client and a highly responsive React frontend running in a native webview container.
+Telegrab is split into a Python backend managing the MTProto Telegram client and a React frontend running in a native webview.
 
 ```mermaid
 graph TD
-    A[React 19 Frontend Webview] <-->|Bidirectional Safe JSON Bridge| B[FastAPI Backend Local Server]
-    B <-->|Telethon Client / MTProto| C[Telegram Cloud Storage]
-    B <-->|AES-256 Local Vaults| D[(Secure Local Storage)]
+    A[React 19 frontend in webview] <-->|pywebview JS bridge, structured errors| B[Python backend]
+    A -->|HTTP range requests, per-session token| S[Local streaming server on 127.0.0.1]
+    S --- B
+    B <-->|Telethon / MTProto, parallel transfers| C[Telegram]
+    B <-->|SQLite cache, DPAPI-protected settings| D[(App data dir)]
 ```
 
-* **Frontend**: React 19 • TypeScript • Tailwind CSS • Vite • Framer Motion • TanStack Query & Virtualizer (for rendering massive folders smoothly)
-* **Backend**: Python 3.12 • Telethon (MTProto client) • FastAPI • PyInstaller (packaging)
+* **Frontend**: React 19 • TypeScript • Tailwind CSS • Vite • Framer Motion • TanStack Query & Virtualizer
+* **Backend**: Python 3.12 • Telethon (MTProto) • pure-asyncio streaming server • cryptography • PyInstaller
 * **Desktop Layer**: Python-Webview (utilizing system native engines WebView2 on Windows, WebKit2GTK on Linux, and WebKit on macOS)
 
 ---
@@ -67,8 +71,9 @@ graph TD
 If you want to run Telegrab locally or contribute to development, follow the setup instructions below.
 
 ### Prerequisites
-* **Python 3.12+**
-* **Node.js 20+ & npm**
+* **Python 3.11+** (CI and releases use 3.12)
+* **[uv](https://docs.astral.sh/uv/)** for the Python environment
+* **Node.js 20.11+ & npm**
 
 ### 1. Clone the Repository
 ```bash
@@ -76,43 +81,52 @@ git clone https://github.com/jithin-jz/telegrab.git
 cd telegrab
 ```
 
-### 2. Setup the Python Backend
-Initialize a virtual environment and install the backend package in editable mode:
+### 2. Set up the Python backend
+Create `backend/.venv` from the lockfile (runtime + dev tools):
 ```bash
-# Windows
-python -m venv backend\.venv
-backend\.venv\Scripts\activate
-pip install -e ./backend
-pip install pytest ruff pyinstaller pillow
-
-# macOS / Linux
-python3 -m venv backend/.venv
-source backend/.venv/bin/activate
-pip install -e ./backend
-pip install pytest ruff pyinstaller pillow
+cd backend
+uv sync
 ```
 
-### 3. Setup the Frontend
-Install dependencies and build the developer assets:
+### 3. Set up the frontend
 ```bash
 cd frontend
-npm install
-npm run dev
+npm ci
 ```
 
-### 4. Run the Application
-From the repository root (with your virtual environment activated):
+### 4. Run the application
+From the repository root:
 ```bash
-python run.py
+python run.py --dev   # Vite dev server with hot reload
+python run.py         # production bundle (built if missing)
+```
+
+Logs go to `telegrab.log` in the app data directory (`%APPDATA%\telegrab`,
+`~/Library/Application Support/telegrab`, or `~/.local/share/telegrab`).
+
+---
+
+## 🧪 Checks
+The same checks run in CI on every push and pull request:
+```bash
+# backend
+cd backend
+uv run ruff check telegrab/ tests/
+uv run ruff format --check telegrab/
+uv run pytest tests/
+
+# frontend
+cd frontend
+npm run lint && npm run typecheck && npm test && npm run build
 ```
 
 ---
 
-## 🧪 Running Tests
-The backend includes a comprehensive suite of unit tests verifying transfer reliability, vault encryption, network recovery, and bridge stability:
-```bash
-pytest backend/tests/ -v
-```
+## 📦 Releasing
+1. `python scripts/bump_version.py X.Y.Z` (updates every version string and `uv.lock`), then commit.
+2. Push a `vX.Y.Z` tag. The release workflow builds Windows, macOS and Linux packages, smoke-tests each binary with `--self-test`, and publishes them with a `SHA256SUMS` file.
+
+Optional repository secrets enable code signing (Windows Authenticode, macOS signing + notarization) and update signing — see the header of `.github/workflows/release.yml`. To require signed updates, generate a key pair with `python scripts/update_signing.py keygen`, store the private key as the `UPDATE_SIGNING_KEY` secret, and set `UPDATE_PUBLIC_KEY` in `backend/telegrab/services/updater.py`. Without code signing, Windows SmartScreen and macOS Gatekeeper will warn users.
 
 ---
 

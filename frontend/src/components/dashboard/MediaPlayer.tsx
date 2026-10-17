@@ -3,6 +3,8 @@ import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { invoke } from '../../lib/platform/core';
 import { TelegramFile } from '../../types';
 import { isVideoFile, isAudioFile } from '../../lib/utils';
+import { folderOf } from '../../lib/api';
+import { useSettings } from '../../contexts/SettingsContext';
 
 interface StreamInfo {
   token: string;
@@ -29,6 +31,7 @@ export function MediaPlayer({
   activeFolderId,
 }: MediaPlayerProps) {
   const [streamInfo, setStreamInfo] = useState<StreamInfo | null>(null);
+  const { settings } = useSettings();
 
   useEffect(() => {
     invoke<StreamInfo>('cmd_get_stream_info')
@@ -36,7 +39,8 @@ export function MediaPlayer({
       .catch(() => {});
   }, []);
 
-  const folderIdParam = activeFolderId !== null ? activeFolderId.toString() : 'home';
+  const fileFolder = folderOf(file, activeFolderId);
+  const folderIdParam = fileFolder !== null ? fileFolder.toString() : 'home';
   const streamUrl = streamInfo
     ? `${streamInfo.base_url}/stream/${folderIdParam}/${file.id}?token=${streamInfo.token}`
     : null;
@@ -114,7 +118,7 @@ export function MediaPlayer({
               <p>Preparing stream...</p>
             </div>
           ) : isVideo ? (
-            <video src={streamUrl} controls autoPlay className="h-full w-full object-contain" />
+            <video src={streamUrl} controls autoPlay={settings.mediaAutoplay} className="h-full w-full object-contain" />
           ) : isAudio ? (
             <div className="from-primary/20 flex h-full w-full flex-col items-center justify-center bg-gradient-to-br to-black">
               <div className="bg-surface animate-pulse-slow mb-8 flex h-32 w-32 items-center justify-center rounded-full shadow-xl">
@@ -133,7 +137,7 @@ export function MediaPlayer({
                   <circle cx="18" cy="16" r="3" />
                 </svg>
               </div>
-              <audio src={streamUrl} controls autoPlay className="w-full max-w-md" />
+              <audio src={streamUrl} controls autoPlay={settings.mediaAutoplay} className="w-full max-w-md" />
             </div>
           ) : (
             <div className="text-white">Unsupported media type</div>

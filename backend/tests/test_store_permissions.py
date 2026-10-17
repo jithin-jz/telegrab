@@ -12,7 +12,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-import stat
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -94,7 +93,7 @@ class TestPermissionValidation:
         store_file = self._make_store_file(tmp_path)
 
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(stdout=f"JITHI:(R,W)", returncode=0)
+            mock_run.return_value = MagicMock(stdout="JITHI:(R,W)", returncode=0)
             _validate_permissions(store_file)
 
             # icacls should have been called to inspect
@@ -146,7 +145,7 @@ class TestStorePermissionOnStartup:
         store_module._permissions_set = False
 
         with patch.object(store_module, "store_path", return_value=store_file):
-            store = JsonStore()
+            JsonStore()
 
         mode = os.stat(str(store_file)).st_mode & 0o777
         assert mode == 0o600
@@ -162,7 +161,7 @@ class TestStorePermissionOnStartup:
 
         with patch.object(store_module, "store_path", return_value=store_file):
             with caplog.at_level(logging.WARNING, logger="telegrab.infra.store"):
-                store = JsonStore()
+                JsonStore()
 
         # Should not have warning since permissions are correct after restrict
         assert "too permissive" not in caplog.text

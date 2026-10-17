@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import {
   RotateCcw, Download, Trash2, RefreshCw,
   Palette, HardDrive, Info, CheckCircle2, Sun, Moon, Laptop,
-  FolderOpen, Zap, LogOut, X,
+  FolderOpen, Zap, LogOut, X, Globe,
 } from 'lucide-react';
 import { invoke } from '../../lib/platform/core';
 import { open as openDialog } from '../../lib/platform/dialog';
@@ -11,8 +11,9 @@ import { useUpdate } from '../../contexts/UpdateContext';
 import { toast } from 'sonner';
 import {
   useSettings, ACCENT_COLORS,
-  type Theme, type AccentColor, type ThumbnailQuality,
+  type Theme, type AccentColor, type ThumbnailQuality, type NotificationStyle,
 } from '../../contexts/SettingsContext';
+import { ProxySettings } from './ProxySettings';
 import { useConfirm } from '../../contexts/ConfirmContext';
 import { APP_VERSION } from '../../lib/version';
 
@@ -30,12 +31,13 @@ interface SettingsModalProps {
   isSyncing: boolean;
 }
 
-type Tab = 'appearance' | 'transfers' | 'behavior' | 'storage' | 'about';
+type Tab = 'appearance' | 'transfers' | 'behavior' | 'network' | 'storage' | 'about';
 
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'appearance', label: 'Appearance', icon: <Palette className="h-4 w-4" /> },
   { id: 'transfers', label: 'Transfers', icon: <Download className="h-4 w-4" /> },
   { id: 'behavior', label: 'Behavior', icon: <Zap className="h-4 w-4" /> },
+  { id: 'network', label: 'Network', icon: <Globe className="h-4 w-4" /> },
   { id: 'storage', label: 'Storage', icon: <HardDrive className="h-4 w-4" /> },
   { id: 'about', label: 'About', icon: <Info className="h-4 w-4" /> },
 ];
@@ -44,7 +46,7 @@ export function SettingsModal({ isOpen, onClose, onSync, onLogout, isSyncing }: 
   const { updateSetting, resetSettings } = useSettings();
   const { confirm } = useConfirm();
   const {
-    available, version, checking, downloading, progress,
+    available, version, checking, downloading, progress, manual,
     checkForUpdates, downloadAndInstall,
   } = useUpdate();
 
@@ -142,8 +144,9 @@ export function SettingsModal({ isOpen, onClose, onSync, onLogout, isSyncing }: 
             {activeTab === 'appearance' && <AppearanceTab />}
             {activeTab === 'transfers' && <TransfersTab onPickFolder={handlePickDownloadFolder} />}
             {activeTab === 'behavior' && <BehaviorTab onSync={onSync} isSyncing={isSyncing} />}
+            {activeTab === 'network' && <ProxySettings />}
             {activeTab === 'storage' && <StorageTab cacheSize={cacheSize} clearing={clearing} onClearCache={handleClearCache} />}
-            {activeTab === 'about' && <AboutTab available={available} version={version} checking={checking} downloading={downloading} progress={progress} checkForUpdates={checkForUpdates} downloadAndInstall={downloadAndInstall} />}
+            {activeTab === 'about' && <AboutTab available={available} version={version} checking={checking} downloading={downloading} progress={progress} manual={manual} checkForUpdates={checkForUpdates} downloadAndInstall={downloadAndInstall} />}
           </div>
         </div>
       </DialogContent>
@@ -289,7 +292,7 @@ function TransfersTab({ onPickFolder }: { onPickFolder: () => void }) {
           <p className="text-foreground text-[13px] font-medium">Concurrent uploads</p>
           <span className="bg-primary/10 text-primary rounded-md px-2 py-0.5 text-[11px] font-bold">{settings.maxConcurrentUploads}</span>
         </div>
-        <Slider className="mt-3" value={[settings.maxConcurrentUploads]} onValueChange={([v]) => updateSetting('maxConcurrentUploads', v)} min={1} max={10} step={1} />
+        <Slider className="mt-3" value={[settings.maxConcurrentUploads]} onValueChange={([v]) => updateSetting('maxConcurrentUploads', v)} min={1} max={5} step={1} />
       </div>
 
       {/* Concurrent downloads */}
@@ -298,7 +301,34 @@ function TransfersTab({ onPickFolder }: { onPickFolder: () => void }) {
           <p className="text-foreground text-[13px] font-medium">Concurrent downloads</p>
           <span className="bg-primary/10 text-primary rounded-md px-2 py-0.5 text-[11px] font-bold">{settings.maxConcurrentDownloads}</span>
         </div>
-        <Slider className="mt-3" value={[settings.maxConcurrentDownloads]} onValueChange={([v]) => updateSetting('maxConcurrentDownloads', v)} min={1} max={10} step={1} />
+        <Slider className="mt-3" value={[settings.maxConcurrentDownloads]} onValueChange={([v]) => updateSetting('maxConcurrentDownloads', v)} min={1} max={5} step={1} />
+      </div>
+
+      <Separator />
+
+      <SettingRow label="Completion notifications" description="How to tell you when transfers finish">
+        <SegmentedControl
+          value={settings.notificationStyle}
+          options={[
+            { value: 'toast' as NotificationStyle, label: 'In app' },
+            { value: 'system' as NotificationStyle, label: 'System' },
+            { value: 'none' as NotificationStyle, label: 'Off' },
+          ]}
+          onChange={(v) => updateSetting('notificationStyle', v)}
+        />
+      </SettingRow>
+
+      <div className="py-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-foreground text-[13px] font-medium">Clear finished transfers</p>
+            <p className="text-slate mt-0.5 text-[11px]">Remove completed items from the queue automatically</p>
+          </div>
+          <span className="text-slate text-[11px]">
+            {settings.autoClearTransfersSec === 0 ? 'Never' : `After ${settings.autoClearTransfersSec}s`}
+          </span>
+        </div>
+        <Slider className="mt-3" value={[settings.autoClearTransfersSec]} onValueChange={([v]) => updateSetting('autoClearTransfersSec', v)} min={0} max={60} step={5} />
       </div>
 
     </div>
@@ -406,8 +436,8 @@ function StorageTab({ cacheSize, clearing, onClearCache }: { cacheSize: string; 
   );
 }
 
-function AboutTab({ available, version, checking, downloading, progress, checkForUpdates, downloadAndInstall }: {
-  available: boolean; version: string | null; checking: boolean; downloading: boolean; progress: number;
+function AboutTab({ available, version, checking, downloading, progress, manual, checkForUpdates, downloadAndInstall }: {
+  available: boolean; version: string | null; checking: boolean; downloading: boolean; progress: number; manual: boolean;
   checkForUpdates: () => void; downloadAndInstall: () => void;
 }) {
   return (
@@ -437,7 +467,7 @@ function AboutTab({ available, version, checking, downloading, progress, checkFo
         </div>
         {available ? (
           <Button size="sm" onClick={downloadAndInstall} disabled={downloading}>
-            {downloading ? `${progress}%` : 'Install'}
+            {downloading ? `${progress}%` : manual ? 'Download' : 'Install'}
           </Button>
         ) : (
           <Button size="sm" variant="ghost" onClick={checkForUpdates} disabled={checking}>

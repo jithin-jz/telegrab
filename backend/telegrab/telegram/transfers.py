@@ -1,11 +1,19 @@
 """Transfer cancellation registry.
 
 Upload/download progress callbacks check `is_cancelled(transfer_id)` and
-raise `asyncio.CancelledError` when the user has asked to abort. This keeps
+raise :class:`TransferCancelledError` when the user has asked to abort. This keeps
 the cancellation cooperative and side-effect-free.
+
+A dedicated exception (rather than `asyncio.CancelledError`) is used because
+the callbacks run inside worker tasks: raising `CancelledError` there marks
+the *task* as cancelled and confuses asyncio's own cancellation bookkeeping.
 """
 
 from __future__ import annotations
+
+
+class TransferCancelledError(Exception):
+    """The user cancelled an in-flight transfer."""
 
 
 def cancel_transfer(state, transfer_id: str) -> None:

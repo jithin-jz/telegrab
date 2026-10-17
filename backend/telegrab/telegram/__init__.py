@@ -1,7 +1,7 @@
 """Telegram domain — Telethon client wrapper, peers, transfers, media helpers.
 
 The submodules are organised so that nothing here depends on the bridge or
-the FastAPI servers — only `telethon` and `telegrab.config`.
+the streaming server — only `telethon` and `telegrab.config`.
 
 For caller ergonomics we expose state-aware wrappers around the helpers
 that take `state` as their first argument: callers can use
@@ -34,6 +34,10 @@ async def resolve_peer(client: TelegramClient, folder_id: int | None) -> Any:
     return await _peers.resolve_peer(get_state(), client, folder_id)
 
 
+def remember_peer(entity: Any, folder_id: int | None = None) -> None:
+    _peers.remember_peer(get_state(), entity, folder_id)
+
+
 def clear_peer_cache() -> None:
     _peers.clear_peer_cache(get_state())
 
@@ -51,6 +55,7 @@ def clear_cancellation(transfer_id: str) -> None:
 
 
 # Errors / media helpers — re-exported flat for ergonomic imports.
+TransferCancelledError = _transfers.TransferCancelledError
 map_error = _errors.map_error
 
 file_metadata_from_message = _media.file_metadata_from_message
@@ -65,7 +70,9 @@ __all__ = [
     "ensure_client",
     "logout_and_reset",
     "resolve_peer",
+    "remember_peer",
     "clear_peer_cache",
+    "TransferCancelledError",
     "cancel_transfer",
     "is_cancelled",
     "clear_cancellation",

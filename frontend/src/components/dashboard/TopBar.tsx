@@ -9,12 +9,16 @@ import {
   FolderInput,
   Download,
   Trash2,
+  Shield,
+  ShieldCheck,
+  Lock,
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 import { cn } from '../../lib/utils';
 import type { ViewMode } from '../../contexts/SettingsContext';
+import type { VaultStatus } from './VaultModal';
 
 interface TopBarProps {
   currentFolderName: string;
@@ -29,6 +33,9 @@ interface TopBarProps {
   onSearchChange: (term: string) => void;
   onSettingsClick: () => void;
   onNavigateHome: () => void;
+  /** Vault state of the open folder; null for Saved Messages. */
+  vaultStatus?: VaultStatus | null;
+  onVaultClick?: () => void;
 }
 
 import { useQueryClient } from '@tanstack/react-query';
@@ -47,6 +54,8 @@ export function TopBar({
   onSearchChange,
   onSettingsClick,
   onNavigateHome,
+  vaultStatus,
+  onVaultClick,
 }: TopBarProps) {
   const searchRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
@@ -152,6 +161,26 @@ export function TopBar({
         )}
 
         {/* Icon buttons */}
+        {vaultStatus && (
+          <IconButton
+            title={
+              !vaultStatus.is_vault
+                ? 'Encrypt this folder (create vault)'
+                : vaultStatus.locked
+                  ? 'Vault locked — unlock'
+                  : 'Vault unlocked'
+            }
+            onClick={onVaultClick}
+          >
+            {!vaultStatus.is_vault ? (
+              <Shield className="h-4 w-4" />
+            ) : vaultStatus.locked ? (
+              <Lock className="h-4 w-4 text-amber-400" />
+            ) : (
+              <ShieldCheck className="h-4 w-4 text-emerald-500" />
+            )}
+          </IconButton>
+        )}
         <IconButton title="Download all files" onClick={onDownloadFolder}>
           <HardDrive className="h-4 w-4" />
         </IconButton>

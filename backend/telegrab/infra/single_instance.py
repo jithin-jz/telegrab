@@ -1,68 +1,92 @@
-"""Single-instance enforcement using a Windows named mutex.
+"""Single-instance enforcement.
 
-On non-Windows platforms, uses a lock file with PID checking.
+Windows uses a named mutex; other platforms use an exclusive lock file.
+When the app relaunches itself the new process is started with
+``TELEGRAB_RELAUNCHED`` set and waits (up to `_RELAUNCH_WAIT_SECS`) for the
+old instance to exit instead of bailing out immediately.
 """
 
 from __future__ import annotations
 
 import logging
+import os
 import sys
+import time
 
 log = logging.getLogger(__name__)
 
 _MUTEX_NAME = "TelegrabSingleInstance_B8F3A2E1"
+_RELAUNCH_ENV = "TELEGRAB_RELAUNCHED"
+_RELAUNCH_WAIT_SECS = 15.0
 _mutex_handle = None
 
 
 def ensure_single_instance() -> bool:
-    """Return True if this is the only running instance. Exit otherwise."""
-    if sys.platform == "win32":
-        return _win32_ensure()
-    return _posix_ensure()
+    """Return True if this is the only running instance."""
+    deadline = time.monotonic() + (
+        _RELAUNCH_WAIT_SECS if os.environ.pop(_RELAUNCH_ENV, None) else 0.0
+    )
+    acquire = _win32_acquire if sys.platform == "win32" else _posix_acquire
+    while True:
+        if acquire():
+            return True
+        if time.monotonic() >= deadline:
+            break
+        time.sleep(0.25)
+
+    log.info("Another instance is already running. Exiting.")
+    _bring_existing_to_front()
+    return False
 
 
-def _win32_ensure() -> bool:
+def _win32_acquire() -> bool:
     global _mutex_handle
     import ctypes
 
     kernel32 = ctypes.windll.kernel32
+    kernel32.CreateMutexW.restype = ctypes.c_void_p
     error_already_exists = 183
 
-    _mutex_handle = kernel32.CreateMutexW(None, False, _MUTEX_NAME)
+    handle = kernel32.CreateMutexW(None, False, _MUTEX_NAME)
     if kernel32.GetLastError() == error_already_exists:
-        log.info("Another instance is already running. Exiting.")
-        # Try to bring existing window to front
-        _bring_existing_to_front()
+        if handle:
+            kernel32.CloseHandle(ctypes.c_void_p(handle))
         return False
-
+    _mutex_handle = handle
     return True
 
 
 def _bring_existing_to_front() -> None:
     """Find the existing Telegrab window and bring it to the foreground."""
+    if sys.platform != "win32":
+        return
     import ctypes
 
-    user32 = ctypes.windll.user32
-    hwnd = user32.FindWindowW(None, "Telegrab")
+    from ..api.host import find_app_window
+
+    hwnd = find_app_window()
     if hwnd:
-        sw_restore = 9
-        user32.ShowWindow(hwnd, sw_restore)
-        user32.SetForegroundWindow(hwnd)
+        user32 = ctypes.windll.user32
+        sw_show, sw_restore = 5, 9
+        user32.ShowWindow(ctypes.c_void_p(hwnd), sw_show)  # in case it's in the tray
+        user32.ShowWindow(ctypes.c_void_p(hwnd), sw_restore)
+        user32.SetForegroundWindow(ctypes.c_void_p(hwnd))
 
 
-def _posix_ensure() -> bool:
+def _posix_acquire() -> bool:
     import fcntl
-    from pathlib import Path
 
-    lock_path = Path.home() / ".telegrab.lock"
+    from ..config import app_data_dir
+
+    lock_path = app_data_dir() / "instance.lock"
+    lock_file = lock_path.open("w")
     try:
-        lock_file = lock_path.open("w")
         fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-        lock_file.write(str(__import__("os").getpid()))
-        lock_file.flush()
-        # Keep file open for lifetime of process
-        _posix_ensure._lock_file = lock_file  # type: ignore[attr-defined]
-        return True
     except OSError:
-        log.info("Another instance is already running. Exiting.")
+        lock_file.close()
         return False
+    lock_file.write(str(os.getpid()))
+    lock_file.flush()
+    # Keep file open for lifetime of process
+    _posix_acquire._lock_file = lock_file  # type: ignore[attr-defined]
+    return True

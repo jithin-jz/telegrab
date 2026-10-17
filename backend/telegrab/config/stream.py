@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import secrets
-from dataclasses import dataclass
+import threading
+from dataclasses import dataclass, field
 
-# Single source of truth for the streaming port — referenced by the
-# streaming server and the bridge command that exposes it to JS.
+# Preferred port for the streaming server. If it is taken (another app, or a
+# second user session on the same machine) the server falls back to any free
+# port; the frontend always asks the bridge for the actual one.
 STREAM_PORT = 14201
 
 
@@ -14,6 +16,8 @@ STREAM_PORT = 14201
 class StreamConfig:
     token: str
     port: int
+    # Set once the server is listening and `port` holds the bound port.
+    ready: threading.Event = field(default_factory=threading.Event)
 
 
 _cfg: StreamConfig | None = None

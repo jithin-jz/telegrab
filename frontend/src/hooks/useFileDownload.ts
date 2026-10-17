@@ -6,6 +6,8 @@ import { toast } from 'sonner';
 import { DownloadItem, TelegramFile } from '../types';
 import { useSettings } from '../contexts/SettingsContext';
 import type { Store } from '../lib/platform/store';
+import { notifyDone } from '../lib/notify';
+import { useAutoClearFinished, useNotifyWhenIdle } from './useTransferQueueEffects';
 
 interface ProgressPayload {
   id: string;
@@ -81,28 +83,29 @@ export function useFileDownload(store: Store | null) {
     );
 
     try {
-      let savePath: string | null;
-      if (item.dirPath) {
-        const safeName = item.filename.replace(/[/\\]/g, '_').replace(/\.\./g, '_');
-        savePath = `${item.dirPath}/${safeName}`;
-      } else if (settings.defaultDownloadFolder) {
-        const safeName = item.filename.replace(/[/\\]/g, '_').replace(/\.\./g, '_');
-        savePath = `${settings.defaultDownloadFolder}/${safeName}`;
+      // A folder destination (bulk download / default folder) lets the
+      // backend sanitise the name and pick "name (1).ext" instead of
+      // overwriting an existing file. A save-dialog path is used verbatim:
+      // the user explicitly chose it (and confirmed any overwrite).
+      const dirPath = item.dirPath || settings.defaultDownloadFolder;
+      let destination: Record<string, string>;
+      if (dirPath) {
+        destination = { dirPath, fileName: item.filename };
       } else {
-        savePath = await save({ defaultPath: item.filename });
-      }
-
-      if (!savePath) {
-        setDownloadQueue((q) => q.filter((i) => i.id !== item.id));
-        activeCountRef.current--;
-        return;
+        const savePath = await save({ defaultPath: item.filename });
+        if (!savePath) {
+          // `finally` below releases the concurrency slot.
+          setDownloadQueue((q) => q.filter((i) => i.id !== item.id));
+          return;
+        }
+        destination = { savePath };
       }
 
       await invoke('cmd_download_file', {
         messageId: item.messageId,
-        savePath,
         folderId: item.folderId,
         transferId: item.id,
+        ...destination,
       });
 
       if (cancelledRef.current.has(item.id)) {
@@ -111,7 +114,6 @@ export function useFileDownload(store: Store | null) {
         setDownloadQueue((q) =>
           q.map((i) => (i.id === item.id ? { ...i, status: 'success', progress: 100 } : i))
         );
-        toast.success(`Downloaded: ${item.filename}`);
       }
     } catch (e) {
       if (!cancelledRef.current.has(item.id)) {
@@ -133,7 +135,7 @@ export function useFileDownload(store: Store | null) {
       activeCountRef.current--;
       downloadProgressMap.delete(item.id);
     }
-  }, []);
+  }, [settings.defaultDownloadFolder]);
 
   useEffect(() => {
     const max = settings.maxConcurrentDownloads;
@@ -248,6 +250,11 @@ export function useFileDownload(store: Store | null) {
       )
     );
   };
+
+  useAutoClearFinished(downloadQueue, setDownloadQueue, settings.autoClearTransfersSec);
+  useNotifyWhenIdle(downloadQueue, 'downloading', (done) =>
+    notifyDone(settings.notificationStyle, `${done} download${done === 1 ? '' : 's'} finished`)
+  );
 
   return {
     downloadQueue,

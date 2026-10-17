@@ -93,7 +93,7 @@
 
   /* ─── font family ─── */
   --font-sans:
-    'Inter', -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', Helvetica, sans-serif;
+    'Inter Variable', 'Inter', -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', Helvetica, sans-serif;
 
   /* ─── shadcn tokens (mapped to dark) ─── */
   --color-background: #0a0a0c;

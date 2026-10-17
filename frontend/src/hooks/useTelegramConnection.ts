@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { invoke } from '../lib/platform/core';
 import { load as loadStore, type Store } from '../lib/platform/store';
 import { useQueryClient } from '@tanstack/react-query';
@@ -36,8 +36,17 @@ export function useTelegramConnection(onLogoutParent: () => void) {
         const savedFolders = await _store.get<TelegramFolder[]>('folders');
         if (savedFolders) setFolders(savedFolders);
 
-        const savedActiveFolderId = await _store.get<number | null>('activeFolderId');
-        if (savedActiveFolderId !== undefined) setActiveFolderId(savedActiveFolderId);
+        // Settings → Behavior → Startup folder: 'last' (default), 'root', or a folder id.
+        const savedSettings = await _store.get<{ startupFolder?: string }>('settings');
+        const startup = savedSettings?.startupFolder ?? 'last';
+        if (startup === 'root') {
+          setActiveFolderId(null);
+        } else if (startup !== 'last' && !Number.isNaN(Number(startup))) {
+          setActiveFolderId(Number(startup));
+        } else {
+          const savedActiveFolderId = await _store.get<number | null>('activeFolderId');
+          if (savedActiveFolderId !== undefined) setActiveFolderId(savedActiveFolderId);
+        }
 
         // Connection is already live — just mark connected and refresh files
         setIsConnected(true);
@@ -96,12 +105,12 @@ export function useTelegramConnection(onLogoutParent: () => void) {
       return;
 
     try {
+      // The backend also wipes pins, fingerprints, vault state and caches.
       await invoke('cmd_logout');
-      await invoke('cmd_clean_cache');
       if (store) {
-        await store.delete('api_id');
-        await store.delete('api_hash');
-        await store.delete('folders');
+        for (const key of ['api_id', 'api_hash', 'folders', 'activeFolderId', 'uploadQueue', 'downloadQueue']) {
+          await store.delete(key);
+        }
         await store.save();
       }
       onLogoutParent();
@@ -111,7 +120,7 @@ export function useTelegramConnection(onLogoutParent: () => void) {
     }
   };
 
-  const handleSyncFolders = async () => {
+  const handleSyncFolders = useCallback(async () => {
     if (!store) return;
     setIsSyncing(true);
     try {
@@ -149,7 +158,7 @@ export function useTelegramConnection(onLogoutParent: () => void) {
     } finally {
       setIsSyncing(false);
     }
-  };
+  }, [store, folders]);
 
   const handleCreateFolder = async (name: string) => {
     if (!store) return;

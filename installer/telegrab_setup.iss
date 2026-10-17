@@ -7,7 +7,7 @@
 ;   iscc installer/telegrab_setup.iss
 
 #define MyAppName "Telegrab"
-#define MyAppVersion "1.0.7"
+#define MyAppVersion "1.1.0"
 #define MyAppPublisher "Telegrab"
 #define MyAppURL "https://github.com/jithin-jz/telegrab"
 #define MyAppExeName "telegrab.exe"
@@ -38,16 +38,18 @@ VersionInfoCompany={#MyAppPublisher}
 VersionInfoProductName={#MyAppName}
 CloseApplications=force
 RestartApplications=no
+SetupMutex=TelegrabSetup_B8F3A2E1
+AppMutex=TelegrabSingleInstance_B8F3A2E1
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
-Name: "startupentry"; Description: "Start Telegrab when Windows starts"; GroupDescription: "Other:"
+Name: "startupentry"; Description: "Start Telegrab when Windows starts"; GroupDescription: "Other:"; Flags: unchecked
 
 [Files]
-Source: "..\dist-installer\telegrab.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\dist-installer\telegrab\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"

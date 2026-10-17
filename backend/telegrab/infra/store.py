@@ -27,7 +27,7 @@ from ..config import store_path
 log = logging.getLogger(__name__)
 
 # Keys that should be encrypted at rest
-_SENSITIVE_KEYS = {"api_id", "api_hash", "apiId", "apiHash"}
+_SENSITIVE_KEYS = {"api_id", "api_hash", "apiId", "apiHash", "proxy"}
 
 
 def _encrypt(data: bytes) -> str:
@@ -234,7 +234,10 @@ class JsonStore:
                     try:
                         self._data[k] = json.loads(_decrypt(v[4:]).decode("utf-8"))
                     except Exception:
-                        self._data[k] = v  # keep as-is if decryption fails
+                        # Undecryptable (e.g. profile moved to another machine):
+                        # drop it so the user is asked to sign in again rather
+                        # than the ciphertext being used as a credential.
+                        log.warning("Could not decrypt stored %s; discarding it", k)
                 else:
                     self._data[k] = v
         except (json.JSONDecodeError, UnicodeDecodeError, ValueError):
@@ -302,8 +305,19 @@ class JsonStore:
             self._save_timer.start()
 
     def _debounced_save(self) -> None:
+        with self._timer_lock:
+            self._save_timer = None
         with self._lock:
             self._save_locked()
+
+    def flush(self) -> None:
+        """Write any pending (debounced) changes now. Call on shutdown."""
+        with self._timer_lock:
+            timer, self._save_timer = self._save_timer, None
+        if timer is not None:
+            timer.cancel()
+            with self._lock:
+                self._save_locked()
 
     def set(self, key: str, value: Any) -> None:
         with self._lock:

@@ -12,14 +12,18 @@ Steps:
   4. Report the output path.
 
 Output:
-  * Windows: dist-installer/telegrab.exe
+  * Windows: dist-installer/telegrab/ (onedir; `--installer` wraps it in a
+             Setup.exe, `--portable` also builds dist-installer/telegrab.exe)
   * macOS:   dist-installer/telegrab.app
   * Linux:   dist-installer/telegrab/
+
+Every build is smoke-tested with `--self-test` before it is reported.
 """
 
 from __future__ import annotations
 
 import argparse
+import os
 import platform
 import shutil
 import subprocess
@@ -89,11 +93,14 @@ def _ensure_frontend_build(force: bool) -> None:
     subprocess.check_call([npm, "run", "build"], cwd=str(FRONTEND))
 
 
-def _run_pyinstaller(py: Path, clean: bool) -> None:
+def _run_pyinstaller(py: Path, clean: bool, onefile: bool = False) -> None:
     if clean:
         for d in (DIST_OUT, WORK_OUT):
             if d.exists():
                 shutil.rmtree(d, ignore_errors=True)
+    env = dict(os.environ)
+    if onefile:
+        env["TELEGRAB_ONEFILE"] = "1"
 
     cmd = [
         str(py),
@@ -107,7 +114,24 @@ def _run_pyinstaller(py: Path, clean: bool) -> None:
         str(WORK_OUT),
     ]
     print(f"[build] Running: {' '.join(cmd)}")
-    subprocess.check_call(cmd, cwd=str(ROOT))
+    subprocess.check_call(cmd, cwd=str(ROOT), env=env)
+
+
+def _artifact_exe() -> Path:
+    if sys.platform == "win32":
+        return DIST_OUT / "telegrab" / "telegrab.exe"
+    if sys.platform == "darwin":
+        return DIST_OUT / "telegrab.app" / "Contents" / "MacOS" / "telegrab"
+    return DIST_OUT / "telegrab" / "telegrab"
+
+
+def _smoke_test(exe: Path) -> None:
+    """Run the built binary's self-test (imports, cryptg, bundled frontend)."""
+    print(f"[build] Smoke-testing {exe} ...")
+    result = subprocess.run([str(exe), "--self-test"], timeout=120)
+    if result.returncode != 0:
+        sys.exit(f"[build] Self-test failed (exit code {result.returncode})")
+    print("[build] Self-test passed.")
 
 
 def _run_inno_setup() -> None:
@@ -138,7 +162,7 @@ def _run_inno_setup() -> None:
     import re
     pyproject = ROOT / "backend" / "pyproject.toml"
     m = re.search(r'^version\s*=\s*"([^"]+)"', pyproject.read_text(encoding="utf-8"), re.MULTILINE)
-    version = m.group(1) if m else "1.4.0"
+    version = m.group(1) if m else "0.0.0"
     
     setup_exe = DIST_OUT / f"Telegrab-{version}-Setup.exe"
     if setup_exe.exists():
@@ -152,7 +176,7 @@ def _report() -> None:
     print("Build complete.")
     print()
     if sys.platform == "win32":
-        artifact = DIST_OUT / "telegrab.exe"
+        artifact = DIST_OUT / "telegrab"
     elif sys.platform == "darwin":
         artifact = DIST_OUT / "telegrab.app"
     else:
@@ -188,6 +212,16 @@ def main() -> int:
         action="store_true",
         help="Run Inno Setup after PyInstaller to produce a Setup.exe (Windows only)",
     )
+    parser.add_argument(
+        "--portable",
+        action="store_true",
+        help="Also build a single-file portable telegrab.exe (Windows only)",
+    )
+    parser.add_argument(
+        "--no-smoke-test",
+        action="store_true",
+        help="Skip running the built binary with --self-test",
+    )
     args = parser.parse_args()
 
     print(f"[build] Building telegrab installer for {sys.platform} ({platform.machine()})")
@@ -195,6 +229,12 @@ def main() -> int:
     _ensure_pyinstaller(py)
     _ensure_frontend_build(force=args.rebuild_frontend)
     _run_pyinstaller(py, clean=args.clean)
+    if not args.no_smoke_test:
+        _smoke_test(_artifact_exe())
+    if args.portable and sys.platform == "win32":
+        _run_pyinstaller(py, clean=False, onefile=True)
+        if not args.no_smoke_test:
+            _smoke_test(DIST_OUT / "telegrab.exe")
     if args.installer:
         _run_inno_setup()
     _report()

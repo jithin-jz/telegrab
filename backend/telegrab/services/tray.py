@@ -64,6 +64,19 @@ def start_tray(on_show: Callable, on_quit: Callable) -> None:
     t.start()
 
 
+def notify(title: str, message: str) -> bool:
+    """Show a native notification balloon/toast through the tray icon."""
+    icon = _icon
+    if icon is None or not getattr(icon, "HAS_NOTIFICATION", False):
+        return False
+    try:
+        icon.notify(message, title)
+        return True
+    except Exception as exc:  # noqa: BLE001
+        log.debug("Tray notification failed: %s", exc)
+        return False
+
+
 def stop_tray() -> None:
     global _icon
     if _icon:

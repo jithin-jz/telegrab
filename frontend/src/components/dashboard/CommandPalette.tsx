@@ -92,56 +92,56 @@ export function CommandPalette({
     }
   };
 
-  if (!open) return null;
-
   return (
     <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[200] flex items-start justify-center bg-black/50 backdrop-blur-sm pt-[20vh]"
-        onClick={onClose}
-      >
+      {open && (
         <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: -10 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: -10 }}
-          transition={{ duration: 0.15 }}
-          className="bg-surface border-hairline w-full max-w-lg overflow-hidden rounded-xl border shadow-2xl"
-          onClick={(e) => e.stopPropagation()}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[200] flex items-start justify-center bg-black/50 backdrop-blur-sm pt-[20vh]"
+          onClick={onClose}
         >
-          <div className="border-hairline flex items-center gap-3 border-b px-4 py-3">
-            <Search className="text-slate h-4 w-4 shrink-0" />
-            <input
-              ref={inputRef}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Type a command..."
-              className="text-foreground placeholder:text-slate w-full bg-transparent text-sm outline-none"
-            />
-            <kbd className="text-slate bg-surface-soft rounded px-1.5 py-0.5 text-[10px] font-medium">ESC</kbd>
-          </div>
-          <div className="custom-scrollbar smooth-scroll max-h-72 overflow-y-auto p-1">
-            {filtered.length === 0 && (
-              <div className="text-slate px-4 py-6 text-center text-sm">No results found</div>
-            )}
-            {filtered.map((item, i) => (
-              <button
-                key={item.id}
-                onClick={() => runCommand(item)}
-                className={`text-foreground flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
-                  i === selectedIndex ? 'bg-primary/10 text-primary' : 'hover:bg-surface-soft'
-                }`}
-              >
-                <span className="shrink-0 opacity-70">{item.icon}</span>
-                <span>{item.label}</span>
-              </button>
-            ))}
-          </div>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: -10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: -10 }}
+            transition={{ duration: 0.15 }}
+            className="bg-surface border-hairline w-full max-w-lg overflow-hidden rounded-xl border shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="border-hairline flex items-center gap-3 border-b px-4 py-3">
+              <Search className="text-slate h-4 w-4 shrink-0" />
+              <input
+                ref={inputRef}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Type a command..."
+                className="text-foreground placeholder:text-slate w-full bg-transparent text-sm outline-none"
+              />
+              <kbd className="text-slate bg-surface-soft rounded px-1.5 py-0.5 text-[10px] font-medium">ESC</kbd>
+            </div>
+            <div className="custom-scrollbar smooth-scroll max-h-72 overflow-y-auto p-1">
+              {filtered.length === 0 && (
+                <div className="text-slate px-4 py-6 text-center text-sm">No results found</div>
+              )}
+              {filtered.map((item, i) => (
+                <button
+                  key={item.id}
+                  onClick={() => runCommand(item)}
+                  className={`text-foreground flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition-colors ${
+                    i === selectedIndex ? 'bg-primary/10 text-primary' : 'hover:bg-surface-soft'
+                  }`}
+                >
+                  <span className="shrink-0 opacity-70">{item.icon}</span>
+                  <span>{item.label}</span>
+                </button>
+              ))}
+            </div>
+          </motion.div>
         </motion.div>
-      </motion.div>
+      )}
     </AnimatePresence>
   );
 }

@@ -25,7 +25,6 @@ export interface Settings {
   maxConcurrentUploads: number;
   maxConcurrentDownloads: number;
   defaultDownloadFolder: string | null;
-  bandwidthLimitMBps: number; // 0 = unlimited
   autoClearTransfersSec: number; // 0 = never
 
   // Behavior
@@ -48,10 +47,9 @@ export const defaultSettings: Settings = {
   sortDirection: 'asc',
   thumbnailQuality: 'medium',
   mediaAutoplay: true,
-  maxConcurrentUploads: 6,
-  maxConcurrentDownloads: 6,
+  maxConcurrentUploads: 3,
+  maxConcurrentDownloads: 3,
   defaultDownloadFolder: null,
-  bandwidthLimitMBps: 0,
   autoClearTransfersSec: 0,
   startMinimised: false,
   startupFolder: 'last',
@@ -126,6 +124,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
       : settings.theme;
     root.setAttribute('data-theme', resolved);
+    invoke('cmd_set_titlebar_dark', { dark: resolved === 'dark' }).catch(() => {});
 
     // Accent color — update --color-primary which all UI components reference
     const accent = ACCENT_COLORS[settings.accentColor]?.value || ACCENT_COLORS.purple.value;
@@ -141,6 +140,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
     const handler = (e: MediaQueryListEvent) => {
       document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
+      invoke('cmd_set_titlebar_dark', { dark: e.matches }).catch(() => {});
     };
     mq.addEventListener('change', handler);
     return () => mq.removeEventListener('change', handler);

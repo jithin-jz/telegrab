@@ -1,11 +1,12 @@
 /**
  * Desktop platform auto-updater.
  *
- * `check()` calls the Python updater service and returns an `Update` object
- * if a newer version is available, or `null` if the app is up to date.
+ * `check()` asks the Python updater for the latest release and returns an
+ * `Update` object if a newer version is available, or `null` otherwise.
  *
- * The exported types mirror the expected shape so callers that pass
- * a progress callback to `downloadAndInstall(...)` type-check correctly.
+ * The backend resolves and verifies the installer itself; installing never
+ * sends a URL or checksum from the webview. When `manual` is true (macOS /
+ * Linux) "installing" opens the release page in the browser instead.
  */
 
 import { invoke } from './core';
@@ -21,42 +22,50 @@ export interface Update {
   version: string;
   date?: string;
   body?: string;
-  download(onEvent?: DownloadProgressCallback): Promise<void>;
-  install(): Promise<void>;
+  /** True when the update must be downloaded from the release page. */
+  manual: boolean;
   downloadAndInstall(onEvent?: DownloadProgressCallback): Promise<void>;
 }
 
-export async function check(): Promise<Update | null> {
-  try {
-    const res = await invoke<any>('cmd_check_for_updates');
-    if (!res || !res.available) return null;
+interface CheckResult {
+  available: boolean;
+  version?: string;
+  date?: string;
+  body?: string;
+  manual?: boolean;
+}
 
-    return {
-      version: res.version,
-      date: res.date,
-      body: res.body,
-      download: async () => {}, // unused
-      install: async () => {}, // unused
-      downloadAndInstall: async (onEvent) => {
-        const handler = (e: any) => {
-          if (onEvent && e.detail) {
-            if (e.detail.event === 'Started') {
-              onEvent({ event: 'Started', data: { contentLength: e.detail.total } });
-            } else if (e.detail.event === 'Progress') {
-              onEvent({ event: 'Progress', data: { chunkLength: e.detail.chunk } });
-            }
-          }
-        };
-        window.addEventListener('updateProgress', handler);
-        try {
-          await invoke('cmd_download_and_install_update', { url: res.download_url, sha256: res.sha256 || '' });
-        } finally {
-          window.removeEventListener('updateProgress', handler);
+interface UpdateProgressDetail {
+  event: 'Started' | 'Progress';
+  total?: number;
+  chunk?: number;
+}
+
+export async function check(): Promise<Update | null> {
+  const res = await invoke<CheckResult | null>('cmd_check_for_updates');
+  if (!res || !res.available || !res.version) return null;
+
+  return {
+    version: res.version,
+    date: res.date,
+    body: res.body,
+    manual: !!res.manual,
+    downloadAndInstall: async (onEvent) => {
+      const handler = (e: Event) => {
+        const detail = (e as CustomEvent<UpdateProgressDetail>).detail;
+        if (!onEvent || !detail) return;
+        if (detail.event === 'Started') {
+          onEvent({ event: 'Started', data: { contentLength: detail.total } });
+        } else if (detail.event === 'Progress') {
+          onEvent({ event: 'Progress', data: { chunkLength: detail.chunk } });
         }
-      },
-    };
-  } catch (err) {
-    console.error('Update check failed:', err);
-    return null;
-  }
+      };
+      window.addEventListener('updateProgress', handler);
+      try {
+        await invoke('cmd_download_and_install_update');
+      } finally {
+        window.removeEventListener('updateProgress', handler);
+      }
+    },
+  };
 }

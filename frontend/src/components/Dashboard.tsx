@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { useQuery, useInfiniteQuery, useQueryClient, InfiniteData } from '@tanstack/react-query';
-import { invoke } from '../lib/platform/core';
+import { invoke, errorMessage } from '../lib/platform/core';
 import { toast } from 'sonner';
 
 import { BandwidthStats } from '../types';
-import { fetchFiles, FilePage } from '../lib/api';
+import { fetchFiles, folderOf, FilePage } from '../lib/api';
+import { useConfirm } from '../contexts/ConfirmContext';
 
 // Components
 import { Sidebar } from './dashboard/Sidebar';
@@ -22,6 +23,7 @@ import { MiniPlayer } from './dashboard/MiniPlayer';
 import { PdfViewer } from './dashboard/PdfViewer';
 import { SettingsModal } from './dashboard/SettingsModal';
 import { CommandPalette } from './dashboard/CommandPalette';
+import { VaultModal, type VaultStatus } from './dashboard/VaultModal';
 import { SectionErrorBoundary } from './SectionErrorBoundary';
 
 // Hooks
@@ -71,14 +73,16 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
   const [showMoveModal, setShowMoveModal] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [showVault, setShowVault] = useState(false);
+  const { confirm } = useConfirm();
   const internalDragRef = useRef<number | null>(null);
   const setInternalDragFileId = (id: number | null) => {
     internalDragRef.current = id;
   };
 
-  // Data fetching — uses infinite query for scroll-based pagination readiness.
-  // Currently the backend returns all files in one page (nextOffsetId is always undefined).
-  // When the backend adds pagination, this will automatically fetch subsequent pages.
+  // Data fetching — infinite query with offset_id cursor pagination.
+  // The backend pages via Telethon offset_id; nextOffsetId is the last
+  // message id of a full page, or undefined when the final page is reached.
   const {
     data: paginatedData,
     isLoading,
@@ -103,7 +107,17 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
   // Determine if the error is a page-fetch error (data already loaded, but next page failed)
   const pageFetchError = !!error && allFiles.length > 0;
 
-  const { searchTerm, setSearchTerm, displayedFiles, isSearching } = useSearch({ allFiles, activeFolderId });
+  const folderIds = useMemo(() => folders.map((f) => f.id), [folders]);
+  const { searchTerm, setSearchTerm, displayedFiles, isSearching } = useSearch({ allFiles, activeFolderId, folderIds });
+
+  // Vault status of the open folder (imports vault metadata from Telegram
+  // the first time a folder is opened on this device).
+  const { data: vaultStatus, refetch: refetchVaultStatus } = useQuery({
+    queryKey: ['vault', activeFolderId],
+    queryFn: () => invoke<VaultStatus>('cmd_get_vault_status', { folderId: activeFolderId }),
+    enabled: !!store && activeFolderId !== null,
+    staleTime: 30_000,
+  });
 
   const { data: bandwidth } = useQuery({
     queryKey: ['bandwidth'],
@@ -194,7 +208,7 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
 
   // File operations
   const {
-    handleBulkDelete, handleBulkDownload, handleBulkMove, handleDownloadFolder,
+    handleBulkDelete, handleBulkDownload, handleBulkMove, handleDownloadFolder, folderFor,
   } = useFileOperations(activeFolderId, selectedIds, setSelectedIds, displayedFiles, queueBulkDownload);
 
   // Keyboard shortcuts
@@ -253,10 +267,21 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
 
   // Delete with optimistic update
   const handleDelete = async (id: number) => {
+    if (
+      settings.confirmBeforeDelete &&
+      !(await confirm({
+        title: 'Delete File',
+        message: 'Are you sure you want to delete this file?',
+        confirmText: 'Delete',
+        variant: 'danger',
+      }))
+    )
+      return;
+    const fileFolder = folderFor(id);
     setInFlightIds(s => new Set(s).add(id));
-    const prev = queryClient.getQueryData<InfiniteData<FilePage>>(['files', activeFolderId]);
+    const prev = queryClient.getQueryData<InfiniteData<FilePage>>(['files', fileFolder]);
     if (prev) {
-      queryClient.setQueryData<InfiniteData<FilePage>>(['files', activeFolderId], {
+      queryClient.setQueryData<InfiniteData<FilePage>>(['files', fileFolder], {
         ...prev,
         pages: prev.pages.map(page => ({
           ...page,
@@ -265,12 +290,12 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
       });
     }
     try {
-      await invoke('cmd_delete_file', { messageId: id, folderId: activeFolderId });
+      await invoke('cmd_delete_file', { messageId: id, folderId: fileFolder });
       toast.success('File deleted');
-      queryClient.invalidateQueries({ queryKey: ['files', activeFolderId] });
-    } catch {
-      if (prev) queryClient.setQueryData(['files', activeFolderId], prev);
-      toast.error('Failed to delete file', { duration: 4000 });
+      queryClient.invalidateQueries({ queryKey: ['files', fileFolder] });
+    } catch (e) {
+      if (prev) queryClient.setQueryData(['files', fileFolder], prev);
+      toast.error(`Failed to delete file: ${errorMessage(e)}`, { duration: 4000 });
     } finally {
       setInFlightIds(s => { const next = new Set(s); next.delete(id); return next; });
     }
@@ -303,9 +328,9 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
       toast.success(`Moved ${idsToMove.length} file(s).`);
       setInternalDragFileId(null);
       queryClient.invalidateQueries({ queryKey: ['files'] });
-    } catch {
+    } catch (e) {
       if (prevSource) queryClient.setQueryData(['files', activeFolderId], prevSource);
-      toast.error('Failed to move file(s).', { duration: 4000 });
+      toast.error(`Failed to move file(s): ${errorMessage(e)}`, { duration: 5000 });
     } finally {
       setInFlightIds(s => { const next = new Set(s); idsToMove.forEach(id => next.delete(id)); return next; });
     }
@@ -335,18 +360,18 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
         </SectionErrorBoundary>
 
         <main id="file-explorer-main" className="flex min-h-0 flex-1 flex-col overflow-hidden" onClick={(e) => { if (e.target === e.currentTarget) setSelectedIds([]); }}>
-          <TopBar currentFolderName={currentFolderName} selectedIds={selectedIds} onShowMoveModal={() => setShowMoveModal(true)} onBulkDownload={handleBulkDownload} onBulkDelete={handleBulkDelete} onDownloadFolder={handleDownloadFolder} viewMode={viewMode} setViewMode={setViewMode} searchTerm={searchTerm} onSearchChange={setSearchTerm} onSettingsClick={() => setShowSettings(true)} onNavigateHome={() => setActiveFolderId(null)} />
+          <TopBar currentFolderName={currentFolderName} selectedIds={selectedIds} onShowMoveModal={() => setShowMoveModal(true)} onBulkDownload={handleBulkDownload} onBulkDelete={handleBulkDelete} onDownloadFolder={handleDownloadFolder} viewMode={viewMode} setViewMode={setViewMode} searchTerm={searchTerm} onSearchChange={setSearchTerm} onSettingsClick={() => setShowSettings(true)} onNavigateHome={() => setActiveFolderId(null)} vaultStatus={activeFolderId !== null ? vaultStatus ?? null : null} onVaultClick={() => setShowVault(true)} />
           {searchTerm.length > 2 && (
             <div className="px-6 pt-4 pb-0">
               <h2 className="text-telegram-subtext text-sm font-medium">Search Results for <span className="text-telegram-primary">"{searchTerm}"</span></h2>
             </div>
           )}
           <SectionErrorBoundary section="FileExplorer">
-            <FileExplorer files={displayedFiles} loading={isLoading || isSearching} error={error} viewMode={viewMode} selectedIds={selectedIds} activeFolderId={activeFolderId} inFlightIds={inFlightIds} onFileClick={handleFileClick} onDelete={handleDelete} onDownload={(id, name) => queueDownload(id, name, activeFolderId)} onPreview={(file) => openPreview(file, displayedFiles)} onManualUpload={handleManualUpload} onSelectionClear={() => setSelectedIds([])} onToggleSelection={handleToggleSelection} onDrop={handleDropOnFolder} onDragStart={(fileId) => setInternalDragFileId(fileId)} onDragEnd={() => setTimeout(() => setInternalDragFileId(null), 50)} onFetchNextPage={fetchNextPage} hasNextPage={!!hasNextPage} isFetchingNextPage={isFetchingNextPage} pageFetchError={pageFetchError} />
+            <FileExplorer files={displayedFiles} loading={isLoading || isSearching} error={error} viewMode={viewMode} selectedIds={selectedIds} activeFolderId={activeFolderId} inFlightIds={inFlightIds} onFileClick={handleFileClick} onDelete={handleDelete} onDownload={(id, name) => queueDownload(id, name, folderFor(id))} onPreview={(file) => openPreview(file, displayedFiles)} onManualUpload={handleManualUpload} onSelectionClear={() => setSelectedIds([])} onToggleSelection={handleToggleSelection} onDrop={handleDropOnFolder} onDragStart={(fileId) => setInternalDragFileId(fileId)} onDragEnd={() => setTimeout(() => setInternalDragFileId(null), 50)} onFetchNextPage={fetchNextPage} hasNextPage={!!hasNextPage} isFetchingNextPage={isFetchingNextPage} pageFetchError={pageFetchError} />
           </SectionErrorBoundary>
         </main>
 
-        {previewFile && <SectionErrorBoundary section="PreviewModal"><PreviewModal file={previewFile} activeFolderId={activeFolderId} onClose={() => setPreviewFile(null)} onNext={handleNext} onPrev={handlePrev} onDownload={(f) => queueDownload(f.id, f.name, activeFolderId)} currentIndex={contextIndex} totalItems={contextFiles.length} nextFile={neighbors.nextFile} prevFile={neighbors.prevFile} /></SectionErrorBoundary>}
+        {previewFile && <SectionErrorBoundary section="PreviewModal"><PreviewModal file={previewFile} activeFolderId={activeFolderId} onClose={() => setPreviewFile(null)} onNext={handleNext} onPrev={handlePrev} onDownload={(f) => queueDownload(f.id, f.name, folderOf(f, activeFolderId))} currentIndex={contextIndex} totalItems={contextFiles.length} nextFile={neighbors.nextFile} prevFile={neighbors.prevFile} /></SectionErrorBoundary>}
 
         <div className="pointer-events-none fixed right-4 bottom-4 z-[100] flex w-[min(20rem,calc(100vw-2rem))] flex-col gap-3">
           <div className="pointer-events-auto">
@@ -364,6 +389,19 @@ export function Dashboard({ onLogout }: { onLogout: () => void }) {
         <SectionErrorBoundary section="SettingsModal">
           <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} onSync={handleSyncFolders} onLogout={handleLogout} isSyncing={isSyncing} />
         </SectionErrorBoundary>
+        {activeFolderId !== null && vaultStatus && (
+          <VaultModal
+            isOpen={showVault}
+            onClose={() => setShowVault(false)}
+            folderId={activeFolderId}
+            folderName={currentFolderName}
+            status={vaultStatus}
+            onChanged={() => {
+              refetchVaultStatus();
+              queryClient.invalidateQueries({ queryKey: ['files', activeFolderId] });
+            }}
+          />
+        )}
         <CommandPalette open={showCommandPalette} onClose={() => setShowCommandPalette(false)} folders={folders} onNavigateFolder={setActiveFolderId} onUpload={handleManualUpload} onSettings={() => setShowSettings(true)} onSync={handleSyncFolders} onLogout={handleLogout} />
       </div>
     </div>

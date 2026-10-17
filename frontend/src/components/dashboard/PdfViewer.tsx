@@ -8,6 +8,7 @@ import { TelegramFile } from '../../types';
 
 // Use Vite's ?url suffix to get a properly bundled asset URL for the worker
 import workerUrl from 'pdfjs-dist/legacy/build/pdf.worker.mjs?url';
+import { folderOf } from '../../lib/api';
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
 
 interface StreamInfo {
@@ -54,6 +55,8 @@ export function PdfViewer({
   }, []);
 
   // Load PDF document when stream URL is ready or file changes
+  const fileFolder = folderOf(file, activeFolderId);
+
   useEffect(() => {
     if (!streamInfo) return;
 
@@ -63,20 +66,22 @@ export function PdfViewer({
     setPdf(null);
     setNumPages(0);
 
-    const folderIdParam = activeFolderId !== null ? activeFolderId.toString() : 'home';
+    const folderIdParam = fileFolder !== null ? fileFolder.toString() : 'home';
     const streamUrl = `${streamInfo.base_url}/stream/${folderIdParam}/${file.id}?token=${streamInfo.token}`;
 
-    const loadingTask = pdfjsLib.getDocument(streamUrl);
+    // PDFs can come from anyone: keep XFA forms (scripted content) off.
+    // Code generation is also blocked by the CSP (no 'unsafe-eval').
+    const loadingTask = pdfjsLib.getDocument({ url: streamUrl, enableXfa: false });
 
     loadingTask.promise.then(
       (pdfDoc) => {
         if (cancelled) {
-          pdfDoc.destroy();
+          pdfDoc.loadingTask.destroy();
           return;
         }
         // Destroy previous document if any
         if (pdfRef.current) {
-          pdfRef.current.destroy();
+          pdfRef.current.loadingTask.destroy();
         }
         pdfRef.current = pdfDoc;
         setPdf(pdfDoc);
@@ -95,13 +100,13 @@ export function PdfViewer({
       cancelled = true;
       loadingTask.destroy();
     };
-  }, [streamInfo, activeFolderId, file.id]);
+  }, [streamInfo, fileFolder, file.id]);
 
   // Cleanup PDF document on unmount
   useEffect(() => {
     return () => {
       if (pdfRef.current) {
-        pdfRef.current.destroy();
+        pdfRef.current.loadingTask.destroy();
         pdfRef.current = null;
       }
     };

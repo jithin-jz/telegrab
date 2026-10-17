@@ -9,10 +9,7 @@ Tests the store corruption detection and recovery behavior:
 
 import json
 import time
-from pathlib import Path
 from unittest.mock import patch
-
-import pytest
 
 # Import the store module directly (avoid infra/__init__.py which imports webview)
 import telegrab.infra.store as store_module

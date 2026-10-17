@@ -1,12 +1,13 @@
 """Peer resolution & cache.
 
 `folder_id == None` is the user's own peer (Telegram "Saved Messages"). For
-any other id, we first consult the `state.peer_cache` populated by the
-folder scan; on miss we walk the dialog list once and prime the cache (same
-trade-off the Rust version made).
+any other id we consult `state.peer_cache` first, then Telethon's session
+entity cache (which already knows every peer seen in a dialog listing, so no
+network scan is needed), and only as a last resort walk the dialog list.
 
-Cache entries are stored as `(entity, cached_at)` tuples and expire after
-`PEER_CACHE_TTL` seconds (default 5 minutes).
+Cache entries are always stored as `(entity, cached_at)` tuples — use
+:func:`remember_peer` to write them — and expire after `PEER_CACHE_TTL`
+seconds.
 """
 
 from __future__ import annotations
@@ -16,11 +17,19 @@ import time
 from typing import Any
 
 from telethon import TelegramClient
-from telethon.tl.types import InputPeerSelf
+from telethon.errors import RPCError
+from telethon.tl.types import InputPeerSelf, PeerChannel, PeerChat, PeerUser
 
 log = logging.getLogger(__name__)
 
 PEER_CACHE_TTL = 300  # 5 minutes
+
+
+def remember_peer(state, entity: Any, folder_id: int | None = None) -> None:
+    """Cache an entity under its id (or an explicit `folder_id`)."""
+    key = folder_id if folder_id is not None else getattr(entity, "id", None)
+    if key is not None:
+        state.peer_cache[int(key)] = (entity, time.time())
 
 
 async def resolve_peer(state, client: TelegramClient, folder_id: int | None) -> Any:
@@ -36,26 +45,27 @@ async def resolve_peer(state, client: TelegramClient, folder_id: int | None) -> 
         # Expired — remove and continue to resolution
         del state.peer_cache[folder_id]
 
-    log.debug("Peer cache miss for folder_id=%s — scanning dialogs", folder_id)
-    now = time.time()
+    # Fast path: the session already stores access hashes for known peers.
+    # Folders are channels, so try that type first.
+    for peer_type in (PeerChannel, PeerUser, PeerChat):
+        try:
+            entity = await client.get_entity(peer_type(folder_id))
+        except (ValueError, TypeError, RPCError):
+            continue
+        remember_peer(state, entity, folder_id)
+        return entity
+
+    log.debug("Peer %s not in session cache — scanning dialogs", folder_id)
     found = None
     async for dialog in client.iter_dialogs():
         entity = dialog.entity
-        eid = getattr(entity, "id", None)
-        if eid is not None:
-            state.peer_cache[eid] = (entity, now)
-            if eid == folder_id:
-                found = entity
-                # keep iterating — warms the cache for future calls
+        remember_peer(state, entity)
+        if getattr(entity, "id", None) == folder_id:
+            found = entity
+            break
 
     if found is None:
-        # As a last resort, ask Telegram directly.
-        try:
-            found = await client.get_entity(folder_id)
-            state.peer_cache[folder_id] = (found, time.time())
-        except Exception as exc:  # noqa: BLE001
-            raise ValueError(f"Folder/Chat {folder_id} not found: {exc}") from exc
-
+        raise ValueError(f"Folder/Chat {folder_id} not found")
     return found
 
 

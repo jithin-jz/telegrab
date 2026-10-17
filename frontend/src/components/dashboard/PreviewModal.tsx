@@ -3,6 +3,7 @@ import { X, File, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { invoke, convertFileSrc } from '../../lib/platform/core';
 import { TelegramFile } from '../../types';
 import { isImageFile, formatBytes } from '../../lib/utils';
+import { folderOf } from '../../lib/api';
 
 const PREVIEW_CACHE_TTL_MS = 5 * 60 * 1000;
 const PREVIEW_CACHE_MAX_ITEMS = 8;
@@ -91,7 +92,7 @@ export function PreviewModal({
 
   useEffect(() => {
     const load = async () => {
-      const key = getPreviewCacheKey(file.id, activeFolderId);
+      const key = getPreviewCacheKey(file.id, folderOf(file, activeFolderId));
       const shouldBypassCache = reloadNonce > 0;
       const requestId = ++latestRequestRef.current;
       const cachedSrc = shouldBypassCache ? null : getCachedPreview(key);
@@ -109,7 +110,7 @@ export function PreviewModal({
       try {
         const path = await invoke<string>('cmd_get_preview', {
           messageId: file.id,
-          folderId: activeFolderId,
+          folderId: folderOf(file, activeFolderId),
         });
         if (requestId !== latestRequestRef.current) return;
 
@@ -129,8 +130,7 @@ export function PreviewModal({
         if (requestId !== latestRequestRef.current) return;
         setError(String(e));
       } finally {
-        if (requestId !== latestRequestRef.current) return;
-        setLoading(false);
+        if (requestId === latestRequestRef.current) setLoading(false);
       }
     };
     load();
@@ -142,13 +142,13 @@ export function PreviewModal({
     );
 
     candidates.forEach((candidate) => {
-      const key = getPreviewCacheKey(candidate.id, activeFolderId);
+      const key = getPreviewCacheKey(candidate.id, folderOf(candidate, activeFolderId));
       if (getCachedPreview(key) || pendingPrefetch.has(key)) return;
 
       pendingPrefetch.add(key);
       invoke<string>('cmd_get_preview', {
         messageId: candidate.id,
-        folderId: activeFolderId,
+        folderId: folderOf(candidate, activeFolderId),
       })
         .then((path) => {
           if (!path) return;
@@ -264,7 +264,7 @@ export function PreviewModal({
                 className="max-h-[85vh] max-w-full rounded-lg bg-black object-contain shadow-2xl"
                 alt="Preview"
                 onError={() => {
-                  const key = getPreviewCacheKey(file.id, activeFolderId);
+                  const key = getPreviewCacheKey(file.id, folderOf(file, activeFolderId));
                   forgetPreview(key);
 
                   if (retryCount < 1) {

@@ -7,6 +7,8 @@ import { toast } from 'sonner';
 import { QueueItem } from '../types';
 import { useSettings } from '../contexts/SettingsContext';
 import type { Store } from '../lib/platform/store';
+import { notifyDone } from '../lib/notify';
+import { useAutoClearFinished, useNotifyWhenIdle } from './useTransferQueueEffects';
 
 interface ProgressPayload {
   id: string;
@@ -60,10 +62,10 @@ export function useFileUpload(activeFolderId: number | null, store: Store | null
     if (!store || initialized) return;
     store.get<QueueItem[]>('uploadQueue').then((saved) => {
       if (saved && saved.length > 0) {
-        const pending = saved.filter((i) => i.status === 'pending');
-        if (pending.length > 0) {
-          setUploadQueue(pending);
-          toast.info(`Restored ${pending.length} pending uploads`);
+        const resumable = saved.filter((i) => i.status === 'pending' || i.status === 'paused');
+        if (resumable.length > 0) {
+          setUploadQueue(resumable);
+          toast.info(`Restored ${resumable.length} unfinished uploads`);
         }
       }
       setInitialized(true);
@@ -85,19 +87,20 @@ export function useFileUpload(activeFolderId: number | null, store: Store | null
       try {
         if (!item.skipDuplicateCheck) {
           try {
-            const dupResult = await invoke<{ duplicate: boolean; existing: any }>('cmd_check_duplicate', {
+            const dupResult = await invoke<{ duplicate: boolean; existing: { name: string } | null }>('cmd_check_duplicate', {
               path: item.path,
               folderId: item.folderId,
             });
-            if (dupResult.duplicate && dupResult.existing) {
+            const existing = dupResult.existing;
+            if (dupResult.duplicate && existing) {
               setUploadQueue((q) =>
                 q.map((i) =>
                   i.id === item.id
-                    ? { ...i, status: 'error' as const, error: `Duplicate: "${dupResult.existing.name}" already exists` }
+                    ? { ...i, status: 'error' as const, error: `Duplicate: "${existing.name}" already exists` }
                     : i
                 )
               );
-              activeCountRef.current--;
+              // `finally` below releases the concurrency slot.
               return;
             }
           } catch { /* proceed */ }
@@ -243,6 +246,11 @@ export function useFileUpload(activeFolderId: number | null, store: Store | null
       )
     );
   };
+
+  useAutoClearFinished(uploadQueue, setUploadQueue, settings.autoClearTransfersSec);
+  useNotifyWhenIdle(uploadQueue, 'uploading', (done) =>
+    notifyDone(settings.notificationStyle, `${done} upload${done === 1 ? '' : 's'} finished`)
+  );
 
   return {
     uploadQueue,

@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { invoke } from '../lib/platform/core';
-import { formatBytes } from '../lib/utils';
+import { searchFiles, fileKey } from '../lib/api';
 import { TelegramFile } from '../types';
 
 interface UseSearchOptions {
   allFiles: TelegramFile[];
   activeFolderId: number | null;
+  /** Telegrab folders to include in the server-side search. */
+  folderIds: number[];
 }
 
 interface UseSearchResult {
@@ -15,11 +16,12 @@ interface UseSearchResult {
   isSearching: boolean;
 }
 
-export function useSearch({ allFiles, activeFolderId }: UseSearchOptions): UseSearchResult {
+export function useSearch({ allFiles, activeFolderId, folderIds }: UseSearchOptions): UseSearchResult {
   const [searchTerm, setSearchTerm] = useState('');
   const [globalResults, setGlobalResults] = useState<TelegramFile[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const abortRef = useRef(0); // generation counter to cancel stale requests
+  const folderIdsKey = folderIds.join(',');
 
   // Pre-compute lowercase names for fast local filtering
   const indexedFiles = useMemo(
@@ -39,7 +41,8 @@ export function useSearch({ allFiles, activeFolderId }: UseSearchOptions): UseSe
       .map(({ file }) => file);
   }, [searchTerm, indexedFiles, allFiles]);
 
-  // Global search: debounced, fires only for queries > 2 chars
+  // Server-side search across Saved Messages + every Telegrab folder:
+  // debounced, fires only for queries > 2 chars.
   useEffect(() => {
     if (searchTerm.length <= 2) {
       setGlobalResults([]);
@@ -49,18 +52,14 @@ export function useSearch({ allFiles, activeFolderId }: UseSearchOptions): UseSe
 
     setIsSearching(true);
     const generation = ++abortRef.current;
+    const ids = folderIdsKey ? folderIdsKey.split(',').map(Number) : [];
 
     const timer = setTimeout(async () => {
       try {
-        const res = await invoke<any[]>('cmd_search_global', { query: searchTerm });
+        const res = await searchFiles(searchTerm, ids);
         // Check if this request is still current
         if (generation !== abortRef.current) return;
-        const mapped: TelegramFile[] = res.map((f) => ({
-          ...f,
-          sizeStr: formatBytes(f.size),
-          type: f.icon_type || 'file',
-        }));
-        setGlobalResults(mapped);
+        setGlobalResults(res);
       } catch {
         if (generation === abortRef.current) setGlobalResults([]);
       } finally {
@@ -69,24 +68,27 @@ export function useSearch({ allFiles, activeFolderId }: UseSearchOptions): UseSe
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [searchTerm]);
+  }, [searchTerm, folderIdsKey]);
 
-  // Merge: for short queries use local only; for longer queries merge local + global (deduplicated)
+  // Merge local + server results. Message ids restart in every folder, so
+  // files are identified by (folder, id). Results from other folders whose id
+  // collides with a file shown here are dropped: the explorer keys rows by id.
   const displayedFiles = useMemo(() => {
     if (!searchTerm) return allFiles;
     if (searchTerm.length <= 2) return localResults;
 
-    // Merge local + global, deduplicate by id
-    const seen = new Set(localResults.map((f) => f.id));
+    const seenKeys = new Set(localResults.map((f) => fileKey(f, activeFolderId)));
+    const seenIds = new Set(localResults.map((f) => f.id));
     const merged = [...localResults];
     for (const f of globalResults) {
-      if (!seen.has(f.id)) {
-        merged.push(f);
-        seen.add(f.id);
-      }
+      const key = fileKey(f, activeFolderId);
+      if (seenKeys.has(key) || seenIds.has(f.id)) continue;
+      merged.push(f);
+      seenKeys.add(key);
+      seenIds.add(f.id);
     }
     return merged;
-  }, [searchTerm, localResults, globalResults, allFiles]);
+  }, [searchTerm, localResults, globalResults, allFiles, activeFolderId]);
 
   // Reset on folder change
   useEffect(() => {

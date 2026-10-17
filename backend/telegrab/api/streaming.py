@@ -20,8 +20,10 @@ import contextlib
 import hmac
 import logging
 import re
+import socket
+import sys
 import time
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, quote, urlparse
 
 from .. import telegram as tg
 from ..config import get_stream_config
@@ -42,11 +44,18 @@ _MAX_REQUEST_LINE_LENGTH = 8192
 _MAX_CONNECTIONS = 8
 _active_connections = 0
 
+# A client must send its full request head within this many seconds, and
+# may send at most this many header lines — otherwise a stalled connection
+# would hold one of the few connection slots forever.
+_HEADER_TIMEOUT = 10.0
+_MAX_HEADERS = 100
+
 _HTTP_200 = b"HTTP/1.1 200 OK\r\n"
 _HTTP_206 = b"HTTP/1.1 206 Partial Content\r\n"
 _HTTP_400 = b"HTTP/1.1 400 Bad Request\r\n\r\nBad Request"
 _HTTP_403 = b"HTTP/1.1 403 Forbidden\r\n\r\nForbidden"
 _HTTP_404 = b"HTTP/1.1 404 Not Found\r\n\r\nNot Found"
+_HTTP_415 = b"HTTP/1.1 415 Unsupported Media Type\r\n\r\nEncrypted vault file"
 _HTTP_416 = b"HTTP/1.1 416 Range Not Satisfiable\r\n\r\nRange Not Satisfiable"
 _HTTP_503 = b"HTTP/1.1 503 Service Unavailable\r\n\r\nService Unavailable"
 
@@ -60,6 +69,19 @@ _MSG_CACHE_MAX = 256
 def _build_headers(headers: dict[str, str]) -> bytes:
     lines = "".join(f"{k}: {v}\r\n" for k, v in headers.items())
     return (lines + "\r\n").encode()
+
+
+def _content_disposition(filename: str) -> str:
+    """`inline` disposition with a header-safe filename (RFC 6266 / 5987).
+
+    Telegram file names are attacker-controlled; quotes or CR/LF in them
+    must never reach the raw header.
+    """
+    ascii_name = "".join(
+        c if 0x20 <= ord(c) < 0x7F and c not in '"\\' else "_" for c in filename
+    )
+    encoded = quote(filename, safe="")
+    return f"inline; filename=\"{ascii_name}\"; filename*=UTF-8''{encoded}"
 
 
 async def _handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
@@ -89,7 +111,7 @@ async def _handle_request(
 ) -> None:
     try:
         # Read the request line first with length validation (Req 12.5).
-        request_line_raw = await reader.readline()
+        request_line_raw = await asyncio.wait_for(reader.readline(), _HEADER_TIMEOUT)
         if not request_line_raw:
             writer.write(_HTTP_400)
             await writer.drain()
@@ -110,10 +132,15 @@ async def _handle_request(
 
         # Read remaining headers (stop at blank line).
         req_headers: dict[str, str] = {}
-        while True:
-            line = await reader.readline()
+        for _ in range(_MAX_HEADERS + 1):
+            line = await asyncio.wait_for(reader.readline(), _HEADER_TIMEOUT)
             if not line or line == b"\r\n":
                 break
+            if len(req_headers) >= _MAX_HEADERS:
+                writer.write(_HTTP_400)
+                await writer.drain()
+                writer.close()
+                return
             decoded = line.decode(errors="replace").rstrip("\r\n")
             if ": " in decoded:
                 k, _, v = decoded.partition(": ")
@@ -170,6 +197,15 @@ async def _handle_request(
         client = state.client
         if client is None:
             writer.write(b"HTTP/1.1 503 Service Unavailable\r\n\r\nNot connected")
+            await writer.drain()
+            writer.close()
+            return
+
+        from ..services import vault as vault_mod
+
+        if await vault_mod.ensure_vault_known(fid):
+            # Vault files are ciphertext on Telegram; streaming them is useless.
+            writer.write(_HTTP_415)
             await writer.drain()
             writer.close()
             return
@@ -232,7 +268,8 @@ async def _handle_request(
             "Content-Type": mime,
             "Accept-Ranges": "bytes",
             "Cache-Control": "private, max-age=120",
-            "Content-Disposition": f'inline; filename="{fname}"',
+            "Content-Disposition": _content_disposition(fname),
+            "X-Content-Type-Options": "nosniff",
         }
         if length > 0:
             resp_headers["Content-Length"] = str(length)
@@ -271,6 +308,8 @@ async def _handle_request(
 
     except asyncio.CancelledError:
         raise
+    except TimeoutError:
+        log.debug("Stream request timed out waiting for headers")
     except Exception as exc:  # noqa: BLE001
         log.error("Stream handler error: %s", exc)
     finally:
@@ -278,21 +317,49 @@ async def _handle_request(
             writer.close()
 
 
+def _bind_socket(port: int) -> socket.socket:
+    """Bind a loopback listening socket.
+
+    On Windows the socket is opened with SO_EXCLUSIVEADDRUSE so no other
+    local process can bind the same port and intercept token-bearing
+    requests (plain SO_REUSEADDR on Windows would allow exactly that).
+    """
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        if sys.platform == "win32":
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        else:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind(("127.0.0.1", port))
+        sock.listen(64)
+        sock.setblocking(False)
+    except BaseException:
+        sock.close()
+        raise
+    return sock
+
+
 async def serve_streaming() -> None:
     """Run the pure-asyncio streaming server on the current event loop.
 
-    Binds exclusively to 127.0.0.1 (Req 12.1) — only local connections accepted.
-    The socket buffer is set to 2 MB so a full 512 KB chunk never gets split
-    across multiple reads.
+    Binds exclusively to 127.0.0.1 (Req 12.1) — only local connections
+    accepted. Uses the preferred port when free, otherwise any free port;
+    the bound port is published through the stream config. The read buffer
+    is 2 MB so a full 512 KB chunk never gets split across multiple reads.
     """
     cfg = get_stream_config()
-    server = await asyncio.start_server(
-        _handle,
-        host="127.0.0.1",
-        port=cfg.port,
-        limit=_SOCKET_BUFFER_SIZE,
-        reuse_address=True,
-    )
+    try:
+        sock = _bind_socket(cfg.port)
+    except OSError as exc:
+        log.warning("Stream port %s unavailable (%s); using a free port", cfg.port, exc)
+        sock = _bind_socket(0)
+    cfg.port = sock.getsockname()[1]
+
+    server = await asyncio.start_server(_handle, sock=sock, limit=_SOCKET_BUFFER_SIZE)
+    cfg.ready.set()
     log.info("Media streaming server started on http://127.0.0.1:%s", cfg.port)
-    async with server:
-        await server.serve_forever()
+    try:
+        async with server:
+            await server.serve_forever()
+    finally:
+        cfg.ready.clear()

@@ -7,6 +7,7 @@ that matches the OS conventions per platform.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import sys
 from pathlib import Path
@@ -31,6 +32,10 @@ def app_data_dir() -> Path:
 
     path = Path(base) / APP_NAME
     path.mkdir(parents=True, exist_ok=True)
+    if sys.platform != "win32":
+        # Holds the Telegram session and credentials — owner-only access.
+        with contextlib.suppress(OSError):
+            path.chmod(0o700)
     return path
 
 

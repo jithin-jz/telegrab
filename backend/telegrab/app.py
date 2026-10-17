@@ -3,13 +3,17 @@
 Run with `python -m telegrab` or via the `telegrab` script defined in
 `pyproject.toml`. The launch sequence is:
 
-  1. Start the asyncio runtime on a background thread.
-  2. Schedule the streaming server (FastAPI on port 14201) on that loop.
-  3. Wire up the REST API supervisor and have api_settings commands trigger
-     start / restart / stop on it.
+  1. Configure logging (rotating file in the app data dir).
+  2. Enforce a single running instance.
+  3. Start the asyncio runtime on a background thread and schedule the
+     media streaming server (pure asyncio, 127.0.0.1) on that loop.
   4. Build the Bridge object and create the pywebview window.
   5. pywebview takes over the main thread and blocks until the window closes.
-  6. On exit: stop the streaming server, REST API, asyncio runtime.
+  6. On exit: flush pending settings/bandwidth, disconnect Telegram, stop
+     the asyncio runtime.
+
+`--self-test` runs the import/bundle checks used by CI smoke tests and
+exits without opening a window.
 
 The frontend assets are served either from the Vite dev server (when
 `TELEGRAB_DEV_URL` is set) or from a built `app/dist/` directory. In dev
@@ -150,12 +154,20 @@ def main() -> None:
         default=os.environ.get("TELEGRAB_LOG", "INFO"),
         help="Logging level (DEBUG, INFO, WARNING, ERROR)",
     )
+    parser.add_argument(
+        "--self-test",
+        action="store_true",
+        help="Verify the build (imports, crypto, bundled frontend) and exit",
+    )
     args = parser.parse_args()
 
-    logging.basicConfig(
-        level=getattr(logging, args.log_level.upper(), logging.INFO),
-        format="%(asctime)s %(levelname)-7s [%(name)s] %(message)s",
-    )
+    if args.self_test:
+        sys.exit(_self_test())
+
+    from .config import app_data_dir
+    from .infra import setup_logging
+
+    setup_logging(app_data_dir(), level=args.log_level)
 
     # Enforce single instance — exit if another is already running
     from .infra.single_instance import ensure_single_instance
@@ -188,18 +200,6 @@ def main() -> None:
 
     window = webview.create_window(**window_kwargs)
 
-    # Dark title bar on Windows
-    if sys.platform == "win32":
-        try:
-            hwnd = getattr(window, "hwnd", None)
-            if hwnd:
-                value = ctypes.c_int(1)
-                ctypes.windll.dwmapi.DwmSetWindowAttribute(
-                    hwnd, 20, ctypes.byref(value), ctypes.sizeof(value)
-                )
-        except Exception:
-            pass
-
     bus.attach(window)
     host_cmds.attach_window(window)
 
@@ -220,18 +220,10 @@ def main() -> None:
         except Exception as exc:  # noqa: BLE001
             log.warning("Bootstrap inject failed: %s", exc)
 
-        # Initialize metadata cache in background thread to not block UI
-        import threading
+        # Remove ciphertext left behind by an upload interrupted by a crash.
+        from .services.vault import purge_temp_files
 
-        def _init_bg():
-            from .services.cache import init_cache
-
-            try:
-                init_cache()
-            except Exception as exc:  # noqa: BLE001
-                log.warning("Cache init failed: %s", exc)
-
-        threading.Thread(target=_init_bg, daemon=True).start()
+        purge_temp_files()
 
         # Start tray in background
         try:
@@ -255,9 +247,15 @@ def main() -> None:
     finally:
         log.info("Shutting down...")
         with contextlib.suppress(Exception):
-            from .services.tray import stop_tray
-
             stop_tray()
+        # Persist anything still sitting in debounce timers.
+        from .infra import get_manager, get_store
+
+        for flush in (get_store().flush, get_manager().flush):
+            try:
+                flush()
+            except Exception as exc:  # noqa: BLE001
+                log.warning("Flush on shutdown failed: %s", exc)
         try:
             state = tg.get_state()
             if state.client is not None:
@@ -265,6 +263,29 @@ def main() -> None:
         except Exception as exc:  # noqa: BLE001
             log.warning("Client shutdown error: %s", exc)
         runtime.stop()
+
+
+def _self_test() -> int:
+    """Smoke-test a build without opening a window. Returns an exit code."""
+    problems: list[str] = []
+    try:
+        import cryptg  # noqa: F401
+    except ImportError:
+        problems.append("cryptg native crypto is missing")
+    try:
+        from .services import files, folders, preview, updater, vault  # noqa: F401
+        from .telegram import fast_transfer  # noqa: F401
+    except Exception as exc:  # noqa: BLE001
+        problems.append(f"import failed: {exc!r}")
+    if os.environ.get(
+        "TELEGRAB_DEV_URL"
+    ) is None and not _resolve_frontend_url().startswith("file:"):
+        problems.append("frontend bundle not found")
+    for problem in problems:
+        print(f"self-test: {problem}", file=sys.stderr)  # noqa: T201
+    if not problems:
+        print("self-test: ok")  # noqa: T201
+    return 1 if problems else 0
 
 
 if __name__ == "__main__":

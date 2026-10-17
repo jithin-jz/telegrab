@@ -1,8 +1,4 @@
-"""Network probes, log forwarding, bandwidth read-out, stream-info.
-
-Renamed from `commands/misc.py` to `network.py` since the contents are
-about runtime/network state more than miscellaneous helpers.
-"""
+"""Network probes, proxy settings, log forwarding, bandwidth, stream-info."""
 
 from __future__ import annotations
 
@@ -10,7 +6,7 @@ import asyncio
 import logging
 import socket
 from collections.abc import Awaitable, Callable
-from typing import TypeVar
+from typing import Any, TypeVar
 
 from ..config import get_stream_config
 from ..infra import get_manager
@@ -19,6 +15,20 @@ from ..infra.events import bus
 log = logging.getLogger(__name__)
 
 T = TypeVar("T")
+
+# Flood waits longer than this aren't slept through: the transfer fails with
+# a clear message instead of appearing frozen for up to an hour.
+MAX_FLOOD_WAIT_SECONDS = 300
+
+# One address per Telegram production DC. Any reachable one means "online".
+_TELEGRAM_DC_ADDRESSES = (
+    ("149.154.175.53", 443),
+    ("149.154.167.51", 443),
+    ("149.154.175.100", 443),
+    ("149.154.167.91", 443),
+    ("91.108.56.130", 443),
+)
+_PROBE_TIMEOUT = 3.0
 
 
 class ExponentialBackoff:
@@ -59,7 +69,8 @@ async def retry_with_backoff(  # noqa: UP047
     """Retry an async operation with exponential backoff on transient errors.
 
     Handles FloodWaitError, TimeoutError, and ConnectionError (including
-    OSError subclasses like ConnectionResetError).
+    subclasses like ConnectionResetError). Other OSErrors — disk full,
+    permission denied — are not transient and are raised immediately.
 
     On FloodWaitError, emits a ``rate-limited`` event with the wait_seconds.
     After exhausting all retry attempts, emits a ``transfer-failed`` event
@@ -88,6 +99,9 @@ async def retry_with_backoff(  # noqa: UP047
             return await operation()
         except FloodWaitError as exc:
             last_exc = exc
+            if exc.seconds > MAX_FLOOD_WAIT_SECONDS:
+                bus.emit("rate-limited", {"wait_seconds": exc.seconds})
+                raise
             # Respect Telegram's requested wait, but also apply our backoff
             wait_seconds = max(exc.seconds, backoff.next_delay(attempt))
             bus.emit("rate-limited", {"wait_seconds": wait_seconds})
@@ -110,7 +124,7 @@ async def retry_with_backoff(  # noqa: UP047
                 transfer_id or "N/A",
             )
             await asyncio.sleep(delay)
-        except (ConnectionError, OSError) as exc:
+        except (ConnectionError, asyncio.IncompleteReadError) as exc:
             last_exc = exc
             delay = backoff.next_delay(attempt)
             log.warning(
@@ -145,17 +159,104 @@ async def retry_with_backoff(  # noqa: UP047
     raise last_exc  # type: ignore[misc]
 
 
+def _tcp_reachable(host: str, port: int) -> bool:
+    try:
+        with socket.create_connection((host, port), timeout=_PROBE_TIMEOUT):
+            return True
+    except OSError:
+        return False
+
+
 async def cmd_is_network_available() -> bool:
-    """Lightweight TCP probe to one of Telegram's production DCs."""
+    """Lightweight TCP probe for Telegram reachability.
 
-    def _probe() -> bool:
-        try:
-            with socket.create_connection(("149.154.167.50", 443), timeout=2.0):
-                return True
-        except OSError:
-            return False
+    With a proxy configured the proxy itself is probed (Telegram may be
+    blocked on the direct route). Otherwise every DC is probed in parallel,
+    so a single blocked or down DC doesn't make the app think it's offline.
+    """
+    from ..telegram.client import proxy_settings
 
-    return await asyncio.to_thread(_probe)
+    proxy = proxy_settings()
+    if proxy:
+        targets = [(str(proxy["host"]), int(proxy["port"]))]
+    else:
+        targets = list(_TELEGRAM_DC_ADDRESSES)
+
+    probes = [asyncio.to_thread(_tcp_reachable, h, p) for h, p in targets]
+    for fut in asyncio.as_completed(probes):
+        if await fut:
+            return True
+    return False
+
+
+_PROXY_TYPES = {"socks5", "socks4", "http", "mtproxy"}
+
+
+def _validate_proxy(cfg: dict[str, Any]) -> dict[str, Any]:
+    enabled = bool(cfg.get("enabled"))
+    kind = str(cfg.get("type") or "socks5").lower()
+    host = str(cfg.get("host") or "").strip()
+    try:
+        port = int(cfg.get("port") or 0)
+    except (TypeError, ValueError):
+        port = 0
+    if kind not in _PROXY_TYPES:
+        raise ValueError(f"Unsupported proxy type: {kind}")
+    if enabled:
+        if not host:
+            raise ValueError("Proxy host is required.")
+        if not 0 < port < 65536:
+            raise ValueError("Proxy port must be between 1 and 65535.")
+        if kind == "mtproxy" and not cfg.get("secret"):
+            raise ValueError("An MTProxy secret is required.")
+    return {
+        "enabled": enabled,
+        "type": kind,
+        "host": host,
+        "port": port,
+        "username": str(cfg.get("username") or ""),
+        "password": str(cfg.get("password") or ""),
+        "secret": str(cfg.get("secret") or ""),
+    }
+
+
+def cmd_get_proxy() -> dict[str, Any]:
+    """Return the proxy settings without secrets (flags say if they're set)."""
+    from ..infra import get_store
+
+    cfg = get_store().get("proxy") or {}
+    if not isinstance(cfg, dict):
+        cfg = {}
+    return {
+        "enabled": bool(cfg.get("enabled")),
+        "type": cfg.get("type") or "socks5",
+        "host": cfg.get("host") or "",
+        "port": cfg.get("port") or "",
+        "username": cfg.get("username") or "",
+        "has_password": bool(cfg.get("password")),
+        "has_secret": bool(cfg.get("secret")),
+    }
+
+
+async def cmd_set_proxy(cfg: dict[str, Any]) -> bool:
+    """Save proxy settings and reconnect through them.
+
+    Empty password/secret fields keep the previously saved values, so the
+    UI never needs to read secrets back.
+    """
+    from ..infra import get_store
+    from ..telegram.client import reconnect_with_current_settings
+
+    store = get_store()
+    previous = store.get("proxy") or {}
+    merged = dict(cfg)
+    for secret in ("password", "secret"):
+        if not merged.get(secret) and isinstance(previous, dict):
+            merged[secret] = previous.get(secret, "")
+    store.set("proxy", _validate_proxy(merged))
+    store.flush()
+    await reconnect_with_current_settings()
+    return True
 
 
 def cmd_log(message: str) -> None:
@@ -168,9 +269,12 @@ def cmd_get_bandwidth() -> dict:
 
 def cmd_get_stream_info() -> dict:
     cfg = get_stream_config()
+    # The server binds a free port at startup; wait briefly if it isn't up yet.
+    if not cfg.ready.wait(timeout=10.0):
+        raise RuntimeError("Media streaming server is not running")
     return {
         "token": cfg.token,
-        "base_url": f"http://localhost:{cfg.port}",
+        "base_url": f"http://127.0.0.1:{cfg.port}",
     }
 
 
@@ -181,4 +285,6 @@ __all__ = [
     "cmd_log",
     "cmd_get_bandwidth",
     "cmd_get_stream_info",
+    "cmd_get_proxy",
+    "cmd_set_proxy",
 ]

@@ -103,20 +103,23 @@ def setup_logging(app_data_dir: Path, level: str = "INFO") -> None:
     file_handler.setLevel(log_level)
     file_handler.setFormatter(formatter)
 
-    # Console handler
-    console_handler = logging.StreamHandler(sys.stderr)
-    console_handler.setLevel(log_level)
-    console_handler.setFormatter(formatter)
-
     # Configure root logger
     root_logger = logging.getLogger()
     root_logger.setLevel(log_level)
 
     # Remove any existing handlers to avoid duplicates on re-init
     root_logger.handlers.clear()
-
     root_logger.addHandler(file_handler)
-    root_logger.addHandler(console_handler)
+
+    # Console handler — windowed (frozen) builds have no stderr at all.
+    if sys.stderr is not None:
+        console_handler = logging.StreamHandler(sys.stderr)
+        console_handler.setLevel(log_level)
+        console_handler.setFormatter(formatter)
+        root_logger.addHandler(console_handler)
+
+    # Telethon is chatty at INFO (every reconnect/flood sleep); keep warnings.
+    logging.getLogger("telethon").setLevel(max(log_level, logging.WARNING))
 
     # Log startup entry
     logger = logging.getLogger("telegrab.app")

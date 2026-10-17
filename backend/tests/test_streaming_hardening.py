@@ -12,7 +12,6 @@ Validates:
 
 from __future__ import annotations
 
-import asyncio
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -42,7 +41,7 @@ class TestTokenGeneration:
                 mock_hex.return_value = "a" * 64
                 from telegrab.config import stream
                 stream._cfg = None
-                cfg = stream.get_stream_config()
+                stream.get_stream_config()
                 mock_hex.assert_called_once_with(32)
 
 

@@ -9,6 +9,8 @@ interface UpdateState {
   progress: number;
   error: string | null;
   version: string | null;
+  /** The update has to be downloaded manually from the release page. */
+  manual: boolean;
 }
 
 interface UpdateContextValue extends UpdateState {
@@ -27,6 +29,7 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
     progress: 0,
     error: null,
     version: null,
+    manual: false,
   });
   const updateRef = useRef<Update | null>(null);
   const checkingRef = useRef(false);
@@ -40,7 +43,13 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
       const updateInfo = await check();
       if (updateInfo) {
         updateRef.current = updateInfo;
-        setState((s) => ({ ...s, checking: false, available: true, version: updateInfo.version }));
+        setState((s) => ({
+          ...s,
+          checking: false,
+          available: true,
+          version: updateInfo.version,
+          manual: updateInfo.manual,
+        }));
       } else {
         setState((s) => ({ ...s, checking: false, available: false }));
       }
@@ -73,6 +82,8 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
           }
         }
       });
+      // A manual update just opened the release page; nothing is downloading.
+      if (update.manual) setState((s) => ({ ...s, downloading: false }));
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to install update';
       toast.error(message);

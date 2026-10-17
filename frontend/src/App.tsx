@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
 import { invoke } from './lib/platform/core';
 import { load } from './lib/platform/store';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -15,7 +15,9 @@ import { ConfirmProvider } from './contexts/ConfirmContext';
 import { SettingsProvider, useSettings } from './contexts/SettingsContext';
 import { UpdateProvider } from './contexts/UpdateContext';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
+import { NetworkStatusProvider } from './contexts/NetworkStatusContext';
 import { TooltipProvider } from './components/ui/tooltip';
+import { BackendNotifications } from './components/BackendNotifications';
 
 const AuthWizard = lazy(() => import('./components/AuthWizard').then(m => ({ default: m.AuthWizard })));
 
@@ -41,6 +43,8 @@ function AppContent() {
   const [authStatus, setAuthStatus] = useState<AuthStatus>('loading');
   const { settings, isLoaded: settingsLoaded } = useSettings();
   const isOnline = useNetworkStatus();
+  // Stable identity: AuthWizard's QR polling effect depends on it.
+  const handleLogin = useCallback(() => setAuthStatus('authenticated'), []);
 
   // Minimise the window on launch if the user has Start Minimised enabled.
   // Runs once per app session, as soon as the persisted setting is loaded.
@@ -153,7 +157,7 @@ function AppContent() {
                 <Dashboard onLogout={() => setAuthStatus('unauthenticated')} />
               ) : (
                 <Suspense fallback={null}>
-                  <AuthWizard onLogin={() => setAuthStatus('authenticated')} />
+                  <AuthWizard onLogin={handleLogin} />
                 </Suspense>
               )}
             </motion.div>
@@ -172,9 +176,12 @@ function App() {
         <TooltipProvider delayDuration={200}>
           <ConfirmProvider>
             <SettingsProvider>
-              <UpdateProvider>
-                <AppContent />
-              </UpdateProvider>
+              <NetworkStatusProvider>
+                <UpdateProvider>
+                  <BackendNotifications />
+                  <AppContent />
+                </UpdateProvider>
+              </NetworkStatusProvider>
             </SettingsProvider>
           </ConfirmProvider>
         </TooltipProvider>

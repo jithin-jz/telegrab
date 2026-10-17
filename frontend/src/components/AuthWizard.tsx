@@ -16,7 +16,9 @@ import {
   Shield,
   LockIcon,
   Smartphone,
+  Globe,
 } from 'lucide-react';
+import { ProxySettings } from './dashboard/ProxySettings';
 import { load } from '../lib/platform/store';
 import { open } from '../lib/platform/shell';
 import { QRCodeSVG } from 'qrcode.react';
@@ -38,14 +40,17 @@ import logoUrl from '../assets/logo.svg';
 
 type Step = 'setup' | 'phone' | 'code' | 'password';
 
-export function AuthWizard({ onLogin }: { onLogin: () => void }) {
-  const isBrowser =
+function isBrowserPreview(): boolean {
+  return (
     typeof window !== 'undefined' &&
     window.location.protocol !== 'file:' &&
     !window.location.search.includes('platform=desktop') &&
-    !('pywebview' in window);
+    !('pywebview' in window)
+  );
+}
 
-  if (isBrowser) {
+export function AuthWizard({ onLogin }: { onLogin: () => void }) {
+  if (isBrowserPreview()) {
     return (
       <div className="mx-auto flex h-full max-w-lg flex-col items-center justify-center p-8 text-center">
         <div className="bg-destructive/10 mb-6 flex h-20 w-20 items-center justify-center rounded-full">
@@ -63,7 +68,13 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
       </div>
     );
   }
+  return <AuthWizardFlow onLogin={onLogin} />;
+}
 
+function AuthWizardFlow({ onLogin }: { onLogin: () => void }) {
+  // Proxy must be configurable before sign-in: where Telegram is blocked,
+  // the login itself can't reach Telegram without it.
+  const [showProxy, setShowProxy] = useState(false);
   const [step, setStep] = useState<Step>('setup');
   const [loading, setLoading] = useState(false);
 
@@ -184,7 +195,6 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
     qrPollRef.current = setInterval(async () => {
       try {
         const res = await invoke<{ success: boolean; next_step?: string }>('cmd_auth_qr_poll');
-        console.log('[Auth] QR Poll Result:', res);
         
         if (res.success) {
           setQrPolling(false);
@@ -205,7 +215,7 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
         qrPollRef.current = null;
       }
     };
-  }, [qrPolling, apiId, apiHash]);
+  }, [qrPolling, apiId, apiHash, onLogin]);
 
   const handlePhoneSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -284,6 +294,22 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
 
   return (
     <div className="auth-gradient relative flex w-full flex-1 items-center justify-center overflow-hidden p-4">
+      <button
+        type="button"
+        onClick={() => setShowProxy(true)}
+        className="text-slate hover:text-foreground absolute top-4 right-4 z-20 flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[12px] transition-colors hover:bg-white/5"
+      >
+        <Globe className="h-3.5 w-3.5" /> Proxy
+      </button>
+      <Dialog open={showProxy} onOpenChange={setShowProxy}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Connection proxy</DialogTitle>
+            <DialogDescription>Use a proxy if Telegram is blocked on your network.</DialogDescription>
+          </DialogHeader>
+          <ProxySettings />
+        </DialogContent>
+      </Dialog>
       {/* Minimal Background Decor */}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,var(--color-primary),transparent_50%)] opacity-[0.03]" />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,var(--color-link-blue),transparent_50%)] opacity-[0.03]" />
@@ -299,7 +325,7 @@ export function AuthWizard({ onLogin }: { onLogin: () => void }) {
         >
           <div className="flex items-center gap-4">
             <div className="auth-glass border-white/10 shadow-primary/20 flex h-12 w-12 items-center justify-center rounded-2xl shadow-xl relative overflow-hidden group">
-              <img src="/logo.svg" alt="Telegrab" className="w-7 h-7 relative z-10" />
+              <img src={logoUrl} alt="Telegrab" className="w-7 h-7 relative z-10" />
               <motion.div 
                 className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/20 to-transparent -translate-x-full"
                 animate={{ translateX: ['100%', '-100%'] }}

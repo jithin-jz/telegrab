@@ -17,6 +17,8 @@ import { invoke } from '../../lib/platform/core';
 import { TelegramFile } from '../../types';
 import { isVideoFile, isAudioFile } from '../../lib/utils';
 import { cn } from '../../lib/utils';
+import { folderOf } from '../../lib/api';
+import { useSettings } from '../../contexts/SettingsContext';
 
 interface StreamInfo {
   token: string;
@@ -61,7 +63,8 @@ export function MiniPlayer({
   activeFolderId,
 }: MiniPlayerProps) {
   const [streamInfo, setStreamInfo] = useState<StreamInfo | null>(null);
-  const [playing, setPlaying] = useState(true);
+  const { settings } = useSettings();
+  const [playing, setPlaying] = useState(settings.mediaAutoplay);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
@@ -74,7 +77,8 @@ export function MiniPlayer({
   const isVideo = isVideoFile(file.name);
   const isAudio = isAudioFile(file.name);
 
-  const folderIdParam = activeFolderId !== null ? activeFolderId.toString() : 'home';
+  const fileFolder = folderOf(file, activeFolderId);
+  const folderIdParam = fileFolder !== null ? fileFolder.toString() : 'home';
   const streamUrl = streamInfo
     ? `${streamInfo.base_url}/stream/${folderIdParam}/${file.id}?token=${streamInfo.token}`
     : null;
@@ -89,8 +93,8 @@ export function MiniPlayer({
   useEffect(() => {
     setProgress(0);
     setDuration(0);
-    setPlaying(true);
-  }, [file.id]);
+    setPlaying(settings.mediaAutoplay);
+  }, [file.id, settings.mediaAutoplay]);
 
   const mediaEl = isVideo ? videoRef.current : audioRef.current;
 
@@ -322,7 +326,7 @@ export function MiniPlayer({
         <audio
           ref={audioRef}
           src={streamUrl ?? undefined}
-          autoPlay
+          autoPlay={settings.mediaAutoplay}
           onTimeUpdate={onTimeUpdate}
           onLoadedMetadata={onLoadedMeta}
           onPlay={() => setPlaying(true)}
@@ -358,7 +362,7 @@ export function MiniPlayer({
               <video
                 ref={videoRef}
                 src={streamUrl}
-                autoPlay
+                autoPlay={settings.mediaAutoplay}
                 playsInline
                 onTimeUpdate={onTimeUpdate}
                 onLoadedMetadata={onLoadedMeta}

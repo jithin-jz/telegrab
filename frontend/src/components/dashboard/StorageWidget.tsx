@@ -11,8 +11,6 @@ interface StorageWidgetProps {
 export function StorageWidget({ files }: StorageWidgetProps) {
   const totalSize = useMemo(() => files.reduce((sum, f) => sum + (f.size || 0), 0), [files]);
 
-  if (files.length === 0) return null;
-
   // Visual segments by file type
   const categories = useMemo(() => {
     const media = files.filter((f) => /\.(mp4|mkv|avi|mov|mp3|flac|wav)$/i.test(f.name));
@@ -29,6 +27,8 @@ export function StorageWidget({ files }: StorageWidgetProps) {
       { label: 'Other', size: other.reduce((s, f) => s + (f.size || 0), 0), color: 'bg-slate-500' },
     ].filter((c) => c.size > 0);
   }, [files]);
+
+  if (files.length === 0) return null;
 
   return (
     <div className="border-hairline bg-surface/50 mx-4 mb-3 rounded-lg border p-3">

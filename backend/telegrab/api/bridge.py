@@ -1,46 +1,47 @@
 """pywebview ←→ JS bridge.
 
-Every method on `Bridge` becomes available to JS as
+Every public ``cmd_*`` method on `Bridge` becomes available to JS as
 `window.pywebview.api.<method_name>(args)`. The frontend's shim layer
-(see `app/src/lib/platform/`) translates `invoke('cmd_x', argsObj)` into
-`window.pywebview.api.cmd_x(argsObj)`.
+(see `frontend/src/lib/platform/`) translates `invoke('cmd_x', argsObj)`
+into `window.pywebview.api.cmd_x(argsObj)`.
 
 Argument convention
 -------------------
-Every method accepts a single `args` dict (camelCase keys, mirroring what
-Tauri's `invoke` used to send) plus optional positional fallbacks. We
-extract individual fields and forward to the async use-case implementations
-on the runtime asyncio loop.
+Every method accepts a single `args` dict (camelCase keys). We extract the
+fields and forward to the async use-case implementations on the runtime
+asyncio loop.
+
+Error convention
+----------------
+No exception ever crosses the bridge. Each command is wrapped by
+:func:`_bridge_command`, which converts failures into a structured
+``BridgeError.to_dict()`` (``{"__error": true, code, message, detail}``)
+that the frontend's ``invoke`` turns back into a thrown error. Unexpected
+exceptions are logged with a full traceback here and reach the UI only as a
+generic message — Python tracebacks are never sent to the webview.
 """
 
 from __future__ import annotations
 
+import functools
 import logging
 import traceback
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable
 from typing import Any
 
 from ..infra import get_runtime
 from ..infra.logger import _sanitize_args
 from ..infra.runtime import DEFAULT_BRIDGE_TIMEOUT
-from ..services import (
-    auth as auth_cmds,
-)
-from ..services import (
-    files as file_cmds,
-)
-from ..services import (
-    folders as folder_cmds,
-)
-from ..services import (
-    network as network_cmds,
-)
-from ..services import (
-    preview as preview_cmds,
-)
-from ..services import (
-    updater as updater_cmds,
-)
+from ..services import NotConnectedError
+from ..services import auth as auth_cmds
+from ..services import dedup as dedup_cmds
+from ..services import files as file_cmds
+from ..services import folders as folder_cmds
+from ..services import network as network_cmds
+from ..services import pins as pin_cmds
+from ..services import preview as preview_cmds
+from ..services import updater as updater_cmds
+from ..services import vault as vault_cmds
 from . import host as host_cmds
 from .errors import BridgeError, ErrorCode
 
@@ -57,7 +58,7 @@ def _run(coro):
     (auth, listing, metadata, etc.). Long-running calls should use
     :func:`_run_long` instead.
     """
-    return get_runtime().run_coro(coro)
+    return get_runtime().run_coro(coro, timeout=DEFAULT_BRIDGE_TIMEOUT)
 
 
 def _run_long(coro):
@@ -76,189 +77,120 @@ def _args(maybe_args: Any) -> dict:
     return {"_value": maybe_args}
 
 
+def _opt_int(value: Any) -> int | None:
+    return int(value) if value is not None else None
+
+
+# ─────────────────────────────── error mapping ───────────────────────────────
+
+
+def _attempt_reconnect() -> bool:
+    """Try to reconnect the Telegram client within 10 seconds."""
+    from ..telegram.client import ensure_client, get_state
+
+    async def _reconnect() -> bool:
+        state = get_state()
+        if state.api_id is None or not state.api_hash:
+            return False
+        client = await ensure_client(state.api_id, state.api_hash)
+        return client.is_connected()
+
+    try:
+        return get_runtime().run_coro(_reconnect(), timeout=_RECONNECT_TIMEOUT)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("Auto-reconnect failed: %s", exc)
+        return False
+
+
+def error_response(exc: BaseException, cmd_name: str) -> dict:
+    """Map an exception raised by a command to a structured error dict."""
+    if isinstance(exc, BridgeError):
+        return exc.to_dict()
+
+    from telethon.errors import FloodWaitError, RPCError
+
+    from ..telegram.errors import map_error
+
+    if isinstance(exc, NotConnectedError):
+        err = BridgeError(ErrorCode.TELEGRAM_NOT_CONNECTED, str(exc), cmd_name)
+    elif isinstance(exc, TimeoutError):
+        err = BridgeError(
+            ErrorCode.BRIDGE_TIMEOUT,
+            "The operation timed out. Please try again.",
+            f"Command '{cmd_name}' timed out",
+        )
+    elif isinstance(exc, FloodWaitError):
+        # Keep the FLOOD_WAIT_<n> sentinel: the auth UI parses it.
+        err = BridgeError(
+            ErrorCode.NETWORK_FLOOD_WAIT,
+            f"{map_error(exc)}: Telegram rate limit, please wait {exc.seconds}s.",
+            f"FloodWaitError in '{cmd_name}': wait {exc.seconds}s",
+        )
+    elif isinstance(exc, ConnectionError):
+        log.warning("ConnectionError in '%s': %s — attempting reconnect", cmd_name, exc)
+        reconnected = _attempt_reconnect()
+        err = BridgeError(
+            ErrorCode.NETWORK_DISCONNECTED,
+            "Connection was interrupted. Please try again."
+            if reconnected
+            else "Connection lost. Please check your network and try again.",
+            f"ConnectionError in '{cmd_name}': {exc}",
+        )
+    elif isinstance(exc, KeyError):
+        err = BridgeError(
+            ErrorCode.VALIDATION_MISSING_FIELD,
+            f"Missing required field: {exc.args[0] if exc.args else '?'}",
+            f"Command '{cmd_name}' was called without a required field",
+        )
+    elif isinstance(exc, RPCError):
+        err = BridgeError(ErrorCode.TELEGRAM_RPC_ERROR, map_error(exc), cmd_name)
+    elif isinstance(exc, RuntimeError | ValueError):
+        # Services raise these with user-facing messages.
+        err = BridgeError(
+            ErrorCode.COMMAND_FAILED, str(exc) or "Operation failed", cmd_name
+        )
+    else:
+        log.error(
+            "Unhandled %s in %s:\n%s",
+            type(exc).__name__,
+            cmd_name,
+            "".join(traceback.format_exception(exc)),
+        )
+        err = BridgeError(
+            ErrorCode.BRIDGE_INTERNAL_ERROR,
+            f"An unexpected error occurred ({type(exc).__name__}).",
+            f"{type(exc).__name__} in '{cmd_name}'",
+        )
+    return err.to_dict()
+
+
+def _bridge_command(fn: Callable[..., Any]) -> Callable[..., Any]:
+    """Wrap a bridge method so failures become structured error responses."""
+
+    @functools.wraps(fn)
+    def wrapper(self: Bridge, args: Any = None) -> Any:
+        log.debug("%s args=%s", fn.__name__, _sanitize_args(_args(args)))
+        try:
+            return fn(self, args)
+        except Exception as exc:  # noqa: BLE001
+            if not isinstance(exc, BridgeError | RuntimeError | ValueError):
+                log.warning("%s failed: %s: %s", fn.__name__, type(exc).__name__, exc)
+            return error_response(exc, fn.__name__)
+
+    wrapper.__bridge_command__ = True  # type: ignore[attr-defined]
+    return wrapper
+
+
+def _wrap_commands(cls: type) -> type:
+    for name, value in list(vars(cls).items()):
+        if name.startswith("cmd_") and callable(value):
+            setattr(cls, name, _bridge_command(value))
+    return cls
+
+
+@_wrap_commands
 class Bridge:
     """JS-facing API surface."""
-
-    def _safe_call(
-        self,
-        coro: Awaitable[Any],
-        args: dict,
-        cmd_name: str,
-        *,
-        required_fields: list[str] | None = None,
-        timeout: float | None = DEFAULT_BRIDGE_TIMEOUT,
-        coro_factory: Callable[[], Awaitable[Any]] | None = None,
-    ) -> Any:
-        """Wrap a bridge call with structured error handling.
-
-        1. Validates required fields in *args*, raising a
-           :class:`BridgeError` naming every missing field.
-        2. Logs the invocation at DEBUG with sanitized args.
-        3. Runs *coro* on the runtime loop with *timeout*.
-        4. On ConnectionError: attempts auto-reconnect within 10 s, then
-           retries the original command once via *coro_factory*.
-        5. Maps known exceptions to structured :class:`BridgeError` responses.
-        6. Logs unhandled exceptions at ERROR with full traceback; returns
-           only the exception type and a generic description to the frontend.
-
-        Parameters
-        ----------
-        coro_factory : callable, optional
-            A zero-argument callable that returns a *new* awaitable for the
-            same operation. Used to retry after a successful reconnect.
-            If not provided, the command cannot be retried on disconnect.
-
-        Returns
-        -------
-        Any
-            The coroutine's return value on success, or a
-            ``BridgeError.to_dict()`` error response on failure.
-        """
-        # ── 1. Validate required args ──────────────────────────────────────
-        if required_fields:
-            missing = [f for f in required_fields if f not in args or args[f] is None]
-            if missing:
-                field_list = ", ".join(missing)
-                err = BridgeError(
-                    code=ErrorCode.VALIDATION_MISSING_FIELD,
-                    message=f"Missing required fields: {field_list}",
-                    detail=f"Command '{cmd_name}' requires fields: {field_list}",
-                )
-                return err.to_dict()
-
-        # ── 2. Log invocation at DEBUG ─────────────────────────────────────
-        log.debug("%s args=%s", cmd_name, _sanitize_args(args))
-
-        # ── 3. Execute with error mapping ──────────────────────────────────
-        try:
-            return get_runtime().run_coro(coro, timeout=timeout)
-
-        except TimeoutError:
-            err = BridgeError(
-                code=ErrorCode.BRIDGE_TIMEOUT,
-                message=f"Operation timed out after {timeout}s. Please try again.",
-                detail=f"Command '{cmd_name}' exceeded {timeout}s timeout.",
-            )
-            return err.to_dict()
-
-        except ConnectionError as exc:
-            # ── 4. Attempt auto-reconnect + single retry ───────────────────
-            log.warning(
-                "ConnectionError in '%s': %s — attempting reconnect",
-                cmd_name,
-                exc,
-            )
-            if self._attempt_reconnect():
-                # Reconnection succeeded — retry the command once
-                if coro_factory is not None:
-                    log.info("Reconnected; retrying '%s'", cmd_name)
-                    try:
-                        return get_runtime().run_coro(coro_factory(), timeout=timeout)
-                    except Exception as retry_exc:
-                        log.warning(
-                            "Retry of '%s' after reconnect failed: %s",
-                            cmd_name,
-                            retry_exc,
-                        )
-                        err = BridgeError(
-                            code=ErrorCode.NETWORK_DISCONNECTED,
-                            message="Reconnected but the operation failed. Please try again.",
-                            detail=f"Retry failed in '{cmd_name}': {retry_exc}",
-                        )
-                        return err.to_dict()
-                else:
-                    log.info(
-                        "Reconnected but no coro_factory for '%s'; cannot retry",
-                        cmd_name,
-                    )
-
-            # Reconnection failed or no retry possible
-            err = BridgeError(
-                code=ErrorCode.NETWORK_DISCONNECTED,
-                message="Connection lost. Please check your network and try again.",
-                detail=f"ConnectionError in '{cmd_name}': {exc}",
-            )
-            return err.to_dict()
-
-        except Exception as exc:
-            # Check for FloodWaitError (Telethon-specific)
-            try:
-                from telethon.errors import FloodWaitError
-
-                if isinstance(exc, FloodWaitError):
-                    wait_seconds = exc.seconds
-                    err = BridgeError(
-                        code=ErrorCode.NETWORK_FLOOD_WAIT,
-                        message=f"Rate limited by Telegram. Please wait {wait_seconds}s.",
-                        detail=f"FloodWaitError in '{cmd_name}': wait {wait_seconds}s",
-                    )
-                    return err.to_dict()
-            except ImportError:
-                pass
-
-            # ── Unhandled exception: log full traceback, return safe response ──
-            log.error(
-                "Unhandled %s in %s:\n%s",
-                type(exc).__name__,
-                cmd_name,
-                traceback.format_exc(),
-            )
-            err = BridgeError(
-                code="BRIDGE_INTERNAL_ERROR",
-                message=f"An unexpected error occurred: {type(exc).__name__}",
-                detail=f"{type(exc).__name__}: operation failed",
-            )
-            return err.to_dict()
-
-    # ─────────────────────── reconnection helper ───────────────────────────
-
-    def _attempt_reconnect(self) -> bool:
-        """Try to reconnect the Telegram client within 10 seconds.
-
-        Returns True if reconnection succeeded, False otherwise.
-        """
-        try:
-            runtime = get_runtime()
-            return runtime.run_coro(
-                self._reconnect_client(), timeout=_RECONNECT_TIMEOUT
-            )
-        except (TimeoutError, Exception) as exc:
-            log.warning("Auto-reconnect failed: %s", exc)
-            return False
-
-    @staticmethod
-    async def _reconnect_client() -> bool:
-        """Attempt to reconnect the Telegram client.
-
-        Uses the existing client state (api_id / api_hash) to re-establish
-        the connection. Returns True on success, False on failure.
-        """
-        from ..telegram.client import get_state
-
-        state = get_state()
-
-        # If we have a client instance, try to reconnect it directly
-        if state.client is not None:
-            try:
-                if not state.client.is_connected():
-                    await state.client.connect()
-                if state.client.is_connected():
-                    return True
-            except Exception as exc:
-                log.warning("Direct client.connect() failed: %s", exc)
-
-        # Fall back to ensure_client which recreates if needed
-        if state.api_id is not None and state.api_hash is not None:
-            try:
-                from ..telegram.client import ensure_client
-
-                client = await ensure_client(state.api_id, state.api_hash)
-                return client.is_connected()
-            except Exception as exc:
-                log.warning("ensure_client reconnect failed: %s", exc)
-                return False
-
-        return False
 
     # ─────────────────────────── auth / connection ───────────────────────────
 
@@ -295,58 +227,62 @@ class Bridge:
 
     # ──────────────────────────────── files ────────────────────────────────
 
-    def cmd_get_files(self, args: Any = None) -> list[dict]:
+    def cmd_get_files(self, args: Any = None) -> dict:
         a = _args(args)
-        fid = a.get("folderId")
-        return _run_long(file_cmds.cmd_get_files(int(fid) if fid is not None else None))
+        return _run_long(
+            file_cmds.cmd_get_files(
+                _opt_int(a.get("folderId")),
+                limit=int(a.get("limit") or file_cmds.DEFAULT_PAGE_SIZE),
+                offset_id=int(a.get("offsetId") or 0),
+            )
+        )
 
     def cmd_upload_file(self, args: Any = None) -> str:
         a = _args(args)
-        fid = a.get("folderId")
         return _run_long(
             file_cmds.cmd_upload_file(
-                a["path"],
-                int(fid) if fid is not None else None,
-                a.get("transferId"),
+                a["path"], _opt_int(a.get("folderId")), a.get("transferId")
             )
         )
 
     def cmd_download_file(self, args: Any = None) -> str:
         a = _args(args)
-        fid = a.get("folderId")
         return _run_long(
             file_cmds.cmd_download_file(
                 int(a["messageId"]),
-                a["savePath"],
-                int(fid) if fid is not None else None,
+                a.get("savePath"),
+                _opt_int(a.get("folderId")),
                 a.get("transferId"),
+                dir_path=a.get("dirPath"),
+                file_name=a.get("fileName"),
             )
         )
 
     def cmd_delete_file(self, args: Any = None) -> bool:
         a = _args(args)
-        fid = a.get("folderId")
         return _run(
-            file_cmds.cmd_delete_file(
-                int(a["messageId"]), int(fid) if fid is not None else None
-            )
+            file_cmds.cmd_delete_file(int(a["messageId"]), _opt_int(a.get("folderId")))
         )
 
     def cmd_move_files(self, args: Any = None) -> bool:
         a = _args(args)
-        src = a.get("sourceFolderId")
-        tgt = a.get("targetFolderId")
         return _run(
             file_cmds.cmd_move_files(
                 [int(i) for i in a["messageIds"]],
-                int(src) if src is not None else None,
-                int(tgt) if tgt is not None else None,
+                _opt_int(a.get("sourceFolderId")),
+                _opt_int(a.get("targetFolderId")),
             )
         )
 
     def cmd_search_global(self, args: Any = None) -> list[dict]:
         a = _args(args)
-        return _run(file_cmds.cmd_search_global(a["query"]))
+        folder_ids = a.get("folderIds")
+        return _run(
+            file_cmds.cmd_search_global(
+                str(a["query"]),
+                [int(i) for i in folder_ids] if folder_ids is not None else None,
+            )
+        )
 
     def cmd_cancel_transfer(self, args: Any = None) -> bool:
         a = _args(args)
@@ -367,25 +303,23 @@ class Bridge:
         return _run(folder_cmds.cmd_delete_folder(int(a["folderId"])))
 
     def cmd_scan_folders(self, args: Any = None) -> list[dict]:
-        return _run(folder_cmds.cmd_scan_folders())
+        return _run_long(folder_cmds.cmd_scan_folders())
 
     # ────────────────────────── preview / thumbnails ──────────────────────────
 
     def cmd_get_preview(self, args: Any = None) -> str:
         a = _args(args)
-        fid = a.get("folderId")
         return _run_long(
             preview_cmds.cmd_get_preview(
-                int(a["messageId"]), int(fid) if fid is not None else None
+                int(a["messageId"]), _opt_int(a.get("folderId"))
             )
         )
 
     def cmd_get_thumbnail(self, args: Any = None) -> str:
         a = _args(args)
-        fid = a.get("folderId")
         return _run_long(
             preview_cmds.cmd_get_thumbnail(
-                int(a["messageId"]), int(fid) if fid is not None else None
+                int(a["messageId"]), _opt_int(a.get("folderId"))
             )
         )
 
@@ -393,10 +327,24 @@ class Bridge:
         _run(preview_cmds.cmd_clean_cache())
         return True
 
+    def cmd_get_cache_size(self, args: Any = None) -> int:
+        """Return total cache size in bytes."""
+        return preview_cmds.cache_size_bytes()
+
+    def cmd_clear_cache(self, args: Any = None) -> None:
+        """Delete all cached previews and thumbnails."""
+        preview_cmds.clear_cache_dirs()
+
     # ───────────────────────── network / misc / streaming ─────────────────────────
 
     def cmd_is_network_available(self, args: Any = None) -> bool:
         return _run(network_cmds.cmd_is_network_available())
+
+    def cmd_get_proxy(self, args: Any = None) -> dict:
+        return network_cmds.cmd_get_proxy()
+
+    def cmd_set_proxy(self, args: Any = None) -> bool:
+        return _run(network_cmds.cmd_set_proxy(_args(args)))
 
     def cmd_log(self, args: Any = None) -> None:
         a = _args(args)
@@ -405,38 +353,10 @@ class Bridge:
     def cmd_get_bandwidth(self, args: Any = None) -> dict:
         return network_cmds.cmd_get_bandwidth()
 
-    def cmd_set_bandwidth_limit(self, args: Any = None) -> None:
-        """Store the bandwidth limit (MB/s). 0 = unlimited."""
-        # Stored in frontend settings; backend reads on-demand if needed.
-        pass
-
-    def cmd_get_cache_size(self, args: Any = None) -> int:
-        """Return total cache size in bytes."""
-        from ..config import preview_cache_dir, thumbnail_cache_dir
-
-        total = 0
-        for d in (preview_cache_dir(), thumbnail_cache_dir()):
-            if d.exists():
-                for f in d.iterdir():
-                    if f.is_file():
-                        total += f.stat().st_size
-        return total
-
-    def cmd_clear_cache(self, args: Any = None) -> None:
-        """Delete all cached previews and thumbnails."""
-        import shutil
-
-        from ..config import preview_cache_dir, thumbnail_cache_dir
-
-        for d in (preview_cache_dir(), thumbnail_cache_dir()):
-            if d.exists():
-                shutil.rmtree(d, ignore_errors=True)
-                d.mkdir(parents=True, exist_ok=True)
-
     def cmd_get_stream_info(self, args: Any = None) -> dict:
         return network_cmds.cmd_get_stream_info()
 
-    # ─────────────────────── auto-updater ───────────────────────
+    # ─────────────────────── host integration ───────────────────────
 
     def cmd_dialog_open(self, args: Any = None) -> Any:
         a = _args(args)
@@ -490,105 +410,82 @@ class Bridge:
     def cmd_window_close(self, args: Any = None) -> None:
         host_cmds.cmd_window_close()
 
+    def cmd_set_titlebar_dark(self, args: Any = None) -> None:
+        a = _args(args)
+        host_cmds.cmd_set_titlebar_dark(bool(a.get("dark", True)))
+
+    def cmd_minimize_to_tray(self, args: Any = None) -> None:
+        host_cmds.cmd_minimize_to_tray()
+
+    def cmd_notify(self, args: Any = None) -> bool:
+        a = _args(args)
+        return host_cmds.cmd_notify(
+            str(a.get("title", "Telegrab")), str(a.get("message", ""))
+        )
+
     # ─────────────────────── auto-updater ───────────────────────
 
     def cmd_check_for_updates(self, args: Any = None) -> dict | None:
         return updater_cmds.cmd_check_for_updates()
 
     def cmd_download_and_install_update(self, args: Any = None) -> None:
-        a = _args(args)
-        url = a["url"]
-        sha256 = a.get("sha256", "")
-        updater_cmds.cmd_download_and_install_update(url, sha256)
-
-    # ─────────────────────── cached files ───────────────────────
-
-    def cmd_get_files_cached(self, args: Any = None) -> dict:
-        a = _args(args)
-        fid = a.get("folderId")
-        return _run_long(
-            file_cmds.cmd_get_files_cached(int(fid) if fid is not None else None)
-        )
-
-    # ─────────────────────── tray ───────────────────────
-
-    def cmd_minimize_to_tray(self, args: Any = None) -> None:
-        host_cmds.cmd_minimize_to_tray()
+        # The URL and checksum are deliberately NOT taken from JS: the updater
+        # installs only the release it resolved and verified itself.
+        updater_cmds.cmd_download_and_install_update()
 
     # ─────────────────────── vaults ───────────────────────
 
     def cmd_create_vault(self, args: Any = None) -> dict:
-        from ..services import vault as vault_cmds
-
         a = _args(args)
         return _run(
             vault_cmds.cmd_create_vault(a["name"], a["password"], int(a["folderId"]))
         )
 
     def cmd_unlock_vault(self, args: Any = None) -> bool:
-        from ..services import vault as vault_cmds
-
         a = _args(args)
         return _run(vault_cmds.cmd_unlock_vault(int(a["folderId"]), a["password"]))
 
     def cmd_lock_vault(self, args: Any = None) -> bool:
-        from ..services import vault as vault_cmds
-
         a = _args(args)
         return _run(vault_cmds.cmd_lock_vault(int(a["folderId"])))
 
     def cmd_list_vaults(self, args: Any = None) -> list:
-        from ..services import vault as vault_cmds
-
         return _run(vault_cmds.cmd_list_vaults())
 
-    def cmd_delete_vault(self, args: Any = None) -> bool:
-        from ..services import vault as vault_cmds
+    def cmd_get_vault_status(self, args: Any = None) -> dict:
+        a = _args(args)
+        return _run(vault_cmds.cmd_get_vault_status(_opt_int(a.get("folderId"))))
 
+    def cmd_delete_vault(self, args: Any = None) -> bool:
         a = _args(args)
         return _run(vault_cmds.cmd_delete_vault(int(a["folderId"])))
 
     # ─────────────────────── duplicate detection ───────────────────────
 
     def cmd_check_duplicate(self, args: Any = None) -> dict:
-        from ..services import dedup as dedup_cmds
-
         a = _args(args)
-        fid = a.get("folderId")
         return _run(
-            dedup_cmds.cmd_check_duplicate(
-                a["path"], int(fid) if fid is not None else None
-            )
+            dedup_cmds.cmd_check_duplicate(a["path"], _opt_int(a.get("folderId")))
         )
 
     # ─────────────────────── pinned files ───────────────────────
 
     def cmd_pin_file(self, args: Any = None) -> bool:
-        from ..services import pins as pin_cmds
-
         a = _args(args)
-        fid = a.get("folderId")
         return _run(
             pin_cmds.cmd_pin_file(
                 int(a["messageId"]),
-                int(fid) if fid is not None else None,
+                _opt_int(a.get("folderId")),
                 a["name"],
                 int(a["size"]),
             )
         )
 
     def cmd_unpin_file(self, args: Any = None) -> bool:
-        from ..services import pins as pin_cmds
-
         a = _args(args)
-        fid = a.get("folderId")
         return _run(
-            pin_cmds.cmd_unpin_file(
-                int(a["messageId"]), int(fid) if fid is not None else None
-            )
+            pin_cmds.cmd_unpin_file(int(a["messageId"]), _opt_int(a.get("folderId")))
         )
 
     def cmd_get_pinned_files(self, args: Any = None) -> list:
-        from ..services import pins as pin_cmds
-
         return _run(pin_cmds.cmd_get_pinned_files())

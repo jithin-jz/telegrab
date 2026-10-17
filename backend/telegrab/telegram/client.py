@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import sys
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -55,22 +56,29 @@ class TelegramState:
     pending_qr_login: QRLogin | None = None
     pending_qr_task: asyncio.Task | None = None
 
-    # peer_cache: folder_id (int) → Telethon entity (User/Channel/Chat)
+    # peer_cache: folder_id (int) → (Telethon entity, cached_at). Write it via
+    # `peers.remember_peer` so the tuple shape is always respected.
     peer_cache: _BoundedOrderedDict = field(default_factory=_BoundedOrderedDict)
+
+    # Ids of the Telegrab storage folders found by the last folder scan.
+    folder_ids: set[int] = field(default_factory=set)
 
     # Transfer IDs that have been requested to cancel.
     cancelled_transfers: set[str] = field(default_factory=set)
 
 
 _state = TelegramState()
-_connect_lock: asyncio.Lock | None = None
+# (loop, lock) — the runtime may restart its loop after a crash, and an
+# asyncio.Lock can only be used on the loop it was first awaited on.
+_connect_lock: tuple[asyncio.AbstractEventLoop, asyncio.Lock] | None = None
 
 
 def _get_lock() -> asyncio.Lock:
     global _connect_lock
-    if _connect_lock is None:
-        _connect_lock = asyncio.Lock()
-    return _connect_lock
+    loop = asyncio.get_running_loop()
+    if _connect_lock is None or _connect_lock[0] is not loop:
+        _connect_lock = (loop, asyncio.Lock())
+    return _connect_lock[1]
 
 
 def get_state() -> TelegramState:
@@ -129,10 +137,64 @@ async def _ensure_client_inner(
         client = _build_client(session_str, api_id, api_hash)
         await client.connect()
 
+    _harden_session_file(session_str)
     state.client = client
     state.api_id = api_id
     state.api_hash = api_hash
     return client
+
+
+def _harden_session_file(session_str: str) -> None:
+    """Restrict the session file (full account access!) to the current user.
+
+    On Windows the per-user %APPDATA% ACL already does this; on POSIX the
+    SQLite file would otherwise be created with the umask (often 0644).
+    """
+    if sys.platform == "win32":
+        return
+    for ext in ("", "-journal", "-wal", "-shm"):
+        with contextlib.suppress(OSError):
+            Path(session_str + ext).chmod(0o600)
+
+
+def proxy_settings() -> dict[str, Any] | None:
+    """The user's proxy configuration from the settings store, if enabled."""
+    from ..infra import get_store
+
+    cfg = get_store().get("proxy")
+    if not isinstance(cfg, dict) or not cfg.get("enabled"):
+        return None
+    if not cfg.get("host") or not cfg.get("port"):
+        return None
+    return cfg
+
+
+def _proxy_kwargs(cfg: dict[str, Any] | None) -> dict[str, Any]:
+    """Translate a stored proxy config into TelegramClient kwargs."""
+    if cfg is None:
+        return {}
+    kind = str(cfg.get("type", "socks5")).lower()
+    host = str(cfg["host"]).strip()
+    port = int(cfg["port"])
+    if kind == "mtproxy":
+        from telethon import connection
+
+        return {
+            "connection": connection.ConnectionTcpMTProxyRandomizedIntermediate,
+            "proxy": (host, port, str(cfg.get("secret") or "")),
+        }
+    if kind not in {"socks5", "socks4", "http"}:
+        raise ValueError(f"Unsupported proxy type: {kind}")
+    proxy: dict[str, Any] = {
+        "proxy_type": kind,
+        "addr": host,
+        "port": port,
+        "rdns": True,
+    }
+    if cfg.get("username"):
+        proxy["username"] = str(cfg["username"])
+        proxy["password"] = str(cfg.get("password") or "")
+    return {"proxy": proxy}
 
 
 def _check_cryptg() -> None:
@@ -159,10 +221,19 @@ def _build_client(session_str: str, api_id: int, api_hash: str) -> TelegramClien
     from .. import __version__
 
     _check_cryptg()
+    proxy = proxy_settings()
+    if proxy:
+        log.info(
+            "Connecting through %s proxy %s:%s",
+            proxy.get("type"),
+            proxy["host"],
+            proxy["port"],
+        )
     return TelegramClient(
         session_str,
         api_id,
         api_hash,
+        **_proxy_kwargs(proxy),
         device_model="Desktop",
         system_version="Telegrab",
         app_version=__version__,
@@ -197,6 +268,17 @@ async def _shutdown_client(state: TelegramState) -> None:
     state.client = None
 
 
+async def reconnect_with_current_settings() -> TelegramClient | None:
+    """Recreate the client (e.g. after proxy settings changed)."""
+    async with _get_lock():
+        state = _state
+        if state.api_id is None or not state.api_hash:
+            await _shutdown_client(state)
+            return None
+        await _shutdown_client(state)
+        return await _ensure_client_inner(state.api_id, state.api_hash)
+
+
 async def logout_and_reset() -> None:
     """Sign out from Telegram and wipe local session state."""
     state = _state
@@ -213,6 +295,7 @@ async def logout_and_reset() -> None:
     state.pending_phone = None
     state.pending_phone_code_hash = None
     state.peer_cache.clear()
+    state.folder_ids.clear()
     state.cancelled_transfers.clear()
 
     session_str = str(session_path())

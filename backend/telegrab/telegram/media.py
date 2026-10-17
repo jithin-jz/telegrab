@@ -1,5 +1,5 @@
 """Helpers for converting Telethon messages/media into the metadata dicts
-the React frontend expects (see `app/src/types.ts`).
+the React frontend expects (see `frontend/src/types/index.ts`).
 
 Also exposes a shared download semaphore for limiting concurrent Telegram
 download operations (thumbnails, previews, etc.)."""
@@ -7,6 +7,7 @@ download operations (thumbnails, previews, etc.)."""
 from __future__ import annotations
 
 import asyncio
+import weakref
 from pathlib import Path
 from typing import Any
 
@@ -19,13 +20,35 @@ from telethon.tl.types import (
     Photo,
 )
 
-# Limit concurrent Telegram download operations to 4
-_thumbnail_semaphore = asyncio.Semaphore(4)
+# Limit concurrent small Telegram downloads (thumbnails/previews) to 4.
+# Semaphores bind to the loop they are first used on, and the runtime may
+# restart its loop after a crash — so keep one per loop.
+_semaphores: weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, asyncio.Semaphore] = (
+    weakref.WeakKeyDictionary()
+)
 
 
 def get_download_semaphore() -> asyncio.Semaphore:
     """Return the shared semaphore for limiting concurrent Telegram downloads."""
-    return _thumbnail_semaphore
+    loop = asyncio.get_running_loop()
+    sem = _semaphores.get(loop)
+    if sem is None:
+        sem = asyncio.Semaphore(4)
+        _semaphores[loop] = sem
+    return sem
+
+
+def photo_size(photo: Any) -> int:
+    """Byte size of the largest variant of a photo (what downloads fetch)."""
+    best = 0
+    for variant in getattr(photo, "sizes", None) or []:
+        size = getattr(variant, "size", None)
+        if isinstance(size, int):
+            best = max(best, size)
+        progressive = getattr(variant, "sizes", None)  # PhotoSizeProgressive
+        if progressive:
+            best = max(best, max(progressive))
+    return best
 
 
 def file_metadata_from_message(
@@ -72,7 +95,7 @@ def _extract_media_info(media: Any) -> tuple[str | None, int, str | None, str | 
         photo = getattr(media, "photo", None)
         if not isinstance(photo, Photo):
             return (None, 0, None, None)
-        return ("Photo.jpg", 0, "image/jpeg", "jpg")
+        return (f"Photo_{photo.id}.jpg", photo_size(photo), "image/jpeg", "jpg")
 
     return (None, 0, None, None)
 
@@ -92,7 +115,7 @@ def media_total_size(msg: Message) -> int:
         if isinstance(doc, Document):
             return int(getattr(doc, "size", 0) or 0)
     if isinstance(media, MessageMediaPhoto):
-        return 1024 * 1024  # rough placeholder; matches Rust behaviour
+        return photo_size(getattr(media, "photo", None))
     return 0
 
 
@@ -114,5 +137,6 @@ def filename_from_message(msg: Message) -> str:
         if isinstance(doc, Document):
             return filename_from_document(doc) or "file"
     if isinstance(media, MessageMediaPhoto):
-        return "Photo.jpg"
+        photo = getattr(media, "photo", None)
+        return f"Photo_{photo.id}.jpg" if isinstance(photo, Photo) else "Photo.jpg"
     return "download"

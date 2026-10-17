@@ -1,7 +1,7 @@
 """Auth use cases — orchestrate Telethon flows + state transitions.
 
-Mirrors `src-tauri/src/commands/auth.rs`. The bridge layer in
-`telegrab.api.bridge` wraps each function so JS can invoke it.
+The bridge layer in `telegrab.api.bridge` wraps each function so JS can
+invoke it.
 """
 
 from __future__ import annotations
@@ -50,8 +50,8 @@ async def cmd_check_connection() -> bool:
             log.warning("Connection check failed: %s", exc)
 
     if state.api_id is not None and state.api_hash is not None:
-        state.client = None
         try:
+            # ensure_client reconnects (or rebuilds) the existing client.
             client = await tg.ensure_client(state.api_id, state.api_hash)
             return await client.is_user_authorized()
         except Exception as exc:  # noqa: BLE001
@@ -63,7 +63,28 @@ async def cmd_check_connection() -> bool:
 
 async def cmd_logout() -> bool:
     await tg.logout_and_reset()
+    _wipe_local_account_data()
     return True
+
+
+def _wipe_local_account_data() -> None:
+    """Remove everything the previous account left on this machine.
+
+    Pins, fingerprints, vault keys/metadata and cached previews would
+    otherwise leak to (and confuse) the next account that signs in.
+    """
+    from . import localdb, preview
+    from . import vault as vault_mod
+
+    for name, cleanup in (
+        ("local database", localdb.wipe_account_data),
+        ("vaults", vault_mod.reset_local_state),
+        ("preview cache", preview.clear_cache_dirs),
+    ):
+        try:
+            cleanup()
+        except Exception as exc:  # noqa: BLE001
+            log.warning("Logout cleanup of %s failed: %s", name, exc)
 
 
 # ───────────────────────────── phone-code flow ─────────────────────────────

@@ -1,33 +1,19 @@
-"""Unit tests for the BridgeError dataclass and ErrorCode constants.
+"""Unit tests for the BridgeError exception and ErrorCode constants.
 
 Run with: python -m pytest tests/test_errors.py -v
 """
 
 from __future__ import annotations
 
-import re
-import sys
-from pathlib import Path
-
 import pytest
 
-# Import the module directly to avoid triggering webview dependency chain
-_errors_path = Path(__file__).resolve().parent.parent / "telegrab" / "api" / "errors.py"
-_spec = __import__("importlib").util.spec_from_file_location(
-    "telegrab.api.errors", str(_errors_path)
+from telegrab.api.errors import (
+    ERROR_CODE_PATTERN,
+    MAX_DETAIL_LENGTH,
+    MAX_MESSAGE_LENGTH,
+    BridgeError,
+    ErrorCode,
 )
-_mod = __import__("importlib").util.module_from_spec(_spec)
-sys.modules["telegrab.api.errors"] = _mod
-_spec.loader.exec_module(_mod)
-
-BridgeError = _mod.BridgeError
-ErrorCode = _mod.ErrorCode
-ERROR_CODE_PATTERN = _mod.ERROR_CODE_PATTERN
-MAX_MESSAGE_LENGTH = _mod.MAX_MESSAGE_LENGTH
-MAX_DETAIL_LENGTH = _mod.MAX_DETAIL_LENGTH
-
-# Clean up sys.modules to prevent test pollution
-sys.modules.pop("telegrab.api.errors", None)
 
 
 class TestBridgeError:

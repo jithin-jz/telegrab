@@ -18,7 +18,7 @@ _updater_mod = __import__("importlib").util.module_from_spec(_spec)
 _spec.loader.exec_module(_updater_mod)
 
 _sanitize_filename = _updater_mod._sanitize_filename
-cmd_download_and_install_update = _updater_mod.cmd_download_and_install_update
+download_and_install = _updater_mod.download_and_install
 DOWNLOAD_TIMEOUT_SECONDS = _updater_mod.DOWNLOAD_TIMEOUT_SECONDS
 
 
@@ -84,23 +84,23 @@ class TestMandatoryChecksum:
     def test_aborts_when_no_checksum_provided(self):
         """Requirement 11.2: Abort if no SHA-256 in release body."""
         with pytest.raises(RuntimeError, match="no SHA-256 checksum found"):
-            cmd_download_and_install_update(
-                "https://github.com/user/repo/releases/download/v1.0/file.exe",
+            download_and_install(
+                "https://github.com/jithin-jz/telegrab/releases/download/v1.0/file.exe",
                 expected_sha256="",
             )
 
     def test_aborts_when_checksum_is_empty_string(self):
         with pytest.raises(RuntimeError, match="no SHA-256 checksum found"):
-            cmd_download_and_install_update(
-                "https://github.com/user/repo/releases/download/v1.0/file.exe",
+            download_and_install(
+                "https://github.com/jithin-jz/telegrab/releases/download/v1.0/file.exe",
                 expected_sha256="",
             )
 
     def test_domain_check_runs_after_checksum_check(self):
         """Checksum check happens before domain validation for non-empty sha."""
         # With a valid checksum but invalid domain, we should get domain error
-        with pytest.raises(ValueError, match="hostname is not github.com"):
-            cmd_download_and_install_update(
+        with pytest.raises(ValueError, match="not a release asset"):
+            download_and_install(
                 "https://evil.com/file.exe",
                 expected_sha256="a" * 64,
             )
@@ -135,7 +135,7 @@ class TestFileSizeVerification:
         """Size check only runs after download completes, which requires checksum first."""
         # Without checksum, we fail early
         with pytest.raises(RuntimeError, match="no SHA-256 checksum found"):
-            cmd_download_and_install_update(
-                "https://github.com/user/repo/releases/download/v1.0/file.exe",
+            download_and_install(
+                "https://github.com/jithin-jz/telegrab/releases/download/v1.0/file.exe",
                 expected_sha256="",
             )

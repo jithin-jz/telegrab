@@ -5,7 +5,7 @@ import { TelegramFile } from '../../types';
 import { FileTypeIcon } from '../FileTypeIcon';
 import { cn } from '../../lib/utils';
 import { useQueryClient } from '@tanstack/react-query';
-import { fetchFiles } from '../../lib/api';
+import { fetchFiles, folderOf } from '../../lib/api';
 import { isMediaFile } from '../../lib/utils';
 
 interface FileCardProps {
@@ -51,16 +51,17 @@ export const FileCard = memo(function FileCard({
     }
   };
 
+  const fileFolder = folderOf(file, activeFolderId);
   useEffect(() => {
     if (isFolder || !hasThumbnail(file.name)) return;
     let cancelled = false;
     setThumbnailLoading(true);
-    invoke<string>('cmd_get_thumbnail', { messageId: file.id, folderId: activeFolderId })
+    invoke<string>('cmd_get_thumbnail', { messageId: file.id, folderId: fileFolder })
       .then((result) => { if (!cancelled && result) setThumbnail(result); })
       .catch(() => {})
       .finally(() => { if (!cancelled) setThumbnailLoading(false); });
     return () => { cancelled = true; };
-  }, [file.id, file.name, activeFolderId, isFolder]);
+  }, [file.id, file.name, fileFolder, isFolder]);
 
   return (
     <div className="relative gpu-accel-hover" onContextMenu={onContextMenu} onClick={onClick} onMouseEnter={handleMouseEnter}

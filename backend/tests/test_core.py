@@ -271,7 +271,7 @@ class TestUpdaterDiskSpace:
     """Tests for the disk space check in the updater."""
 
     def test_disk_space_check_raises_on_low_space(self):
-        from telegrab.services.updater import cmd_download_and_install_update
+        from telegrab.services.updater import download_and_install
 
         # Mock shutil.disk_usage to return very low free space
         fake_usage = MagicMock()
@@ -279,8 +279,8 @@ class TestUpdaterDiskSpace:
 
         with patch("shutil.disk_usage", return_value=fake_usage):
             with pytest.raises(RuntimeError, match="Insufficient disk space"):
-                cmd_download_and_install_update(
-                    "https://github.com/test/repo/releases/download/v1.0/update.exe",
+                download_and_install(
+                    "https://github.com/jithin-jz/telegrab/releases/download/v1.0/update.exe",
                     expected_sha256="abc123",
                 )
 

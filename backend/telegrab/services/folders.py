@@ -1,18 +1,16 @@
-"""Folder use cases.
-
-Mirrors `src-tauri/src/commands/fs.rs` (folder section).
-"""
+"""Folder use cases — each folder is a Telegram channel tagged `[TD]`."""
 
 from __future__ import annotations
 
 import logging
-import time
+import re
 from typing import Any
 
 from telethon import errors as tl_errors
 from telethon.tl import functions, types
 
 from .. import telegram as tg
+from . import require_client
 
 log = logging.getLogger(__name__)
 
@@ -31,17 +29,11 @@ async def cmd_create_folder(name: str) -> dict[str, Any]:
     if len(name) > 128:
         raise RuntimeError("Folder name too long (max 128 characters).")
     # Reject control characters and path separators
-    import re
-
     if re.search(r"[\x00-\x1f/\\]", name):
         raise RuntimeError("Folder name contains invalid characters.")
 
     state = tg.get_state()
-    client = state.client
-    if client is None:
-        mock_id = int(time.time())
-        log.info("[MOCK] create folder '%s' (id=%s)", name, mock_id)
-        return {"id": mock_id, "name": name, "parent_id": None}
+    client = require_client()
 
     log.info("Creating Telegram channel: %s", name)
     try:
@@ -82,7 +74,8 @@ async def cmd_create_folder(name: str) -> dict[str, Any]:
     except Exception as exc:  # noqa: BLE001
         log.debug("SetHistoryTTL failed (non-fatal): %s", exc)
 
-    state.peer_cache[chat_id] = chat
+    tg.remember_peer(chat)
+    state.folder_ids.add(chat_id)
     return {"id": chat_id, "name": name, "parent_id": None}
 
 
@@ -98,12 +91,12 @@ async def cmd_rename_folder(folder_id: int, name: str) -> dict[str, Any]:
     new_name = (name or "").strip()
     if not new_name:
         raise RuntimeError("Folder name cannot be empty.")
+    if len(new_name) > 128:
+        raise RuntimeError("Folder name too long (max 128 characters).")
+    if re.search(r"[\x00-\x1f/\\]", new_name):
+        raise RuntimeError("Folder name contains invalid characters.")
 
-    state = tg.get_state()
-    client = state.client
-    if client is None:
-        log.info("[MOCK] rename folder %s -> %s", folder_id, new_name)
-        return {"id": int(folder_id), "name": new_name, "parent_id": None}
+    client = require_client()
 
     log.info("Renaming folder %s -> %s", folder_id, new_name)
 
@@ -125,21 +118,15 @@ async def cmd_rename_folder(folder_id: int, name: str) -> dict[str, Any]:
         raise RuntimeError(f"Failed to rename folder: {exc}") from exc
 
     # Refresh the cached peer so subsequent calls see the new title.
-    try:
-        entity.title = f"{new_name} {FOLDER_TITLE_TAG}"
-        state.peer_cache[int(folder_id)] = entity
-    except Exception:  # noqa: BLE001
-        pass
+    entity.title = f"{new_name} {FOLDER_TITLE_TAG}"
+    tg.remember_peer(entity, int(folder_id))
 
     return {"id": int(folder_id), "name": new_name, "parent_id": None}
 
 
 async def cmd_delete_folder(folder_id: int) -> bool:
     state = tg.get_state()
-    client = state.client
-    if client is None:
-        log.info("[MOCK] delete folder %s", folder_id)
-        return True
+    client = require_client()
 
     log.info("Deleting folder/channel: %s", folder_id)
 
@@ -160,7 +147,27 @@ async def cmd_delete_folder(folder_id: int) -> bool:
         raise RuntimeError(f"Failed to delete channel: {exc}") from exc
 
     state.peer_cache.pop(int(folder_id), None)
+    state.folder_ids.discard(int(folder_id))
+    _forget_folder_locally(int(folder_id))
     return True
+
+
+def _forget_folder_locally(folder_id: int) -> None:
+    """Drop pins, fingerprints, vault state and caches of a deleted folder."""
+    from ..config import preview_cache_dir, thumbnail_cache_dir
+    from . import localdb
+    from . import vault as vault_mod
+
+    for cleanup in (localdb.forget_folder, vault_mod.forget_vault):
+        try:
+            cleanup(folder_id)
+        except Exception as exc:  # noqa: BLE001
+            log.warning(
+                "Local cleanup for deleted folder %s failed: %s", folder_id, exc
+            )
+    for cache_dir in (preview_cache_dir(), thumbnail_cache_dir()):
+        for cached in cache_dir.glob(f"{folder_id}_*"):
+            cached.unlink(missing_ok=True)
 
 
 # ─────────────────────────────── scan / list ───────────────────────────────
@@ -168,9 +175,7 @@ async def cmd_delete_folder(folder_id: int) -> bool:
 
 async def cmd_scan_folders() -> list[dict[str, Any]]:
     state = tg.get_state()
-    client = state.client
-    if client is None:
-        return []
+    client = require_client()
 
     folders: list[dict[str, Any]] = []
     log.info("Starting folder scan...")
@@ -180,7 +185,7 @@ async def cmd_scan_folders() -> list[dict[str, Any]]:
 
         if isinstance(entity, types.Channel):
             cid = int(entity.id)
-            state.peer_cache[cid] = entity
+            tg.remember_peer(entity)
 
             title = entity.title or ""
             tag = FOLDER_TITLE_TAG.lower()
@@ -220,8 +225,9 @@ async def cmd_scan_folders() -> list[dict[str, Any]]:
                 log.debug("GetFullChannel unexpected error %s: %s", title, exc)
 
         elif isinstance(entity, types.User):
-            state.peer_cache[int(entity.id)] = entity
+            tg.remember_peer(entity)
 
+    state.folder_ids = {int(f["id"]) for f in folders}
     log.info(
         "Scan complete. %d folders (peer cache: %d entries)",
         len(folders),

@@ -8,10 +8,7 @@ from __future__ import annotations
 import logging
 import re
 import sys
-from pathlib import Path
 from unittest.mock import MagicMock
-
-import pytest
 
 # Mock webview before importing telegrab modules that transitively depend on it
 sys.modules.setdefault("webview", MagicMock())

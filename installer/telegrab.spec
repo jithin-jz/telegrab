@@ -1,14 +1,20 @@
 # -*- mode: python ; coding: utf-8 -*-
-# PyInstaller spec for Telegram Drive.
+# PyInstaller spec for Telegrab.
 #
 # Run via `python installer/build.py` (preferred) or directly:
 #   pyinstaller installer/telegrab.spec --noconfirm
 #
 # Output:
-#   * Windows:  dist-installer/Telegrab.exe          (single-file)
-#   * macOS:    dist-installer/Telegrab.app          (Cocoa app bundle)
-#   * Linux:    dist-installer/Telegrab/             (onedir)
+#   * Windows:  dist-installer/telegrab/telegrab.exe  (onedir — used by the installer)
+#               dist-installer/telegrab.exe           (single-file portable build,
+#                                                      when TELEGRAB_ONEFILE=1)
+#   * macOS:    dist-installer/telegrab.app           (Cocoa app bundle)
+#   * Linux:    dist-installer/telegrab/              (onedir)
+#
+# The onedir build starts much faster than a single-file exe (nothing is
+# unpacked to %TEMP% on every launch) and trips far fewer antivirus heuristics.
 
+import os
 import sys
 from pathlib import Path
 
@@ -50,8 +56,8 @@ ICON = _icon()
 # ───────────────── Hidden imports & runtime data files ─────────────────
 # Telethon dynamically constructs TL types — make sure all submodules ship.
 hidden_telethon = collect_submodules("telethon")
-# Uvicorn picks loop / http implementations at runtime.
-hidden_uvicorn = collect_submodules("uvicorn")
+# python-socks backs SOCKS/HTTP proxy support and is imported lazily by Telethon.
+hidden_socks = collect_submodules("python_socks")
 # pywebview's per-platform backend module is imported via importlib.
 if sys.platform == "win32":
     hidden_pywebview = [
@@ -66,7 +72,7 @@ else:
 
 hidden_imports = (
     hidden_telethon
-    + hidden_uvicorn
+    + hidden_socks
     + hidden_pywebview
     + [
         "telegrab",
@@ -75,7 +81,6 @@ hidden_imports = (
         "telegrab.api.bridge",
         "telegrab.api.host",
         "telegrab.api.streaming",
-        "telegrab.api.rest",
         "telegrab.config",
         "telegrab.infra",
         "telegrab.services",
@@ -84,8 +89,17 @@ hidden_imports = (
         "telegrab.services.folders",
         "telegrab.services.preview",
         "telegrab.services.network",
-        "telegrab.services.api_settings",
+        "telegrab.services.localdb",
+        "telegrab.services.vault",
+        "telegrab.services.updater",
         "telegrab.telegram",
+        # cryptg provides Telethon's native AES-IGE crypto and is imported via
+        # a conditional try/except, so PyInstaller's static analysis can miss
+        # it. Declare the package AND its compiled extension submodule (.pyd)
+        # explicitly — without them MTProto crypto silently falls back to slow
+        # pure-Python (5-10x slower).
+        "cryptg",
+        "cryptg.cryptg",
     ]
 )
 
@@ -116,10 +130,39 @@ pyz = PYZ(a.pure)
 
 # ────────────────────────── Per-platform output ──────────────────────────
 APP_NAME = "telegrab"
+ONEFILE = os.environ.get("TELEGRAB_ONEFILE") == "1"
 
-if sys.platform == "win32":
-    # Single-file Windows binary. Slight cold-start cost but trivially
-    # distributable.
+if sys.platform == "win32" and not ONEFILE:
+    exe = EXE(
+        pyz,
+        a.scripts,
+        [],
+        exclude_binaries=True,
+        name=APP_NAME,
+        debug=False,
+        bootloader_ignore_signals=False,
+        strip=False,
+        upx=False,
+        console=False,           # GUI app — no console window
+        disable_windowed_traceback=False,
+        argv_emulation=False,
+        target_arch=None,
+        codesign_identity=None,
+        entitlements_file=None,
+        icon=ICON,
+    )
+    coll = COLLECT(
+        exe,
+        a.binaries,
+        a.datas,
+        strip=False,
+        upx=False,
+        upx_exclude=[],
+        name=APP_NAME,
+    )
+
+elif sys.platform == "win32":
+    # Single-file portable binary.
     exe = EXE(
         pyz,
         a.scripts,
@@ -177,8 +220,8 @@ elif sys.platform == "darwin":
         bundle_identifier="com.telegrab.app",
         info_plist={
             "CFBundleDisplayName": "telegrab",
-            "CFBundleShortVersionString": "1.0.7",
-            "CFBundleVersion": "1.0.7",
+            "CFBundleShortVersionString": "1.1.0",
+            "CFBundleVersion": "1.1.0",
             "NSHighResolutionCapable": True,
             "LSMinimumSystemVersion": "10.15",
             "NSAppleEventsUsageDescription": "telegrab opens external links.",

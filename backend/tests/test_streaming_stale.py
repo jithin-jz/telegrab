@@ -9,8 +9,6 @@ import logging
 import time
 from unittest.mock import MagicMock
 
-import pytest
-
 
 class TestStreamingStaleMessageEviction:
     """Req 2.4: Streaming server evicts stale cache entry on missing message.
